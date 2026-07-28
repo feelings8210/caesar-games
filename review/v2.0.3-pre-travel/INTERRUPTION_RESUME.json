@@ -1,0 +1,122 @@
+{
+  "build": "v2.0.3",
+  "generatedAt": "2026-07-28T16:50:55.552Z",
+  "engines": {
+    "chromium": {
+      "scenarios": {
+        "ready": {
+          "sameGame": true,
+          "state": "CLASSIC_HANDOFF",
+          "setupSide": "red",
+          "next": "CLASSIC_P2_SETUP",
+          "shieldVisible": true
+        },
+        "humanAnimation": {
+          "sameGame": true,
+          "history": 2,
+          "activeTurn": "navy",
+          "flyers": 0
+        },
+        "aiAnimation": {
+          "sameGame": true,
+          "history": 2,
+          "activeTurn": "navy",
+          "animating": false,
+          "flyers": 0
+        },
+        "capture": {
+          "sameGame": true,
+          "history": 1,
+          "origin": null,
+          "destination": {
+            "side": "r",
+            "kind": "r"
+          },
+          "flyers": 0
+        },
+        "gomokuPlacement": {
+          "sameGame": true,
+          "history": 1,
+          "center": {
+            "side": "b",
+            "kind": "stone"
+          },
+          "turn": "w",
+          "flyers": 0
+        },
+        "replay": {
+          "state": "HOME",
+          "replay": null,
+          "recordOpen": false
+        },
+        "gameEnd": {
+          "sameGame": true,
+          "state": "OPEN_END",
+          "status": "finished",
+          "history": 4,
+          "flyers": 0,
+          "memory": "Caesar vs Daddy · 4 moves · Jul 28, 2026"
+        }
+      },
+      "runtimeErrors": []
+    },
+    "webkit": {
+      "scenarios": {
+        "ready": {
+          "sameGame": true,
+          "state": "CLASSIC_HANDOFF",
+          "setupSide": "red",
+          "next": "CLASSIC_P2_SETUP",
+          "shieldVisible": true
+        },
+        "humanAnimation": {
+          "sameGame": true,
+          "history": 2,
+          "activeTurn": "navy",
+          "flyers": 0
+        },
+        "aiAnimation": {
+          "sameGame": true,
+          "history": 2,
+          "activeTurn": "navy",
+          "animating": false,
+          "flyers": 0
+        },
+        "capture": {
+          "sameGame": true,
+          "history": 1,
+          "origin": null,
+          "destination": {
+            "side": "r",
+            "kind": "r"
+          },
+          "flyers": 0
+        },
+        "gomokuPlacement": {
+          "sameGame": true,
+          "history": 1,
+          "center": {
+            "side": "b",
+            "kind": "stone"
+          },
+          "turn": "w",
+          "flyers": 0
+        },
+        "replay": {
+          "state": "HOME",
+          "replay": null,
+          "recordOpen": false
+        },
+        "gameEnd": {
+          "sameGame": true,
+          "state": "OPEN_END",
+          "status": "finished",
+          "history": 4,
+          "flyers": 0,
+          "memory": "Caesar vs Daddy · 4 moves · Jul 28, 2026"
+        }
+      },
+      "runtimeErrors": []
+    }
+  }
+}

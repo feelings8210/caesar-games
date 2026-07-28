@@ -18,6 +18,7 @@ class SoundEngine {
     this.materialWave = null;
     this.muted = this._readMuted();
     this.audit = [];
+    this.material = 'junqi';
   }
 
   _readMuted() {
@@ -33,6 +34,20 @@ class SoundEngine {
   }
 
   toggleMute() { return this.setMuted(!this.muted); }
+
+  /** Subtle material voicing; cue names and timing stay shared across games. */
+  setMaterial(gameType) {
+    this.material = ['xiangqi', 'chess', 'gomoku'].includes(gameType) ? gameType : 'junqi';
+  }
+
+  _profile() {
+    return {
+      junqi: { pitch: .94, decay: 1.08, transient: .90 },
+      xiangqi: { pitch: 1.00, decay: 1.02, transient: .96 },
+      chess: { pitch: 1.07, decay: .90, transient: 1.02 },
+      gomoku: { pitch: .82, decay: 1.16, transient: .82 }
+    }[this.material];
+  }
 
   /** Must be called from a user gesture the first time (iOS requirement). */
   unlock() {
@@ -129,19 +144,20 @@ class SoundEngine {
 
   /** Filtered noise burst — the "strike" part of a physical impact. */
   _transient(ctx, t, { freq = 2400, q = 1.2, gain = 0.3, decay = 0.03, type = 'bandpass' }) {
+    const profile = this._profile();
     const src = ctx.createBufferSource();
     src.buffer = this.noise;
     src.playbackRate.value = 1;
 
     const filt = ctx.createBiquadFilter();
     filt.type = type;
-    filt.frequency.value = freq * this._pitch(18);
+    filt.frequency.value = freq * profile.pitch * this._pitch(18);
     filt.Q.value = q;
 
     const env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, t);
-    const variedGain = gain * this._level();
-    const variedDecay = decay * this._level(.06);
+    const variedGain = gain * profile.transient * this._level();
+    const variedDecay = decay * profile.decay * this._level(.06);
     env.gain.exponentialRampToValueAtTime(Math.max(variedGain, 0.0002), t + 0.002);
     env.gain.exponentialRampToValueAtTime(0.0001, t + variedDecay);
 
@@ -152,11 +168,12 @@ class SoundEngine {
 
   /** Inharmonic, damped modal body. The custom wave avoids pure-tone beeps. */
   _body(ctx, t, { freq = 320, gain = 0.22, decay = 0.09, type = 'material', detune = 0 }) {
+    const profile = this._profile();
     const osc = ctx.createOscillator();
     if (type === 'material' && this.materialWave) osc.setPeriodicWave(this.materialWave);
     else osc.type = type;
-    const variedFreq = freq * this._pitch(12);
-    const variedDecay = decay * this._level(.05);
+    const variedFreq = freq * profile.pitch * this._pitch(12);
+    const variedDecay = decay * profile.decay * this._level(.05);
     osc.frequency.setValueAtTime(variedFreq, t);
     if (detune) osc.frequency.exponentialRampToValueAtTime(
       Math.max(variedFreq + detune, 20), t + variedDecay);
@@ -254,22 +271,22 @@ class SoundEngine {
     this._body(ctx, t + 0.075, { freq: 520, gain: 0.075, decay: 0.17 });
   }
 
-  /** Short resolved cadence. No fanfare. */
+  /** Three warm settling knocks. Resolved, but deliberately not a fanfare. */
   victory() {
     const ctx = this._ready('victory'); if (!ctx) return;
     const t = ctx.currentTime;
     const notes = [
-      { f: 392.00, d: 0.00 },   // G4
-      { f: 523.25, d: 0.14 },   // C5
-      { f: 659.25, d: 0.30 }    // E5
+      { f: 246.94, d: 0.00 },
+      { f: 293.66, d: 0.15 },
+      { f: 369.99, d: 0.32 }
     ];
     notes.forEach(({ f, d }) => {
-      this._transient(ctx, t + d, { freq: 1650 + d * 900, q: .7, gain: .055, decay: .018 });
-      this._body(ctx, t + d, { freq: f, gain: 0.11, decay: 0.46 });
-      this._body(ctx, t + d, { freq: f * 1.51, gain: 0.028, decay: 0.28 });
+      this._transient(ctx, t + d, { freq: 1250 + d * 500, q: .65, gain: .045, decay: .024 });
+      this._body(ctx, t + d, { freq: f, gain: 0.095, decay: 0.34 });
+      this._body(ctx, t + d, { freq: f * 1.47, gain: 0.022, decay: 0.20 });
     });
     // Quiet root underneath to give the cadence a floor.
-    this._body(ctx, t + 0.30, { freq: 261.63, gain: 0.085, decay: 0.72 });
+    this._body(ctx, t + 0.32, { freq: 123.47, gain: 0.07, decay: 0.58 });
   }
 
   /** A piece turns face-up in Flip mode. */

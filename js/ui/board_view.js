@@ -413,8 +413,8 @@ export class BoardView {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const distance = Math.hypot(dx, dy);
-    const travel = motionMs(Math.round(Math.min(260, Math.max(160, distance * 0.75))));
-    const total = travel + motionMs(combat ? 260 : 70);
+    const travel = motionMs(Math.round(Math.min(380, Math.max(250, distance * 0.95))));
+    const total = travel + motionMs(combat ? 330 : 120);
 
     this.animating = true;
 
@@ -443,8 +443,13 @@ export class BoardView {
     // Web Animations API: starts deterministically, no reflow dance required.
     const travelAnim = flyer.animate(
       [
-        { transform: base },
-        { transform: `${base} translate(${dx}px, ${dy}px)` }
+        { transform: `${base} scale(1)` },
+        { transform: `${base} translateY(-6%) scale(1.065)`, offset: .16 },
+        {
+          transform: `${base} translate(${dx * .78}px, calc(${dy * .78}px - 6%)) scale(1.065)`,
+          offset: .76
+        },
+        { transform: `${base} translate(${dx}px, ${dy}px) scale(1.025)` }
       ],
       { duration: travel, easing: 'cubic-bezier(0.32, 0.72, 0.28, 1)', fill: 'forwards' }
     );
@@ -475,11 +480,11 @@ export class BoardView {
           const settle = flyer.animate([
             { transform: `${base} translate(${dx}px, ${dy}px) scale(1.025)` },
             { transform: `${base} translate(${dx}px, ${dy}px) scale(1)` }
-          ], { duration: motionMs(65), easing: 'cubic-bezier(.2,.72,.28,1)' });
+          ], { duration: motionMs(110), easing: 'cubic-bezier(.2,.72,.28,1)' });
           timers.push(setTimeout(() => {
             try { settle.cancel(); } catch { /* already gone */ }
             finish();
-          }, motionMs(65)));
+          }, motionMs(110)));
           return;
         }
 
@@ -492,8 +497,8 @@ export class BoardView {
             const p = this.nodes.get(k)?.firstElementChild;
             if (p) { p.style.visibility = ''; p.classList.add('is-removed'); }
           }
-          timers.push(setTimeout(finish, motionMs(175)));
-        }, motionMs(60)));
+          timers.push(setTimeout(finish, motionMs(225)));
+        }, motionMs(90)));
       }, travel));
 
       // Safety net: presentation must never outlive its budget.

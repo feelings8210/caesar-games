@@ -131,8 +131,8 @@ try {
     assert(engineName, 'Xiangqi capture target remains intact before contact',
       xqContactBefore.ghostPresent && xqContactBefore.ghostAnimations === 0 &&
         Number(xqContactBefore.opacity) > .95, xqContactBefore);
-    assert(engineName, 'Xiangqi contact triggers short compression/fade',
-      xqContact.includes(175), { durations: xqContact });
+    assert(engineName, 'Xiangqi contact triggers readable compression/fade',
+      xqContact.includes(225), { durations: xqContact });
     await page.waitForFunction(() => !window.caesarApp.openGame.busy);
     await shot(page, engineName, 'XQ_CAPTURE', 'FINAL');
 

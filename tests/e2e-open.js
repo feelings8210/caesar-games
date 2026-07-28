@@ -87,9 +87,10 @@ export async function runOpenE2E({ verbose = false } = {}) {
   localStorage.clear();
   await home();
 
-  await test('Home presents one quiet three-game shelf', async () => {
-    equal($$('[data-game-type]').length, 3, 'game count');
-    ['junqi','xiangqi','chess'].forEach(type => ok(visible($(`[data-game-type="${type}"]`)), `${type} visible`));
+  await test('Home presents one quiet four-game shelf', async () => {
+    equal($$('[data-game-type]').length, 4, 'game count');
+    ['junqi','xiangqi','chess','gomoku'].forEach(type =>
+      ok(visible($(`[data-game-type="${type}"]`)), `${type} visible`));
     ok($('.makers-mark').textContent.includes('Since 2026'), 'maker line preserved');
   });
 
@@ -170,8 +171,8 @@ export async function runOpenE2E({ verbose = false } = {}) {
     const ghost = await waitFor(() => $('.open-capture-ghost'), 'capture ghost');
     equal(ghost.getAnimations().length, 0, 'target stays physically present before contact');
     await waitFor(() => ghost.getAnimations().length > 0, 'capture contact compression');
-    ok(ghost.getAnimations().some(a => a.effect.getTiming().duration === 175),
-      'capture removal uses the short compression/fade');
+    ok(ghost.getAnimations().some(a => a.effect.getTiming().duration === 225),
+      'capture removal uses the readable compression/fade');
     await pending;
     equal(app().openGame.session.engine.board['3,0'].kind, 'r', 'capturer settles exactly');
     ok(!app().openGame.session.engine.board['4,0'], 'capture origin clears');
@@ -192,6 +193,7 @@ export async function runOpenE2E({ verbose = false } = {}) {
     ok(capture, 'capture becomes reachable');
     const pieces = $$('.xq-piece').length;
     await uiMove(capture);
+    await waitFor(() => $$('.open-flyer').length === 0, 'capture presentation cleanup');
     equal($$('.xq-piece').length, pieces - 1, 'captured piece removed');
   });
 
@@ -310,6 +312,72 @@ export async function runOpenE2E({ verbose = false } = {}) {
     await waitFor(() => app().openGame.session.engine.history.length === 3, 'Standard AI reply', 10000);
   });
 
+  await test('Gomoku 2 Players paints 225 intersections and places tactile stones', async () => {
+    await startOpen('gomoku');
+    equal($$('.gomoku-node').length, 225, 'intersections');
+    equal($$('.gomoku-stone').length, 0, 'empty opening');
+    tap('.gomoku-node[data-key="7,7"]');
+    await waitFor(() => !app().openGame.busy && $$('.gomoku-stone').length === 1,
+      'first stone settles');
+    equal(app().openGame.session.engine.history.length, 1, 'history advanced');
+    equal(app().openGame.session.engine.board['7,7'].side, 'b', 'Black first');
+    ok($('.gomoku-node[data-key="7,7"]').classList.contains('is-last-to'),
+      'last placement remains readable');
+  });
+
+  await test('Gomoku rejects occupied intersections without changing state', async () => {
+    const { sounds } = await import('../js/engine/sound.js');
+    sounds.clearAudit();
+    tap('.gomoku-node[data-key="7,7"]');
+    await waitFor(() => sounds.getAudit().some(entry => entry.cue === 'invalid'),
+      'invalid cue');
+    equal(app().openGame.session.engine.history.length, 1, 'history unchanged');
+  });
+
+  await test('Gomoku five-in-row ends, records and replays', async () => {
+    const game = app().openGame.session.engine;
+    game.board = {};
+    game.history = [];
+    game.turn = 'b';
+    game.status = 'in_progress';
+    game.winner = null;
+    game.result = null;
+    app().openGame.render();
+    for (let col = 3; col < 7; col++) {
+      await app().openGame.commit(null, `7,${col}`, null);
+      await app().openGame.commit(null, `9,${col}`, null);
+    }
+    await app().openGame.commit(null, '7,7', null);
+    await waitFor(() => $('#game-end').classList.contains('is-open'), 'Gomoku result');
+    equal(game.result, 'five', 'documented result');
+    equal(game.winner, 'b', 'Black wins');
+    ok($('#end-reason').textContent.includes('Five'), 'localized end reason');
+    tap('#btn-end-record');
+    await waitFor(() => visible($('.replay-board .gomoku-board')), 'Gomoku replay');
+    tap('#btn-replay-next');
+    equal(app().replay.step, 1, 'replay advances');
+  });
+
+  await test('Gomoku Relaxed and Standard AI both reply legally', async () => {
+    for (const difficulty of ['relaxed', 'standard']) {
+      await startOpen('gomoku', 'vs_computer', { difficulty });
+      tap('.gomoku-node[data-key="7,7"]');
+      await waitFor(() => app().openGame.session.engine.history.length === 2 &&
+        !app().openGame.busy, `${difficulty} Gomoku reply`, 10000);
+      equal(Object.keys(app().openGame.session.engine.board).length, 2, 'two legal stones');
+    }
+  });
+
+  await test('Continue restores the most recent Gomoku position offline-ready', async () => {
+    const id = app().openGame.session.gameId;
+    const count = app().openGame.session.engine.history.length;
+    await home();
+    tap('#btn-continue');
+    await waitFor(() => visible($('.gomoku-board')), 'continued Gomoku');
+    equal(app().openGame.session.gameId, id, 'same game id');
+    equal(app().openGame.session.engine.history.length, count, 'same move count');
+  });
+
   await test('Rapid navigation discards a stale AI job by game id and type', async () => {
     await startOpen('xiangqi', 'vs_computer', { secondSide: true });
     const { sounds } = await import('../js/engine/sound.js');
@@ -327,12 +395,9 @@ export async function runOpenE2E({ verbose = false } = {}) {
     equal(staleCues.length, 0, 'stale AI emits no delayed board sound');
   });
 
-  await test('All six cross-game transitions create the requested isolated game', async () => {
-    const pairs = [
-      ['junqi','xiangqi'], ['junqi','chess'],
-      ['xiangqi','junqi'], ['xiangqi','chess'],
-      ['chess','junqi'], ['chess','xiangqi']
-    ];
+  await test('All twelve cross-game transitions create the requested isolated game', async () => {
+    const types = ['junqi', 'xiangqi', 'chess', 'gomoku'];
+    const pairs = types.flatMap(from => types.filter(to => to !== from).map(to => [from, to]));
     for (const [from, to] of pairs) {
       await startType(from);
       await home();
@@ -364,7 +429,7 @@ export async function runOpenE2E({ verbose = false } = {}) {
     equal(app().openGame.session.gameType, 'xiangqi', 'completed Chess cannot leak into Xiangqi');
   });
 
-  await test('Games Library labels all three game types and opens read-only replay', async () => {
+  await test('Games Library labels all four game types and opens read-only replay', async () => {
     await startOpen('chess');
     await firstUiMove();
     await home();
@@ -378,7 +443,7 @@ export async function runOpenE2E({ verbose = false } = {}) {
     tap('#btn-games');
     await waitFor(() => visible($('#library-list')), 'library');
     const text = $('#library-list').textContent;
-    ['Junqi','Xiangqi','Chess'].forEach(label => ok(text.includes(label), `${label} label`));
+    ['Junqi','Xiangqi','Chess','Gomoku'].forEach(label => ok(text.includes(label), `${label} label`));
     const chessRow = $$('.game-row').find(row =>
       row.textContent.includes('Chess') &&
       [...row.querySelectorAll('button')].some(b => b.textContent === 'Record'));
@@ -391,6 +456,6 @@ export async function runOpenE2E({ verbose = false } = {}) {
     ok(!app().openGame.session, 'replay is detached from live session');
   });
 
-  console.log(`\n  Caesar Games — Xiangqi + Chess E2E: ${pass} passed, ${fail} failed\n`);
+  console.log(`\n  Caesar Games — Xiangqi + Chess + Gomoku E2E: ${pass} passed, ${fail} failed\n`);
   return { pass, fail, results };
 }

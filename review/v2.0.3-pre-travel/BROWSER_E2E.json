@@ -1,0 +1,818 @@
+{
+  "build": "v2.0.3",
+  "viewport": {
+    "width": 1180,
+    "height": 820
+  },
+  "generatedAt": "2026-07-28T16:46:58.504Z",
+  "engines": {
+    "chromium": {
+      "junqi": {
+        "pass": 70,
+        "fail": 0,
+        "results": [
+          {
+            "name": "home shows brand, Play, Games and Learn",
+            "status": "PASS"
+          },
+          {
+            "name": "Continue is hidden when there is nothing to continue",
+            "status": "PASS"
+          },
+          {
+            "name": "every primary control meets the 44px touch target",
+            "status": "PASS"
+          },
+          {
+            "name": "REGRESSION: Play opens a VISIBLE mode dialog",
+            "status": "PASS"
+          },
+          {
+            "name": "REGRESSION: every mode card opens a VISIBLE players dialog",
+            "status": "PASS"
+          },
+          {
+            "name": "REGRESSION: choosing a mode never dumps the player back on Home",
+            "status": "PASS"
+          },
+          {
+            "name": "no dialog in the document relies on an inline display style",
+            "status": "PASS"
+          },
+          {
+            "name": "MATRIX: Home → each mode",
+            "status": "PASS"
+          },
+          {
+            "name": "MATRIX: every mode → Home → every mode, with zero moves",
+            "status": "PASS"
+          },
+          {
+            "name": "MATRIX: every mode → Home → every mode, after real play",
+            "status": "PASS"
+          },
+          {
+            "name": "MATRIX: leaving mid-AI-thinking then starting another mode is clean",
+            "status": "PASS"
+          },
+          {
+            "name": "MATRIX: a finished game does not block starting another mode",
+            "status": "PASS"
+          },
+          {
+            "name": "MATRIX: Play again from the end card starts a NEW game id",
+            "status": "PASS"
+          },
+          {
+            "name": "setup shows only your own army",
+            "status": "PASS"
+          },
+          {
+            "name": "campsites start empty",
+            "status": "PASS"
+          },
+          {
+            "name": "Quick setup produces a different, still-legal formation",
+            "status": "PASS"
+          },
+          {
+            "name": "Reset restores the formation this player started from",
+            "status": "PASS"
+          },
+          {
+            "name": "an illegal setup swap is refused and explained",
+            "status": "PASS"
+          },
+          {
+            "name": "a legal setup swap actually moves both pieces on screen",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: the privacy shield hides the board between players",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: P2 setup shows P2 army with P2 at the bottom",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: play begins with P1 at the bottom",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: canonical coordinates never rotate",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: a tap maps to the canonical square under the finger",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: the enemy army leaks nothing into the DOM",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: concealed backs are visually identical for both armies",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: combat leaves the surviving enemy concealed",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: after handoff the receiving player still cannot see the survivor",
+            "status": "PASS"
+          },
+          {
+            "name": "Replay last move is offered and actually animates",
+            "status": "PASS"
+          },
+          {
+            "name": "flip: 50 identical face-down pieces, camps empty",
+            "status": "PASS"
+          },
+          {
+            "name": "flip: the board never rotates between turns",
+            "status": "PASS"
+          },
+          {
+            "name": "flip: top-owner reveal turns at midpoint without rotating its shell",
+            "status": "PASS"
+          },
+          {
+            "name": "flip: revealed armies face opposite directions, by owner not by square",
+            "status": "PASS"
+          },
+          {
+            "name": "flip: rotation is applied to the face only, never to the board",
+            "status": "PASS"
+          },
+          {
+            "name": "flip: shell motion follows screen vectors for both armies and face directions",
+            "status": "PASS"
+          },
+          {
+            "name": "vs computer: setup, Quick Setup, Reset and Ready keep a painted board",
+            "status": "PASS"
+          },
+          {
+            "name": "vs computer: human is bottom, computer is top, no pass screen",
+            "status": "PASS"
+          },
+          {
+            "name": "vs computer: the computer replies exactly once",
+            "status": "PASS"
+          },
+          {
+            "name": "vs computer: the computer never moves twice in a row",
+            "status": "PASS"
+          },
+          {
+            "name": "Games library opens and is visible",
+            "status": "PASS"
+          },
+          {
+            "name": "multiple games coexist across modes",
+            "status": "PASS"
+          },
+          {
+            "name": "starting a new game never overwrites an existing one",
+            "status": "PASS"
+          },
+          {
+            "name": "opening the app does not create a junk game",
+            "status": "PASS"
+          },
+          {
+            "name": "Continue reopens the most recent unfinished game",
+            "status": "PASS"
+          },
+          {
+            "name": "resuming a classic game shields the board first",
+            "status": "PASS"
+          },
+          {
+            "name": "deleting one game leaves the others alone",
+            "status": "PASS"
+          },
+          {
+            "name": "the library prunes to 20 games without losing live ones",
+            "status": "PASS"
+          },
+          {
+            "name": "a finished game offers a record that replays from history",
+            "status": "PASS"
+          },
+          {
+            "name": "replay step forward and back change the position",
+            "status": "PASS"
+          },
+          {
+            "name": "replay does not mutate any saved game",
+            "status": "PASS"
+          },
+          {
+            "name": "classic replay stays privacy-safe",
+            "status": "PASS"
+          },
+          {
+            "name": "state survives a reload at every stage (simulated via records)",
+            "status": "PASS"
+          },
+          {
+            "name": "INTERRUPTION: a move is saved as one complete turn before animation settles",
+            "status": "PASS"
+          },
+          {
+            "name": "INTERRUPTION: reloading after P1 Ready restores the privacy shield",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: double-tapping a mode card starts exactly one game",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: hammering Home and Play leaves a coherent screen",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: rapid Ready taps do not double-advance setup",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: rapid handoff taps advance one step",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: a second move cannot be made during the first animation",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: an illegal move is refused with an explanation",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: corruption uses last-good recovery and isolates one malformed record",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: a storage quota error cannot stop live play",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: a legacy v1 save migrates instead of being lost",
+            "status": "PASS"
+          },
+          {
+            "name": "mute is persistent and never required to understand state",
+            "status": "PASS"
+          },
+          {
+            "name": "audio recreates a closed context after an iOS-style interruption",
+            "status": "PASS"
+          },
+          {
+            "name": "finished family memory uses existing metadata in both languages",
+            "status": "PASS"
+          },
+          {
+            "name": "iPad landscape: the board fits without scrolling",
+            "status": "PASS"
+          },
+          {
+            "name": "iPad touch suppression is board-scoped and page zoom remains accessible",
+            "status": "PASS"
+          },
+          {
+            "name": "iPad landscape: controls stay on screen and tappable",
+            "status": "PASS"
+          },
+          {
+            "name": "board stations are large enough to tap",
+            "status": "PASS"
+          }
+        ]
+      },
+      "openGames": {
+        "pass": 26,
+        "fail": 0,
+        "results": [
+          {
+            "name": "Home presents one quiet four-game shelf",
+            "status": "PASS"
+          },
+          {
+            "name": "English and Simplified Chinese localize shared Home",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi 2 Players paints 9×10 intersections and 32 pieces",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi top army faces its owner; board and hit targets stay upright",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi tap selection exposes legal moves and commits a move",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi normal move visibly travels and sounds once at contact",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi capture holds the target until contact, then compresses it",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi reaches and performs a legal capture through UI",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi Vs Computer has distinct responsive Relaxed and Standard play",
+            "status": "PASS"
+          },
+          {
+            "name": "Continue restores the most recent Xiangqi position",
+            "status": "PASS"
+          },
+          {
+            "name": "Chess 2 Players paints 8×8 board and legal move markers",
+            "status": "PASS"
+          },
+          {
+            "name": "Chess capture is rendered and recorded",
+            "status": "PASS"
+          },
+          {
+            "name": "Chess promotion requires an explicit human choice",
+            "status": "PASS"
+          },
+          {
+            "name": "Chess castling moves king and rook as one coherent action",
+            "status": "PASS"
+          },
+          {
+            "name": "Invalid Chess move gives resistance and one quiet invalid cue",
+            "status": "PASS"
+          },
+          {
+            "name": "Chess Vs Computer Relaxed replies and keeps human at bottom",
+            "status": "PASS"
+          },
+          {
+            "name": "Chess Vs Computer Standard supports human Black at bottom",
+            "status": "PASS"
+          },
+          {
+            "name": "Gomoku 2 Players paints 225 intersections and places tactile stones",
+            "status": "PASS"
+          },
+          {
+            "name": "Gomoku rejects occupied intersections without changing state",
+            "status": "PASS"
+          },
+          {
+            "name": "Gomoku five-in-row ends, records and replays",
+            "status": "PASS"
+          },
+          {
+            "name": "Gomoku Relaxed and Standard AI both reply legally",
+            "status": "PASS"
+          },
+          {
+            "name": "Continue restores the most recent Gomoku position offline-ready",
+            "status": "PASS"
+          },
+          {
+            "name": "Rapid navigation discards a stale AI job by game id and type",
+            "status": "PASS"
+          },
+          {
+            "name": "All twelve cross-game transitions create the requested isolated game",
+            "status": "PASS"
+          },
+          {
+            "name": "Completed Chess supports Record, Rematch, Home and another game",
+            "status": "PASS"
+          },
+          {
+            "name": "Games Library labels all four game types and opens read-only replay",
+            "status": "PASS"
+          }
+        ]
+      },
+      "geometry": {
+        "width": 381.7490234375,
+        "height": 468.4598693847656,
+        "visiblePieces": 32
+      },
+      "runtimeErrors": []
+    },
+    "webkit": {
+      "junqi": {
+        "pass": 70,
+        "fail": 0,
+        "results": [
+          {
+            "name": "home shows brand, Play, Games and Learn",
+            "status": "PASS"
+          },
+          {
+            "name": "Continue is hidden when there is nothing to continue",
+            "status": "PASS"
+          },
+          {
+            "name": "every primary control meets the 44px touch target",
+            "status": "PASS"
+          },
+          {
+            "name": "REGRESSION: Play opens a VISIBLE mode dialog",
+            "status": "PASS"
+          },
+          {
+            "name": "REGRESSION: every mode card opens a VISIBLE players dialog",
+            "status": "PASS"
+          },
+          {
+            "name": "REGRESSION: choosing a mode never dumps the player back on Home",
+            "status": "PASS"
+          },
+          {
+            "name": "no dialog in the document relies on an inline display style",
+            "status": "PASS"
+          },
+          {
+            "name": "MATRIX: Home → each mode",
+            "status": "PASS"
+          },
+          {
+            "name": "MATRIX: every mode → Home → every mode, with zero moves",
+            "status": "PASS"
+          },
+          {
+            "name": "MATRIX: every mode → Home → every mode, after real play",
+            "status": "PASS"
+          },
+          {
+            "name": "MATRIX: leaving mid-AI-thinking then starting another mode is clean",
+            "status": "PASS"
+          },
+          {
+            "name": "MATRIX: a finished game does not block starting another mode",
+            "status": "PASS"
+          },
+          {
+            "name": "MATRIX: Play again from the end card starts a NEW game id",
+            "status": "PASS"
+          },
+          {
+            "name": "setup shows only your own army",
+            "status": "PASS"
+          },
+          {
+            "name": "campsites start empty",
+            "status": "PASS"
+          },
+          {
+            "name": "Quick setup produces a different, still-legal formation",
+            "status": "PASS"
+          },
+          {
+            "name": "Reset restores the formation this player started from",
+            "status": "PASS"
+          },
+          {
+            "name": "an illegal setup swap is refused and explained",
+            "status": "PASS"
+          },
+          {
+            "name": "a legal setup swap actually moves both pieces on screen",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: the privacy shield hides the board between players",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: P2 setup shows P2 army with P2 at the bottom",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: play begins with P1 at the bottom",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: canonical coordinates never rotate",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: a tap maps to the canonical square under the finger",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: the enemy army leaks nothing into the DOM",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: concealed backs are visually identical for both armies",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: combat leaves the surviving enemy concealed",
+            "status": "PASS"
+          },
+          {
+            "name": "classic: after handoff the receiving player still cannot see the survivor",
+            "status": "PASS"
+          },
+          {
+            "name": "Replay last move is offered and actually animates",
+            "status": "PASS"
+          },
+          {
+            "name": "flip: 50 identical face-down pieces, camps empty",
+            "status": "PASS"
+          },
+          {
+            "name": "flip: the board never rotates between turns",
+            "status": "PASS"
+          },
+          {
+            "name": "flip: top-owner reveal turns at midpoint without rotating its shell",
+            "status": "PASS"
+          },
+          {
+            "name": "flip: revealed armies face opposite directions, by owner not by square",
+            "status": "PASS"
+          },
+          {
+            "name": "flip: rotation is applied to the face only, never to the board",
+            "status": "PASS"
+          },
+          {
+            "name": "flip: shell motion follows screen vectors for both armies and face directions",
+            "status": "PASS"
+          },
+          {
+            "name": "vs computer: setup, Quick Setup, Reset and Ready keep a painted board",
+            "status": "PASS"
+          },
+          {
+            "name": "vs computer: human is bottom, computer is top, no pass screen",
+            "status": "PASS"
+          },
+          {
+            "name": "vs computer: the computer replies exactly once",
+            "status": "PASS"
+          },
+          {
+            "name": "vs computer: the computer never moves twice in a row",
+            "status": "PASS"
+          },
+          {
+            "name": "Games library opens and is visible",
+            "status": "PASS"
+          },
+          {
+            "name": "multiple games coexist across modes",
+            "status": "PASS"
+          },
+          {
+            "name": "starting a new game never overwrites an existing one",
+            "status": "PASS"
+          },
+          {
+            "name": "opening the app does not create a junk game",
+            "status": "PASS"
+          },
+          {
+            "name": "Continue reopens the most recent unfinished game",
+            "status": "PASS"
+          },
+          {
+            "name": "resuming a classic game shields the board first",
+            "status": "PASS"
+          },
+          {
+            "name": "deleting one game leaves the others alone",
+            "status": "PASS"
+          },
+          {
+            "name": "the library prunes to 20 games without losing live ones",
+            "status": "PASS"
+          },
+          {
+            "name": "a finished game offers a record that replays from history",
+            "status": "PASS"
+          },
+          {
+            "name": "replay step forward and back change the position",
+            "status": "PASS"
+          },
+          {
+            "name": "replay does not mutate any saved game",
+            "status": "PASS"
+          },
+          {
+            "name": "classic replay stays privacy-safe",
+            "status": "PASS"
+          },
+          {
+            "name": "state survives a reload at every stage (simulated via records)",
+            "status": "PASS"
+          },
+          {
+            "name": "INTERRUPTION: a move is saved as one complete turn before animation settles",
+            "status": "PASS"
+          },
+          {
+            "name": "INTERRUPTION: reloading after P1 Ready restores the privacy shield",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: double-tapping a mode card starts exactly one game",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: hammering Home and Play leaves a coherent screen",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: rapid Ready taps do not double-advance setup",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: rapid handoff taps advance one step",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: a second move cannot be made during the first animation",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: an illegal move is refused with an explanation",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: corruption uses last-good recovery and isolates one malformed record",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: a storage quota error cannot stop live play",
+            "status": "PASS"
+          },
+          {
+            "name": "FAILURE: a legacy v1 save migrates instead of being lost",
+            "status": "PASS"
+          },
+          {
+            "name": "mute is persistent and never required to understand state",
+            "status": "PASS"
+          },
+          {
+            "name": "audio recreates a closed context after an iOS-style interruption",
+            "status": "PASS"
+          },
+          {
+            "name": "finished family memory uses existing metadata in both languages",
+            "status": "PASS"
+          },
+          {
+            "name": "iPad landscape: the board fits without scrolling",
+            "status": "PASS"
+          },
+          {
+            "name": "iPad touch suppression is board-scoped and page zoom remains accessible",
+            "status": "PASS"
+          },
+          {
+            "name": "iPad landscape: controls stay on screen and tappable",
+            "status": "PASS"
+          },
+          {
+            "name": "board stations are large enough to tap",
+            "status": "PASS"
+          }
+        ]
+      },
+      "openGames": {
+        "pass": 26,
+        "fail": 0,
+        "results": [
+          {
+            "name": "Home presents one quiet four-game shelf",
+            "status": "PASS"
+          },
+          {
+            "name": "English and Simplified Chinese localize shared Home",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi 2 Players paints 9×10 intersections and 32 pieces",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi top army faces its owner; board and hit targets stay upright",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi tap selection exposes legal moves and commits a move",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi normal move visibly travels and sounds once at contact",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi capture holds the target until contact, then compresses it",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi reaches and performs a legal capture through UI",
+            "status": "PASS"
+          },
+          {
+            "name": "Xiangqi Vs Computer has distinct responsive Relaxed and Standard play",
+            "status": "PASS"
+          },
+          {
+            "name": "Continue restores the most recent Xiangqi position",
+            "status": "PASS"
+          },
+          {
+            "name": "Chess 2 Players paints 8×8 board and legal move markers",
+            "status": "PASS"
+          },
+          {
+            "name": "Chess capture is rendered and recorded",
+            "status": "PASS"
+          },
+          {
+            "name": "Chess promotion requires an explicit human choice",
+            "status": "PASS"
+          },
+          {
+            "name": "Chess castling moves king and rook as one coherent action",
+            "status": "PASS"
+          },
+          {
+            "name": "Invalid Chess move gives resistance and one quiet invalid cue",
+            "status": "PASS"
+          },
+          {
+            "name": "Chess Vs Computer Relaxed replies and keeps human at bottom",
+            "status": "PASS"
+          },
+          {
+            "name": "Chess Vs Computer Standard supports human Black at bottom",
+            "status": "PASS"
+          },
+          {
+            "name": "Gomoku 2 Players paints 225 intersections and places tactile stones",
+            "status": "PASS"
+          },
+          {
+            "name": "Gomoku rejects occupied intersections without changing state",
+            "status": "PASS"
+          },
+          {
+            "name": "Gomoku five-in-row ends, records and replays",
+            "status": "PASS"
+          },
+          {
+            "name": "Gomoku Relaxed and Standard AI both reply legally",
+            "status": "PASS"
+          },
+          {
+            "name": "Continue restores the most recent Gomoku position offline-ready",
+            "status": "PASS"
+          },
+          {
+            "name": "Rapid navigation discards a stale AI job by game id and type",
+            "status": "PASS"
+          },
+          {
+            "name": "All twelve cross-game transitions create the requested isolated game",
+            "status": "PASS"
+          },
+          {
+            "name": "Completed Chess supports Record, Rematch, Home and another game",
+            "status": "PASS"
+          },
+          {
+            "name": "Games Library labels all four game types and opens read-only replay",
+            "status": "PASS"
+          }
+        ]
+      },
+      "geometry": {
+        "width": 381.7490234375,
+        "height": 468.4598388671875,
+        "visiblePieces": 32
+      },
+      "runtimeErrors": []
+    }
+  }
+}

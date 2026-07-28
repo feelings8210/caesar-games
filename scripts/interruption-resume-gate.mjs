@@ -9,7 +9,7 @@ import {
 
 const port = 8109;
 const origin = `http://127.0.0.1:${port}`;
-const outputDir = path.resolve('review/v2.0.2-pre-travel');
+const outputDir = path.resolve('review/v2.0.3-pre-travel');
 fs.mkdirSync(outputDir, { recursive: true });
 
 const server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], {
@@ -26,7 +26,7 @@ const engines = [
     executablePath: '/Users/cdmini/Library/Caches/ms-playwright/webkit-2287/pw_run.sh'
   }]
 ];
-const report = { build: 'v2.0.2', generatedAt: new Date().toISOString(), engines: {} };
+const report = { build: 'v2.0.3', generatedAt: new Date().toISOString(), engines: {} };
 
 const check = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -208,12 +208,43 @@ try {
       result.scenarios.capture.destination?.kind === 'r' && result.scenarios.capture.flyers === 0,
     `${name}: capture reload restored a partial animation`);
 
+    // A Gomoku placement is saved before its lift/settle presentation ends.
+    // Reload restores one stone, never a duplicate flyer or lost turn.
+    await fresh(page);
+    const gomokuId = await page.evaluate(() => {
+      const app = window.caesarApp;
+      app.startOpenGame('gomoku', {
+        mode: 'two_player', player1Name: 'Caesar', player2Name: 'Daddy'
+      });
+      return app.openGame.session.gameId;
+    });
+    await page.locator('.gomoku-node[data-key="7,7"]').click();
+    await page.waitForFunction(() =>
+      window.caesarApp.openGame.session.engine.history.length === 1 &&
+      window.caesarApp.openGame.busy);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.evaluate(gameId => window.caesarApp.resumeGame(gameId), gomokuId);
+    await page.locator('.gomoku-board').waitFor();
+    result.scenarios.gomokuPlacement = await page.evaluate(gameId => ({
+      sameGame: window.caesarApp.openGame.session.gameId === gameId,
+      history: window.caesarApp.openGame.session.engine.history.length,
+      center: window.caesarApp.openGame.session.engine.board['7,7'] || null,
+      turn: window.caesarApp.openGame.session.engine.turn,
+      flyers: document.querySelectorAll('.open-flyer').length
+    }), gomokuId);
+    check(result.scenarios.gomokuPlacement.sameGame &&
+      result.scenarios.gomokuPlacement.history === 1 &&
+      result.scenarios.gomokuPlacement.center?.side === 'b' &&
+      result.scenarios.gomokuPlacement.turn === 'w' &&
+      result.scenarios.gomokuPlacement.flyers === 0,
+    `${name}: Gomoku placement reload was not canonical`);
+
     // Replay state and timer are presentation-only and disappear on reload.
     await page.evaluate(gameId => {
       window.caesarApp.goHome();
       window.caesarApp.openRecord(gameId);
       window.caesarApp.replayToggle();
-    }, captureId);
+    }, gomokuId);
     await page.locator('[data-dialog="record"].is-open').waitFor();
     await page.reload({ waitUntil: 'networkidle' });
     result.scenarios.replay = await page.evaluate(() => ({
@@ -281,5 +312,5 @@ try {
 }
 
 const passed = Object.values(report.engines).every(engine =>
-  Object.keys(engine.scenarios).length === 6 && engine.runtimeErrors.length === 0);
+  Object.keys(engine.scenarios).length === 7 && engine.runtimeErrors.length === 0);
 if (!passed) process.exitCode = 1;

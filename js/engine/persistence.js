@@ -22,7 +22,7 @@ function normalizeRecord(record) {
       typeof record.mode !== 'string' || !record.mode) return null;
 
   const gameType = record.gameType || 'junqi';
-  if (!['junqi', 'xiangqi', 'chess'].includes(gameType)) return null;
+  if (!['junqi', 'xiangqi', 'chess', 'gomoku'].includes(gameType)) return null;
   const validMode = gameType === 'junqi'
     ? ['vs_computer', 'classic', 'flip'].includes(record.mode)
     : ['vs_computer', 'two_player'].includes(record.mode);
@@ -43,6 +43,10 @@ function normalizeRecord(record) {
       (!isObject(record.serializedState) ||
        (typeof record.serializedState.fen !== 'string' &&
         !Array.isArray(record.serializedState.history)))) return null;
+  if (gameType === 'gomoku' &&
+      (!isObject(record.serializedState) || !isObject(record.serializedState.board) ||
+       !Object.values(record.serializedState.board).every(piece =>
+         isObject(piece) && ['b', 'w'].includes(piece.side) && piece.kind === 'stone'))) return null;
 
   try {
     const safe = JSON.parse(JSON.stringify(record));
@@ -90,7 +94,7 @@ export function getPrefs() {
   const s = storage();
   const fallback = {
     p1: '', p2: '', aiDifficulty: 'standard', language: 'en',
-    xiangqiSide: 'r', chessSide: 'w'
+    xiangqiSide: 'r', chessSide: 'w', gomokuSide: 'b'
   };
   if (!s) return fallback;
   try {

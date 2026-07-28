@@ -9,7 +9,7 @@ import {
 
 const port = 8107;
 const origin = `http://127.0.0.1:${port}`;
-const outputDir = path.resolve('review/v2.0.2-pre-travel');
+const outputDir = path.resolve('review/v2.0.3-pre-travel');
 fs.mkdirSync(outputDir, { recursive: true });
 
 const server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], {
@@ -29,7 +29,7 @@ const engines = [
 ];
 
 const report = {
-  build: 'v2.0.2',
+  build: 'v2.0.3',
   viewport: { width: 1180, height: 820 },
   generatedAt: new Date().toISOString(),
   engines: {}
@@ -61,7 +61,7 @@ try {
     });
     console.log(`${junqi.pass} passed, ${junqi.fail} failed`);
 
-    process.stdout.write(`${name}: Xiangqi + Chess E2E ... `);
+    process.stdout.write(`${name}: Xiangqi + Chess + Gomoku E2E ... `);
     await page.goto(`${origin}/index.html?nosw=1`, { waitUntil: 'networkidle' });
     const openGames = await page.evaluate(async () => {
       const { runOpenE2E } = await import('./tests/e2e-open.js');
@@ -76,7 +76,7 @@ try {
       return {
         width: rect?.width || 0,
         height: rect?.height || 0,
-        visiblePieces: [...document.querySelectorAll('.bv-piece, .xq-piece, .chess-piece')]
+        visiblePieces: [...document.querySelectorAll('.bv-piece, .xq-piece, .chess-piece, .gomoku-stone')]
           .filter(piece => {
             const r = piece.getBoundingClientRect();
             const style = getComputedStyle(piece);

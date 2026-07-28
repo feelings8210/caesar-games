@@ -2,13 +2,26 @@ import { XiangqiGame } from '../xiangqi/engine.js';
 import { chooseXiangqiMove } from '../xiangqi/ai.js';
 import { ChessGame } from '../chess/adapter.js';
 import { chooseChessMove } from '../chess/ai.js';
+import { GomokuGame, GOMOKU_RULES_VERSION } from '../gomoku/engine.js';
+import { chooseGomokuMove } from '../gomoku/ai.js';
 import { OpenBoardView } from './board_view.js';
 import { sounds } from '../../engine/sound.js';
 import { t } from '../../i18n/strings.js';
+import { firstSideOf } from '../registry.js';
 
 const clone = value => JSON.parse(JSON.stringify(value));
 const makeId = type => `${type}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-const other = side => side === 'r' ? 'b' : side === 'w' ? 'b' : side === 'b' ? 'w' : 'r';
+function createEngine(gameType, state) {
+  if (gameType === 'xiangqi') return new XiangqiGame(state);
+  if (gameType === 'gomoku') return new GomokuGame(state);
+  return new ChessGame(state);
+}
+
+function localAiMove(gameType, state, difficulty) {
+  if (gameType === 'xiangqi') return chooseXiangqiMove(state, difficulty);
+  if (gameType === 'gomoku') return chooseGomokuMove(state, difficulty);
+  return chooseChessMove(state, difficulty);
+}
 
 export class OpenGameController {
   constructor(host, mount) {
@@ -24,7 +37,8 @@ export class OpenGameController {
 
   create(gameType, options = {}) {
     this.dispose();
-    const first = gameType === 'xiangqi' ? 'r' : 'w';
+    sounds.setMaterial(gameType);
+    const first = firstSideOf(gameType);
     const humanSide = options.humanSide || first;
     this.session = {
       gameId: makeId(gameType),
@@ -37,7 +51,7 @@ export class OpenGameController {
       startedAt: Date.now(),
       updatedAt: Date.now(),
       completedAt: null,
-      engine: gameType === 'xiangqi' ? new XiangqiGame() : new ChessGame(),
+      engine: createEngine(gameType),
       opening: null
     };
     this.session.opening = this.session.engine.serialize();
@@ -53,10 +67,10 @@ export class OpenGameController {
       gameId: record.gameId, gameType: record.gameType,
       mode: record.mode, player1Name: record.player1Name,
       player2Name: record.player2Name, aiDifficulty: record.aiDifficulty || 'standard',
-      humanSide: record.humanSide || (record.gameType === 'xiangqi' ? 'r' : 'w'),
+      humanSide: record.humanSide || firstSideOf(record.gameType),
       startedAt: record.startedAt, updatedAt: record.updatedAt,
       completedAt: record.completedAt || null,
-      engine: record.gameType === 'xiangqi' ? new XiangqiGame(state) : new ChessGame(state),
+      engine: createEngine(record.gameType, state),
       opening: clone(record.opening || state)
     };
   }
@@ -64,6 +78,7 @@ export class OpenGameController {
   resumeSession(session) {
     this.dispose();
     this.session = session;
+    sounds.setMaterial(session.gameType);
     this.render();
     if (this.isAiTurn()) this.scheduleAi();
   }
@@ -75,13 +90,13 @@ export class OpenGameController {
   sideAt(key) { return this.session?.engine.board[key]?.side || null; }
   bottomSide() {
     if (this.session.mode === 'vs_computer') return this.session.humanSide;
-    return this.session.gameType === 'xiangqi' ? 'r' : 'w';
+    return firstSideOf(this.session.gameType);
   }
   playerForSide(side) {
     if (this.session.mode === 'vs_computer') {
       return side === this.session.humanSide ? this.session.player1Name : this.session.player2Name;
     }
-    const first = this.session.gameType === 'xiangqi' ? 'r' : 'w';
+    const first = firstSideOf(this.session.gameType);
     return side === first ? this.session.player1Name : this.session.player2Name;
   }
   isAiTurn() {
@@ -93,6 +108,17 @@ export class OpenGameController {
   async onTap(key) {
     const s = this.session;
     if (!s || this.busy || s.engine.status !== 'in_progress' || this.isAiTurn()) return;
+    if (s.gameType === 'gomoku') {
+      if (this.sideAt(key)) {
+        sounds.invalid();
+        void this.view.nudge(key);
+        this.host.flash(t('open.illegal'));
+        return;
+      }
+      sounds.select();
+      await this.commit(null, key, null);
+      return;
+    }
     const pieceSide = this.sideAt(key);
     if (key === this.selected) {
       this.selected = null; sounds.tap(); this.render(); return;
@@ -118,10 +144,10 @@ export class OpenGameController {
 
   async commit(from, to, promotion) {
     const s = this.session;
-    const movingSnapshot = this.view.captureSnapshot(from);
+    const movingSnapshot = from ? this.view.captureSnapshot(from) : null;
     const capturedSnapshot = this.view.captureSnapshot(to);
     let castleSnapshot = null;
-    const movingPiece = s.engine.board[from];
+    const movingPiece = from ? s.engine.board[from] : null;
     if (s.gameType === 'chess' && movingPiece?.kind === 'k' &&
         Math.abs(from.charCodeAt(0) - to.charCodeAt(0)) === 2) {
       const rank = from[1];
@@ -141,7 +167,13 @@ export class OpenGameController {
     if (s.engine.status === 'finished') s.completedAt = Date.now();
     this.persist();
     this.render();
-    await this.view.animateFrom(movingSnapshot, to, {
+    const animate = s.gameType === 'gomoku'
+      ? this.view.animatePlacement(to, {
+        onContact: () => {
+          if (this.session === s) sounds.place();
+        }
+      })
+      : this.view.animateFrom(movingSnapshot, to, {
       ...result,
       capturedSnapshot,
       castleSnapshot,
@@ -150,6 +182,7 @@ export class OpenGameController {
         if (result.capture) sounds.battle(); else sounds.place();
       }
     });
+    await animate;
     this.busy = false;
     if (this.session !== s) return;
     if (result.check) sounds.check();
@@ -171,14 +204,12 @@ export class OpenGameController {
       const move = await this.chooseAiMove(gameType, state, s.aiDifficulty, token);
       if (!move || !this.validAi(s, token, gameId, gameType)) return;
       await this.commit(move.from, move.to, move.promotion);
-    }, 120);
+    }, 440);
   }
 
   chooseAiMove(gameType, state, difficulty, token) {
     if (typeof Worker === 'undefined') {
-      return Promise.resolve(gameType === 'xiangqi'
-        ? chooseXiangqiMove(state, difficulty)
-        : chooseChessMove(state, difficulty));
+      return Promise.resolve(localAiMove(gameType, state, difficulty));
     }
 
     this.aiWorker?.terminate();
@@ -217,11 +248,12 @@ export class OpenGameController {
     if (!s) return;
     const engine = s.engine;
     let checkSide = null;
-    if (engine.inCheck()) checkSide = engine.turn;
+    if (engine.inCheck?.()) checkSide = engine.turn;
+    const lastMove = engine.history.at(-1) || null;
     this.view.render({
       gameType: s.gameType, board: engine.board, selected: this.selected,
       legalTargets: this.selected ? engine.legalTargets(this.selected) : [],
-      bottomSide: this.bottomSide(), inCheck: checkSide
+      bottomSide: this.bottomSide(), inCheck: checkSide, lastMove
     });
     this.host.renderOpenChrome({
       gameType: s.gameType,
@@ -246,7 +278,9 @@ export class OpenGameController {
       humanSide: s.humanSide, startedAt: s.startedAt, updatedAt: s.updatedAt,
       completedAt: s.completedAt, status: state.status,
       winner: state.winner, result: state.result, moveCount: state.history.length,
-      rulesVersion: s.gameType === 'xiangqi' ? 'xiangqi-family-v1' : 'chess.js-1.4.0',
+      rulesVersion: s.gameType === 'xiangqi'
+        ? 'xiangqi-family-v1'
+        : s.gameType === 'gomoku' ? GOMOKU_RULES_VERSION : 'chess.js-1.4.0',
       serializedState: state, opening: clone(s.opening), history: clone(state.history)
     };
   }
@@ -262,9 +296,7 @@ export class OpenGameController {
 }
 
 export function replayOpenRecord(record, step) {
-  const game = record.gameType === 'xiangqi'
-    ? new XiangqiGame(record.opening)
-    : new ChessGame(record.opening);
+  const game = createEngine(record.gameType, record.opening);
   for (const move of (record.history || []).slice(0, step)) {
     game.move(move.from, move.to, move.promotion);
   }

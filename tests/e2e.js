@@ -696,7 +696,10 @@ export async function runE2E({ verbose = false } = {}) {
           if (expectedX) {
             ok(Math.sign(mid.x - start.x) === expectedX,
               `${side} ${topFacing ? 'top' : 'bottom'} ${direction} reversed horizontally`);
-            ok(Math.abs(mid.y - start.y) < 3, `${direction} drifted vertically`);
+            // Premium tabletop motion includes a small screen-space lift. It
+            // may rise, but must never veer sideways or reverse the move.
+            ok(mid.y - start.y < 3 && Math.abs(mid.y - start.y) < start.h * .28,
+              `${direction} lift left its restrained lane`);
           }
           if (expectedY) {
             ok(Math.sign(mid.y - start.y) === expectedY,

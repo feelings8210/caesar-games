@@ -7,7 +7,7 @@ import { webkit } from '/Users/cdmini/.cache/codex-runtimes/codex-primary-runtim
 
 const port = 8108;
 const origin = `http://127.0.0.1:${port}`;
-const outputDir = path.resolve('review/v2.0.2-pre-travel');
+const outputDir = path.resolve('review/v2.0.3-pre-travel');
 const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'caesar-cold-start-'));
 fs.mkdirSync(outputDir, { recursive: true });
 
@@ -18,8 +18,8 @@ const launchOptions = {
 const viewport = { width: 1180, height: 820 };
 const report = {
   gate: 'fully closed WebKit process, unreachable origin, fresh offline process',
-  build: 'v2.0.2',
-  cache: 'caesar-games-v2.0.2',
+  build: 'v2.0.3',
+  cache: 'caesar-games-v2.0.3',
   generatedAt: new Date().toISOString(),
   online: {},
   offline: {},
@@ -41,7 +41,7 @@ const boardEvidence = async page => page.evaluate(() => {
   return {
     width: board?.width || 0,
     height: board?.height || 0,
-    visiblePieces: [...document.querySelectorAll('.bv-piece, .xq-piece, .chess-piece')]
+    visiblePieces: [...document.querySelectorAll('.bv-piece, .xq-piece, .chess-piece, .gomoku-stone')]
       .filter(piece => {
         const rect = piece.getBoundingClientRect();
         const style = getComputedStyle(piece);
@@ -124,12 +124,20 @@ try {
     const chess = app.openGame.session.gameId;
     app.goHome();
 
+    app.startOpenGame('gomoku', {
+      mode: 'two_player', player1Name: 'Caesar', player2Name: 'Daddy'
+    });
+    const gomokuMove = app.openGame.session.engine.legalMoves()[0];
+    await app.openGame.commit(null, gomokuMove.to, null);
+    const gomoku = app.openGame.session.gameId;
+    app.goHome();
+
     app.startGame('vs_computer', {
       player1Name: 'Caesar', player2Name: 'Computer', aiDifficulty: 'standard'
     });
     const junqi = app.session.gameId;
     app.goHome();
-    return { junqi, xiangqi, chess };
+    return { junqi, xiangqi, chess, gomoku };
   });
 
   report.online = await onlinePage.evaluate(savedIds => ({
@@ -239,6 +247,21 @@ try {
     history: await offlinePage.evaluate(() =>
       window.caesarApp.openGame.session.engine.history.length)
   };
+
+  await offlinePage.evaluate(gameId => {
+    window.caesarApp.goHome();
+    window.caesarApp.resumeGame(gameId);
+  }, ids.gomoku);
+  await offlinePage.locator('.gomoku-board').waitFor();
+  const gomokuMove = await offlinePage.evaluate(() =>
+    window.caesarApp.openGame.session.engine.legalMoves()[0]);
+  await offlinePage.locator(`.gomoku-node[data-key="${gomokuMove.to}"]`).click();
+  await offlinePage.waitForFunction(() => !window.caesarApp.openGame.busy);
+  report.offline.gomoku = {
+    ...(await boardEvidence(offlinePage)),
+    history: await offlinePage.evaluate(() =>
+      window.caesarApp.openGame.session.engine.history.length)
+  };
   await offlinePage.screenshot({ path: path.join(outputDir, 'webkit-cold-start-offline.png') });
 } finally {
   if (onlineContext) await onlineContext.close();
@@ -254,23 +277,27 @@ try {
   fs.rmSync(profileDir, { recursive: true, force: true });
 }
 
-const boards = [report.offline.junqi, report.offline.xiangqi, report.offline.chess];
+const boards = [
+  report.offline.junqi, report.offline.xiangqi,
+  report.offline.chess, report.offline.gomoku
+];
 const passed =
-  report.online.build?.includes('v2.0.2') &&
-  report.online.cacheNames?.includes('caesar-games-v2.0.2') &&
-  report.online.savedGames >= 3 &&
+  report.online.build?.includes('v2.0.3') &&
+  report.online.cacheNames?.includes('caesar-games-v2.0.3') &&
+  report.online.savedGames >= 4 &&
   report.online.processFullyClosed &&
   report.online.originUnreachableAfterShutdown &&
   report.offline.freshProcess &&
   report.offline.homeLoaded &&
-  report.offline.build?.includes('v2.0.2') &&
-  report.offline.cacheNames?.includes('caesar-games-v2.0.2') &&
-  report.offline.libraryRows >= 3 &&
+  report.offline.build?.includes('v2.0.3') &&
+  report.offline.cacheNames?.includes('caesar-games-v2.0.3') &&
+  report.offline.libraryRows >= 4 &&
   report.offline.onlySameOriginResources &&
   boards.every(board => board?.width > 0 && board?.height > 0 && board?.visiblePieces > 0) &&
   report.offline.junqi.aiResponded &&
   report.offline.xiangqi.history >= 2 &&
   report.offline.chess.history >= 2 &&
+  report.offline.gomoku.history >= 2 &&
   report.offline.sound?.playedCues.length > 0 &&
   report.runtimeErrors.length === 0;
 

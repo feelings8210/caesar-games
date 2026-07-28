@@ -14,7 +14,10 @@ export class OpenBoardView {
     this.lastCheckSide = null;
   }
 
-  render({ gameType, board, selected, legalTargets = [], bottomSide, inCheck, interactive = true }) {
+  render({
+    gameType, board, selected, legalTargets = [], bottomSide, inCheck,
+    lastMove = null, interactive = true
+  }) {
     this.gameType = gameType;
     this.mount.innerHTML = '';
     const root = document.createElement('div');
@@ -32,7 +35,7 @@ export class OpenBoardView {
         const canonical = `${r},${c}`;
         const vr = bottomSide === 'r' ? r : 9 - r;
         const vc = bottomSide === 'r' ? c : 8 - c;
-        const node = this.node(canonical, selected, legalTargets, interactive);
+        const node = this.node(canonical, selected, legalTargets, interactive, lastMove);
         node.style.left = `${6 + vc * 11}%`;
         node.style.top = `${5 + vr * 10}%`;
         const p = board[canonical];
@@ -52,12 +55,40 @@ export class OpenBoardView {
         }
         root.appendChild(node);
       }
+    } else if (gameType === 'gomoku') {
+      const geometry = document.createElement('div');
+      geometry.className = 'gomoku-geometry';
+      geometry.setAttribute('aria-hidden', 'true');
+      for (const [row, col] of [[3,3], [3,11], [7,7], [11,3], [11,11]]) {
+        const star = document.createElement('i');
+        star.style.left = `${col * (100 / 14)}%`;
+        star.style.top = `${row * (100 / 14)}%`;
+        geometry.appendChild(star);
+      }
+      root.appendChild(geometry);
+      for (let row = 0; row < 15; row++) for (let col = 0; col < 15; col++) {
+        const canonical = `${row},${col}`;
+        const vr = bottomSide === 'b' ? row : 14 - row;
+        const vc = bottomSide === 'b' ? col : 14 - col;
+        const node = this.node(canonical, selected, legalTargets, interactive, lastMove);
+        node.classList.add('gomoku-node');
+        node.style.left = `${4 + vc * (92 / 14)}%`;
+        node.style.top = `${4 + vr * (92 / 14)}%`;
+        const p = board[canonical];
+        if (p) {
+          const piece = document.createElement('span');
+          piece.className = `open-piece gomoku-stone side-${p.side}`;
+          piece.appendChild(document.createElement('span')).className = 'open-piece-face';
+          node.appendChild(piece);
+        }
+        root.appendChild(node);
+      }
     } else {
       for (let vr = 0; vr < 8; vr++) for (let vc = 0; vc < 8; vc++) {
         const fileIndex = bottomSide === 'w' ? vc : 7 - vc;
         const rank = bottomSide === 'w' ? 8 - vr : vr + 1;
         const canonical = `${String.fromCharCode(97 + fileIndex)}${rank}`;
-        const node = this.node(canonical, selected, legalTargets, interactive);
+        const node = this.node(canonical, selected, legalTargets, interactive, lastMove);
         node.classList.add('chess-square', (fileIndex + rank) % 2 ? 'is-light' : 'is-dark');
         const p = board[canonical];
         if (p) {
@@ -83,15 +114,18 @@ export class OpenBoardView {
     this.lastCheckSide = inCheck || null;
   }
 
-  node(canonical, selected, legalTargets, interactive) {
+  node(canonical, selected, legalTargets, interactive, lastMove = null) {
     const node = document.createElement('button');
     node.type = 'button';
     node.className = 'open-node';
     node.dataset.key = canonical;
+    node.setAttribute('aria-label', canonical);
     node.tabIndex = interactive ? 0 : -1;
     if (!interactive) node.disabled = true;
     if (selected === canonical) node.classList.add('is-selected');
     if (legalTargets.includes(canonical)) node.classList.add('is-legal');
+    if (lastMove?.from === canonical) node.classList.add('is-last-from');
+    if (lastMove?.to === canonical) node.classList.add('is-last-to');
     node.addEventListener('click', () => this.onTap(canonical));
     return node;
   }
@@ -120,6 +154,48 @@ export class OpenBoardView {
       duration: motionMs(125),
       easing: 'cubic-bezier(.36,.07,.19,.97)'
     }).finished.catch(() => {});
+  }
+
+  async animatePlacement(to, { onContact = () => {} } = {}) {
+    const board = this.mount.querySelector('.open-board');
+    const target = this.rectFor(to);
+    const piece = this.mount.querySelector(
+      `.open-node[data-key="${CSS.escape(to)}"] .open-piece`
+    );
+    if (!board || !target || !piece) {
+      onContact();
+      return;
+    }
+    const br = board.getBoundingClientRect();
+    const layer = board.querySelector('.open-motion-layer');
+    const flyer = piece.cloneNode(true);
+    flyer.classList.add('open-flyer', 'gomoku-placement-flyer');
+    flyer.style.left = `${target.left - br.left + target.width / 2}px`;
+    flyer.style.top = `${target.top - br.top + target.height / 2}px`;
+    layer.appendChild(flyer);
+    piece.style.visibility = 'hidden';
+    const duration = motionMs(310);
+    const drop = flyer.animate([
+      { transform: 'translate(-50%,-76%) scale(1.16)', opacity: .72, filter: 'brightness(1.08)' },
+      { transform: 'translate(-50%,-56%) scale(1.07)', opacity: 1, offset: .62 },
+      { transform: 'translate(-50%,-50%) scale(.965)', opacity: 1, offset: .82 },
+      { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 }
+    ], {
+      duration,
+      easing: 'cubic-bezier(.18,.72,.22,1)',
+      fill: 'forwards'
+    });
+    await Promise.race([
+      new Promise(resolve => setTimeout(resolve, duration * .8)),
+      drop.finished.catch(() => {})
+    ]);
+    onContact();
+    await Promise.race([
+      drop.finished.catch(() => {}),
+      new Promise(resolve => setTimeout(resolve, duration + 70))
+    ]);
+    flyer.remove();
+    piece.style.visibility = '';
   }
 
   async animateFrom(movingSnapshot, to, {
@@ -157,10 +233,23 @@ export class OpenBoardView {
 
     const dx = target.left - startRect.left;
     const dy = target.top - startRect.top;
-    const travelDuration = motionMs(this.gameType === 'xiangqi' ? 215 : 185);
+    const travelDuration = motionMs(this.gameType === 'xiangqi' ? 330 : 300);
     const travel = flyer.animate([
       { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
-      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${capture ? 1.035 : 1.015})`, opacity: 1 }
+      {
+        transform: 'translate(-50%,-58%) scale(1.07)',
+        opacity: 1,
+        offset: .16
+      },
+      {
+        transform: `translate(calc(-50% + ${dx * .78}px), calc(-58% + ${dy * .78}px)) scale(1.07)`,
+        opacity: 1,
+        offset: .76
+      },
+      {
+        transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${capture ? 1.04 : 1.02})`,
+        opacity: 1
+      }
     ], {
       duration: travelDuration,
       easing: 'cubic-bezier(.2,.72,.28,1)',
@@ -219,7 +308,7 @@ export class OpenBoardView {
         { opacity: 1, transform: 'translate(-50%,-50%) scale(.955)', offset: .34 },
         { opacity: 0, transform: 'translate(-50%,-50%) scale(.84)', offset: 1 }
       ], {
-        duration: motionMs(175),
+        duration: motionMs(225),
         easing: 'cubic-bezier(.28,.02,.3,1)',
         fill: 'forwards'
       }).finished.catch(() => {}));
@@ -228,7 +317,7 @@ export class OpenBoardView {
         { filter: 'brightness(1.12)', offset: .34 },
         { filter: 'brightness(1)', offset: 1 }
       ], {
-        duration: motionMs(120),
+        duration: motionMs(150),
         easing: 'ease-out'
       }).finished.catch(() => {}));
     }
@@ -241,23 +330,23 @@ export class OpenBoardView {
         { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.07)`, opacity: 1, offset: .72 },
         { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1)`, opacity: 1 }
       ], {
-        duration: motionMs(165),
+        duration: motionMs(210),
         easing: 'cubic-bezier(.2,.76,.26,1)',
         fill: 'forwards'
       }).finished.catch(() => {}));
     } else if (!capture) {
       finishAnimations.push(flyer.animate([
-        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.015)` },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.02)` },
         { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1)` }
       ], {
-        duration: motionMs(65),
+        duration: motionMs(110),
         easing: 'cubic-bezier(.2,.72,.28,1)'
       }).finished.catch(() => {}));
     }
 
     await Promise.race([
       Promise.all(finishAnimations),
-      new Promise(resolve => setTimeout(resolve, motionMs(capture ? 210 : promotion ? 180 : 75)))
+      new Promise(resolve => setTimeout(resolve, motionMs(capture ? 260 : promotion ? 225 : 125)))
     ]);
     flyer.remove();
     rookFlyer?.remove();

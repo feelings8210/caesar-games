@@ -21,7 +21,7 @@ import {
 import { COMBAT, FLAG, PIECE_TYPES } from './engine/rules.js';
 import { BUILD } from './build.js';
 import { t, plural, localizeDom, getLocale, setLocale } from './i18n/strings.js';
-import { GAME_TYPES, gameMeta } from './games/registry.js';
+import { GAME_TYPES, gameMeta, firstSideOf } from './games/registry.js';
 import { OpenGameController, replayOpenRecord } from './games/open/controller.js';
 import { OpenBoardView } from './games/open/board_view.js';
 
@@ -133,6 +133,7 @@ export class App {
   startGame(mode, options) {
     this.leaveSession();                       // saves + disposes anything open
     this.selectedGameType = GAME_TYPES.JUNQI;
+    sounds.setMaterial(GAME_TYPES.JUNQI);
     const session = new GameSession(mode, options);
     session.openingBoard = JSON.parse(JSON.stringify(session.boardState));
     this.session = session;
@@ -161,12 +162,14 @@ export class App {
     if ((rec.gameType || GAME_TYPES.JUNQI) !== GAME_TYPES.JUNQI) {
       this.board.destroy();
       this.selectedGameType = rec.gameType;
+      sounds.setMaterial(rec.gameType);
       this.openGame.resumeSession(session);
       this.go(rec.status === 'finished' ? S.OPEN_END : S.OPEN_PLAY);
       return true;
     }
 
     session.openingBoard = rec.openingBoard || null;
+    sounds.setMaterial(GAME_TYPES.JUNQI);
     this.session = session;
     this.ai = new LocalJunqiAI(session.aiDifficulty);
 
@@ -686,13 +689,19 @@ export class App {
     $$('#field-difficulty .choice').forEach(b =>
       b.classList.toggle('is-selected', b.dataset.value === (prefs.aiDifficulty || 'standard')));
     if (isOpen) {
-      const first = gameType === GAME_TYPES.XIANGQI ? t('players.red') : t('players.white');
-      const second = t('players.black');
-      const remembered = gameType === GAME_TYPES.XIANGQI ? prefs.xiangqiSide : prefs.chessSide;
+      const isGomoku = gameType === GAME_TYPES.GOMOKU;
+      const first = gameType === GAME_TYPES.XIANGQI
+        ? t('players.red')
+        : t(isGomoku ? 'players.black' : 'players.white');
+      const second = t(isGomoku ? 'players.white' : 'players.black');
+      const remembered = gameType === GAME_TYPES.XIANGQI
+        ? prefs.xiangqiSide
+        : isGomoku ? prefs.gomokuSide : prefs.chessSide;
       $('[data-side="first"]').textContent = first;
       $('[data-side="second"]').textContent = second;
+      const secondSide = isGomoku ? 'w' : 'b';
       $$('#field-side .choice').forEach((b, i) =>
-        b.classList.toggle('is-selected', i === (remembered === 'b' ? 1 : 0)));
+        b.classList.toggle('is-selected', i === (remembered === secondSide ? 1 : 0)));
     }
   }
 
@@ -786,7 +795,9 @@ export class App {
       : `${t('play.turn', { name: turnName })}${check ? ` · ${t('play.check')}` : ''}`;
     const visualSide = turnSide === 'r' || turnSide === 'w' ? 'red' : 'navy';
     $('#turn-dot').className = `turn-dot side-${visualSide}`;
-    $('#board-hint').textContent = thinking ? '' : t('play.hint.select');
+    $('#board-hint').textContent = thinking
+      ? ''
+      : t(gameType === GAME_TYPES.GOMOKU ? 'play.hint.place' : 'play.hint.select');
     $('#mode-tag').textContent = `${gameLabel(gameType)} · ${modeLabel(this.openGame.session.mode)}`;
   }
 
@@ -815,7 +826,7 @@ export class App {
         checkmate: 'end.byCheckmate', stalemate: 'end.byStalemate',
         repetition: 'end.byRepetition', insufficient: 'end.byInsufficient',
         fifty_move: 'end.byFifty', no_legal_move: 'end.byNoLegal',
-        general: 'end.byGeneral', draw: 'end.draws'
+        general: 'end.byGeneral', five: 'end.byFive', draw: 'end.draws'
       };
       $('#end-reason').textContent = t(reasonKeys[engine.result] || 'end.byNoLegal');
       $('#end-memory').textContent = formatFamilyMemory(this.openGame.toRecord());
@@ -866,8 +877,7 @@ export class App {
       item.className = 'game-row';
       const finished = g.status === 'finished';
       const gameType = g.gameType || GAME_TYPES.JUNQI;
-      const firstSide = gameType === GAME_TYPES.JUNQI ? 'navy'
-        : gameType === GAME_TYPES.XIANGQI ? 'r' : 'w';
+      const firstSide = firstSideOf(gameType);
       const winner = finished && g.winner
         ? (g.winner === firstSide ? g.player1Name : g.player2Name)
         : null;
@@ -973,7 +983,7 @@ export class App {
 
   renderOpenRecord() {
     const { rec, step } = this.replay;
-    const firstSide = rec.gameType === GAME_TYPES.XIANGQI ? 'r' : 'w';
+    const firstSide = firstSideOf(rec.gameType);
     const winnerName = rec.winner
       ? (rec.winner === firstSide ? rec.player1Name : rec.player2Name)
       : null;
@@ -995,11 +1005,12 @@ export class App {
       row.className = 'record-move';
       row.classList.toggle('is-current', i + 1 === step);
       const who = m.side === firstSide ? rec.player1Name : rec.player2Name;
+      const moveText = rec.gameType === GAME_TYPES.GOMOKU
+        ? t('record.moveOpen', { piece: t('gomoku.stone'), from: '—', to: m.to })
+        : (m.san || t('record.moveOpen', { piece: m.piece, from: m.from, to: m.to }));
       row.innerHTML = `<span class="rm-n">${i + 1}</span>` +
         `<span class="rm-who">${escapeHtml(who)}</span>` +
-        `<span class="rm-text">${escapeHtml(m.san || t('record.moveOpen', {
-          piece: m.piece, from: m.from, to: m.to
-        }))}</span>`;
+        `<span class="rm-text">${escapeHtml(moveText)}</span>`;
       row.addEventListener('click', () => this.replaySeek(i + 1));
       list.appendChild(row);
     });
@@ -1038,9 +1049,11 @@ export class App {
       this.replay.openView.render({
         gameType: rec.gameType, board: game.board, selected: null, legalTargets: [],
         bottomSide: rec.mode === 'vs_computer'
-          ? (rec.humanSide || (rec.gameType === GAME_TYPES.XIANGQI ? 'r' : 'w'))
-          : (rec.gameType === GAME_TYPES.XIANGQI ? 'r' : 'w'),
-        inCheck: game.inCheck() ? game.turn : null, interactive: false
+          ? (rec.humanSide || firstSideOf(rec.gameType))
+          : firstSideOf(rec.gameType),
+        inCheck: game.inCheck?.() ? game.turn : null,
+        lastMove: game.history.at(-1) || null,
+        interactive: false
       });
       return;
     }
@@ -1289,11 +1302,14 @@ export class App {
       this.startGame(mode, { player1Name: p1, player2Name: p2, aiDifficulty: difficulty });
       return;
     }
-    const firstSide = gameType === GAME_TYPES.XIANGQI ? 'r' : 'w';
-    const humanSide = $('[data-side].is-selected')?.dataset.side === 'second' ? 'b' : firstSide;
+    const firstSide = firstSideOf(gameType);
+    const secondSide = gameType === GAME_TYPES.GOMOKU ? 'w' : 'b';
+    const humanSide = $('[data-side].is-selected')?.dataset.side === 'second' ? secondSide : firstSide;
     savePrefs(gameType === GAME_TYPES.XIANGQI
       ? { xiangqiSide: humanSide }
-      : { chessSide: humanSide });
+      : gameType === GAME_TYPES.GOMOKU
+        ? { gomokuSide: humanSide }
+        : { chessSide: humanSide });
     this.startOpenGame(gameType, {
       mode, player1Name: p1, player2Name: p2, aiDifficulty: difficulty, humanSide
     });

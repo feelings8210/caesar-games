@@ -11,6 +11,8 @@
   height: 100%;
   border-radius: var(--r-lg);
   background:
+    radial-gradient(ellipse at 20% 8%, rgba(255,255,255,.34), transparent 42%),
+    repeating-linear-gradient(92deg, transparent 0 13px, rgba(79,101,105,.018) 14px 15px),
     linear-gradient(180deg, var(--board-felt-2) 0%, var(--board-felt) 50%, var(--board-felt-2) 100%);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, .75),
@@ -117,11 +119,16 @@
   position: absolute;
   inset: 2%;
   border-radius: var(--r-md);
-  box-shadow: inset 0 0 0 2px var(--gold-soft);
-  opacity: .5;
+  background: rgba(183,143,67,.105);
+  box-shadow: inset 0 0 0 2px rgba(183,143,67,.72);
+  opacity: .82;
   pointer-events: none;
 }
-.bv-node.is-origin::before { opacity: .3; }
+.bv-node.is-origin::before {
+  background: rgba(183,143,67,.05);
+  box-shadow: inset 0 0 0 1.5px rgba(183,143,67,.48);
+  opacity: .66;
+}
 
 .bv-node.is-replay-origin::before {
   content: '';
@@ -251,14 +258,14 @@
   100% { filter: brightness(1) }
 }
 
-.bv-piece.is-struck { animation: struck 120ms ease-out both; }
+.bv-piece.is-struck { animation: struck 150ms ease-out both; }
 @keyframes struck {
   0%   { transform: scale(1) }
   40%  { transform: scale(.94) }
   100% { transform: scale(1) }
 }
 
-.bv-piece.is-removed { animation: removed 175ms cubic-bezier(.4,0,.2,1) both; }
+.bv-piece.is-removed { animation: removed 225ms cubic-bezier(.4,0,.2,1) both; }
 @keyframes removed {
   from { opacity: 1; transform: scale(1) }
   to   { opacity: 0; transform: scale(.82) }
@@ -323,6 +330,21 @@
   transform: translateY(-6%) scale(1.05);
   filter: drop-shadow(0 8px 5px rgba(18,36,63,.2));
 }
+.open-node.is-last-from::before,
+.open-node.is-last-to::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset: 8%;
+  border-radius: inherit;
+  pointer-events: none;
+  background: rgba(183,143,67,.07);
+  box-shadow: inset 0 0 0 1.5px rgba(183,143,67,.5);
+}
+.open-node.is-last-to::before {
+  background: rgba(183,143,67,.13);
+  box-shadow: inset 0 0 0 2px rgba(183,143,67,.75);
+}
 .open-node.is-legal::after {
   content: '';
   position: absolute;
@@ -366,11 +388,24 @@
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);
-  background: #F1EBDD;
+  background: #E9E0CD;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.72),
+    inset 0 0 44px rgba(73,54,35,.12),
+    0 0 0 1px var(--board-edge),
+    var(--lift-3);
 }
 .chess-square { position: relative; width: 100%; height: 100%; }
-.chess-square.is-light { background: #EEE9DA; }
-.chess-square.is-dark { background: #586678; }
+.chess-square.is-light {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.14), transparent 45%),
+    #EEE6D4;
+}
+.chess-square.is-dark {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.08), rgba(18,36,63,.07)),
+    #596878;
+}
 .chess-piece {
   width: 100%;
   height: 100%;
@@ -391,8 +426,9 @@
 /* Xiangqi */
 .xiangqi-board {
   background:
-    linear-gradient(rgba(123,91,55,.04), rgba(123,91,55,.04)),
-    #E9D8B9;
+    radial-gradient(ellipse at 18% 10%, rgba(255,255,255,.32), transparent 40%),
+    repeating-linear-gradient(92deg, transparent 0 17px, rgba(105,72,39,.024) 18px 19px),
+    linear-gradient(165deg, #EEDDBD, #E4CDA7);
 }
 .xq-geometry {
   position: absolute;
@@ -406,7 +442,7 @@
   content: '';
   position: absolute;
   left: 0; right: 0; top: 44.45%; height: 11.15%;
-  background: #E9D8B9;
+  background: linear-gradient(90deg, #E9D4AF, #E5CEA8);
   border-top: 1px solid rgba(48,45,42,.72);
   border-bottom: 1px solid rgba(48,45,42,.72);
 }
@@ -443,7 +479,9 @@
   aspect-ratio: 1;
   border-radius: 50%;
   font: 650 clamp(20px, min(3.2vw, 4.6vh), 42px)/1 var(--font-cn);
-  background: linear-gradient(145deg, #FFF9E9, #E8D9BD);
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255,255,255,.88), transparent 35%),
+    linear-gradient(145deg, #FFF9E9, #E4D1B0);
   border: 1.5px solid currentColor;
   color: #16243A;
   box-shadow: inset 0 1px 1px rgba(255,255,255,.9), inset 0 -2px 3px rgba(91,67,40,.15), 0 4px 8px rgba(73,54,35,.24);
@@ -451,6 +489,67 @@
 .xq-piece.side-r { color: #9A4137; }
 .xq-piece.faces-top > .open-piece-face { transform: rotate(180deg); }
 .xiangqi-board .open-flyer { width: 9.2%; height: auto; }
+
+/* Gomoku — warm go-board surface with tactile stone bowls. */
+.gomoku-board {
+  background:
+    radial-gradient(ellipse at 18% 8%, rgba(255,255,255,.28), transparent 42%),
+    repeating-linear-gradient(91deg, transparent 0 15px, rgba(105,72,39,.028) 16px 17px),
+    linear-gradient(150deg, #E6C58F, #D8AE72);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.55),
+    inset 0 0 48px rgba(86,54,25,.12),
+    0 0 0 1px rgba(91,62,35,.28),
+    var(--lift-3);
+}
+.gomoku-geometry {
+  position: absolute;
+  inset: 4%;
+  background:
+    repeating-linear-gradient(to right, rgba(63,47,32,.64) 0 1px, transparent 1px calc(100% / 14)),
+    repeating-linear-gradient(to bottom, rgba(63,47,32,.64) 0 1px, transparent 1px calc(100% / 14));
+  box-shadow: inset 0 0 0 1px rgba(63,47,32,.64);
+}
+.gomoku-geometry i {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(48,36,26,.74);
+  transform: translate(-50%,-50%);
+}
+.gomoku-node {
+  position: absolute;
+  width: 8%;
+  height: 8%;
+  transform: translate(-50%,-50%);
+  border-radius: 50%;
+}
+.gomoku-stone {
+  width: 78%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow:
+    inset 2px 3px 5px rgba(255,255,255,.32),
+    inset -3px -4px 6px rgba(0,0,0,.24),
+    0 3px 5px rgba(54,39,24,.34);
+}
+.gomoku-stone.side-b {
+  background: radial-gradient(circle at 35% 28%, #4A4D50, #171A1E 72%);
+  border: 1px solid rgba(0,0,0,.42);
+}
+.gomoku-stone.side-w {
+  background: radial-gradient(circle at 34% 25%, #FFFFFF, #E7E2D7 70%);
+  border: 1px solid rgba(88,74,58,.24);
+}
+.gomoku-node.is-last-from::before { display: none; }
+.gomoku-node.is-last-to::before {
+  inset: 20%;
+  z-index: 4;
+  background: transparent;
+  box-shadow: inset 0 0 0 2px rgba(191,139,47,.94);
+}
+.gomoku-board .open-flyer { width: 6.25%; height: 6.25%; }
 
 .replay-board .open-board { box-shadow: inset 0 0 0 1px rgba(255,255,255,.6), var(--lift-1); }
 

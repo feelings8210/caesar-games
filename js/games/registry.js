@@ -7,7 +7,8 @@
 export const GAME_TYPES = Object.freeze({
   JUNQI: 'junqi',
   XIANGQI: 'xiangqi',
-  CHESS: 'chess'
+  CHESS: 'chess',
+  GOMOKU: 'gomoku'
 });
 
 export const GAME_REGISTRY = Object.freeze({
@@ -31,9 +32,23 @@ export const GAME_REGISTRY = Object.freeze({
     nativeKey: 'game.chess.native',
     descKey: 'game.chess.desc',
     rulesVersion: 'chess.js-1.4.0'
+  },
+  gomoku: {
+    id: 'gomoku',
+    titleKey: 'game.gomoku.title',
+    nativeKey: 'game.gomoku.native',
+    descKey: 'game.gomoku.desc',
+    rulesVersion: 'gomoku-freestyle-15-v1'
   }
 });
 
 export function gameMeta(gameType) {
   return GAME_REGISTRY[gameType] || GAME_REGISTRY.junqi;
+}
+
+export function firstSideOf(gameType) {
+  if (gameType === GAME_TYPES.JUNQI) return 'navy';
+  if (gameType === GAME_TYPES.XIANGQI) return 'r';
+  if (gameType === GAME_TYPES.GOMOKU) return 'b';
+  return 'w';
 }

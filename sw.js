@@ -11,7 +11,7 @@
  * discards every older cache in one pass.
  */
 
-const BUILD_VERSION = 'v2.0.2';
+const BUILD_VERSION = 'v2.0.3';
 const CACHE = `caesar-games-${BUILD_VERSION}`;
 
 const PRECACHE = [
@@ -40,6 +40,8 @@ const PRECACHE = [
   './js/games/xiangqi/ai.js',
   './js/games/chess/adapter.js',
   './js/games/chess/ai.js',
+  './js/games/gomoku/engine.js',
+  './js/games/gomoku/ai.js',
   './js/vendor/chessjs/chess.js',
   './js/vendor/chessjs/LICENSE',
   './assets/cd_home_mark_transparent.png',
