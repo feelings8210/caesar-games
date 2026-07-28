@@ -4,3 +4,10 @@ key.pem
 ios/
 .DS_Store
 *.log
+
+# Previous rounds of review artifacts, kept locally but not published
+review/final-functional*
+review/round-*
+review/pre-travel-final
+review/v1-final-product
+review/*.png

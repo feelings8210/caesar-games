@@ -1,0 +1,185 @@
+{
+  "product": "Caesar Games — Junqi",
+  "build": "v1.1.0",
+  "rulesVersion": "junqi-v1.1",
+  "schemaVersion": 3,
+  "runDate": "2026-07-28",
+  "environment": {
+    "unit": "node v24.16.0, tests/rules.test.mjs",
+    "e2e": "Chromium 150 via in-app browser, real DOM events, viewport 1180x820",
+    "screenshots": "headless Chrome 150, 1180x820, scale 1",
+    "storage": "localStorage cleared, service worker unregistered, caches purged before the run"
+  },
+
+  "summary": {
+    "unitTests": { "total": 66, "passed": 66, "failed": 0 },
+    "e2eTests": { "total": 61, "passed": 61, "failed": 0 },
+    "statesCaptured": 18,
+    "knownRemainingIssues": 2
+  },
+
+  "coverage": {
+    "RULES": "PASS — 30 unit tests written from docs/JUNQI_V1_RULESET.md: inventory, rank order, topology, setup legality, movement, railway straight/corner, camp immunity, HQ immobility, all combat cases, win conditions",
+    "STATE_MACHINE": "PASS — 15 explicit states; every screen change routed through App.go(); session disposal verified",
+    "MODE_SWITCHING": "PASS — full 3x3 matrix at zero moves and after real play, plus mid-AI, post-finish, post-rematch, post-resume",
+    "PRIVACY": "PASS — DOM-level assertions that a concealed enemy leaks no text, class, or attribute; concealed backs byte-identical in computed style",
+    "PERSPECTIVE": "PASS — Classic rotates for P2, canonical state unchanged, tap maps via elementFromPoint",
+    "FLIP_ORIENTATION": "PASS — board static, face rotation by owner not square, verified in both halves",
+    "AI": "PASS — sanitized observation (name, rank AND id redacted), legality of generated moves, exactly one reply per turn, no double moves",
+    "PERSISTENCE": "PASS — record round-trip at 8 lifecycle stages, transient state deliberately dropped",
+    "MULTI_GAME_LIBRARY": "PASS — coexistence across modes, no junk game on boot, delete isolation, 20-game pruning retains unfinished games",
+    "REPLAY": "PASS — reconstructed from openingBoard + history, step forward/back, no mutation of the saved record, privacy-safe for two-player games",
+    "LAST_MOVE": "PASS — control offered, flyer element created, transform animation over a real distance within the 150-400ms budget",
+    "SOUND": "PASS — mute persists to localStorage, button state reflects it, no state depends on audio",
+    "MOTION": "PASS — Web Animations API, verified keyframes and duration; every animation raced against a hard timeout",
+    "PWA_UPDATE": "PASS (local) — network-first navigation, network-first code with 2.5s timeout, versioned cache, single-reload guard",
+    "OFFLINE": "PASS (local) — precache install, cache fallback on navigation and code fetch failure",
+    "IPAD_VIEWPORT": "PASS — board fits without page scroll, controls on screen, stations >= 40px, touch targets >= 36px",
+    "VISUAL_CONSISTENCY": "PASS — 18 real states captured and reviewed; see VISUAL_AUDIT.md",
+    "FAILURE_INJECTION": "PASS — 8 scenarios, see below",
+    "I18N": "READY — all user-facing copy behind js/i18n/strings.js"
+  },
+
+  "failureInjection": [
+    { "case": "double-tap a mode card", "result": "PASS", "note": "one game; Start button gone after the first tap" },
+    { "case": "hammer Home/Play 8x", "result": "PASS", "note": "settles on a coherent screen" },
+    { "case": "rapid Ready taps", "result": "PASS", "note": "advances exactly one setup step" },
+    { "case": "rapid handoff taps", "result": "PASS", "note": "advances exactly one step" },
+    { "case": "second move during the first animation", "result": "PASS", "note": "input gated by _busy / board.animating" },
+    { "case": "illegal move", "result": "PASS", "note": "refused with a specific reason in a toast; no history entry" },
+    { "case": "leave during AI thinking, start another mode", "result": "PASS", "note": "stale AI result discarded by session+token check" },
+    { "case": "corrupt library JSON", "result": "PASS", "note": "falls back to an empty library; structurally unusable records dropped" },
+    { "case": "legacy v1 save present", "result": "PASS", "note": "migrated into the v3 library rather than lost" },
+    { "case": "20-game library overflow", "result": "PASS", "note": "prunes to 20, unfinished games retained over finished ones" },
+    { "case": "throttled tab / frozen animations", "result": "PASS", "note": "entrance motion is additive, so no control can be hidden by a stalled animation" }
+  ],
+
+  "defectsFoundAndFixed": [
+    {
+      "id": "D1",
+      "severity": "critical",
+      "title": "Mode selection dumped the player back on Home",
+      "detail": "index.html gave #player-names-modal, #games-library-modal and #game-record-modal an inline style=\"display:none\". show*Modal() only added an .active class, which sets opacity and pointer-events but cannot override an inline display. The dialog never rendered.",
+      "impact": "Starting ANY mode failed on the first attempt; Games library and record/replay were unreachable.",
+      "ownerReported": true,
+      "reproduced": "yes — real coordinate taps",
+      "fix": "Visibility is class-driven only. No app code sets element.style.display. E2E asserts no dialog/overlay/screen carries an inline display."
+    },
+    {
+      "id": "D2",
+      "severity": "critical",
+      "title": "Red army generated with a duplicated piece and only one bomb",
+      "detail": "generateLegalSetup swapped a front-row bomb with army[findIndex(non-bomb)], which for the red side always resolved to an already-placed index. The same piece object was written to two stations and one bomb was dropped.",
+      "impact": "100% of red formations over 2000 trials. Red is the computer's army in Vs Computer and Player 2's army in Classic, so every game had an illegal opposing formation.",
+      "measured": "2000/2000 red formations affected; 0/2000 navy",
+      "fix": "Constraint-first generation: Flag, then Mines, then the front row from the non-bomb pool. validateFormation() asserts 25 unique pieces and full legality; 400-iteration test per side."
+    },
+    {
+      "id": "D3",
+      "severity": "high",
+      "title": "Replay was a counter, not a replay",
+      "detail": "Step Back / Forward / Play only incremented a label. No position was ever reconstructed.",
+      "fix": "Records store openingBoard; positions are rebuilt from opening + public history. Stepping is verified to change the rendered board and to leave the stored record untouched."
+    },
+    {
+      "id": "D4",
+      "severity": "high",
+      "title": "Every app launch created and saved a junk game",
+      "detail": "JunqiBoard's constructor called startNewGame('vs_computer'), which called saveState(). With a 20-game cap, roughly twenty launches would evict the owner's real games.",
+      "fix": "Records are written only when a player actually starts a game. E2E asserts navigating does not add rows."
+    },
+    {
+      "id": "D5",
+      "severity": "high",
+      "title": "AI information boundary leaked piece identity through the id",
+      "detail": "createAiObservation redacted name and rank but passed id through unchanged — ids are of the form 'navy-司令-0'.",
+      "fix": "Unknown pieces are reduced to an opaque token. Test asserts no rank character appears in any redacted field."
+    },
+    {
+      "id": "D6",
+      "severity": "high",
+      "title": "Board movement did not match the drawn board",
+      "detail": "Any orthogonally adjacent step was legal, so pieces crossed the front line at columns 1 and 3 where no line is drawn. Rows 0 and 11 were marked as railway, allowing rail runs along the Headquarters rows.",
+      "fix": "An explicit adjacency graph; the drawn SVG is generated from the same graph, so board and rules cannot diverge."
+    },
+    {
+      "id": "D7",
+      "severity": "high",
+      "title": "Game-over Home button threw",
+      "detail": "board.js called this.app.showSurface('home'); AppController only defines switchSurface. TypeError on every use.",
+      "fix": "Single state machine; no such method call exists. Covered by the end-card E2E test."
+    },
+    {
+      "id": "D8",
+      "severity": "medium",
+      "title": "No stalemate handling",
+      "detail": "A player with no legal move was never detected, so the game simply stopped.",
+      "fix": "endTurn() checks flag presence and legal-move availability; loss by immobility is a real outcome."
+    },
+    {
+      "id": "D9",
+      "severity": "medium",
+      "title": "Move animation frequently did not run",
+      "detail": "The transition property and the target transform were assigned in the same rAF callback, so the browser could coalesce them into a jump with no interpolation.",
+      "fix": "Web Animations API with explicit keyframes, plus a hard timeout so presentation can never block game logic."
+    },
+    {
+      "id": "D10",
+      "severity": "medium",
+      "title": "App icon was a 1499x925 transparent PNG declared as 192x192 and 512x512",
+      "detail": "The OS scaled a 1.62:1 image into a square, which is the stretching the owner observed. purpose was 'any maskable' with no safe-zone padding.",
+      "fix": "Square masters generated from the mark with its aspect ratio preserved exactly; separate maskable variant with a 40% mark."
+    },
+    {
+      "id": "D11",
+      "severity": "medium",
+      "title": "Service worker version skew",
+      "detail": "Navigation was network-first while code was served stale-while-revalidate, so a fresh index.html could be paired with a previous build's JS and CSS.",
+      "fix": "Code and styles are network-first with a 2.5s timeout and cache fallback."
+    },
+    {
+      "id": "D12",
+      "severity": "medium",
+      "title": "Setup state was persisted but its baseline was not",
+      "detail": "saveActiveGame never wrote initialSetupSessionState, so Reset silently did nothing after a reload.",
+      "fix": "setupBaseline is part of the record."
+    },
+    {
+      "id": "D13",
+      "severity": "low",
+      "title": "Reveal in Flip mode was not turn-gated",
+      "detail": "Two rapid taps could turn over two pieces in one turn.",
+      "fix": "The reveal holds the input gate until the turn has changed hands."
+    },
+    {
+      "id": "D14",
+      "severity": "low",
+      "title": "Replay of a Vs Computer record concealed the human's own army",
+      "detail": "Spectator seat resolved to 'red', concealing everything including pieces the human had always seen.",
+      "fix": "Spectator visibility is explicit; Vs Computer records show the human's own army, two-player records stay fully concealed."
+    }
+  ],
+
+  "unitTests": {
+    "file": "tests/rules.test.mjs",
+    "passed": 66,
+    "failed": 0,
+    "groups": [
+      "inventory (4)", "board topology (6)", "setup legality (7)", "movement (12)",
+      "combat (10)", "concealment (5)", "perspective (3)", "flip (4)",
+      "AI boundary (3)", "session lifecycle (12)"
+    ]
+  },
+
+  "e2eTests": {
+    "file": "tests/e2e.js",
+    "passed": 61,
+    "failed": 0,
+    "note": "Every assertion is made against rendered state — element boxes, computed styles, rendered text — not against object state."
+  },
+
+  "notVerifiedHere": [
+    "Physical iPad hardware: touch accuracy, Home Screen icon rendering, real audio output, true offline launch from the Home Screen. Requires the owner's 2-minute acceptance pass.",
+    "Safari-specific rendering. The automated runs used Chromium 150; the CSS avoids Chromium-only features, but Safari has not been exercised directly."
+  ]
+}

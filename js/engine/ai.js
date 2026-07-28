@@ -1,114 +1,109 @@
-/* Caesar Games — Information-Bounded Local AI Computer Opponent */
-import { canPieceMove } from './rules.js';
+/* Caesar Games — Local Computer Opponent
+ *
+ * The AI is only ever handed a sanitized observation. An unrevealed human
+ * piece must carry NO identifying information — not its name, not its rank,
+ * and not its id (piece ids encode the rank, e.g. "navy-司令-0").
+ */
 
-export function createAiObservation(aiSide, boardState) {
+import { canPieceMove, legalMovesFor, CAMPS, FLAG, ENGINEER, FIELD_MARSHAL, parseKey } from './rules.js';
+
+/**
+ * Build the AI's view of the board.
+ * Opponent pieces the AI is not entitled to know are reduced to an opaque
+ * token: position, side, and nothing else.
+ */
+export function createAiObservation(aiSide, boardState, flagDisclosed = {}) {
   const obs = {};
-  Object.keys(boardState).forEach(k => {
-    const p = boardState[k];
-    if (!p) return;
+  let anon = 0;
+  for (const [k, p] of Object.entries(boardState)) {
+    if (!p) continue;
+    if (p.side === aiSide) { obs[k] = { ...p }; continue; }
 
-    if (p.side === aiSide || p.revealed || p.flagDisclosed) {
-      obs[k] = { ...p };
-    } else {
-      // Redact private identity (name & rank) for unrevealed opponent pieces
-      obs[k] = {
-        id: p.id,
-        side: p.side,
-        static: false,
-        revealed: false
-      };
-    }
-  });
+    const publiclyKnown = !!p.revealed || (p.name === FLAG && flagDisclosed[p.side]);
+    if (publiclyKnown) { obs[k] = { ...p }; continue; }
+
+    anon += 1;
+    obs[k] = {
+      id: `unknown-${anon}`,
+      side: p.side,
+      unknown: true,
+      static: false,
+      revealed: false
+    };
+  }
   return obs;
 }
 
+const PIECE_VALUE = {
+  '司令': 100, '军长': 80, '师长': 60, '旅长': 45, '团长': 35,
+  '营长': 28, '连长': 20, '排长': 14, '工兵': 16, '地雷': 30, '炸弹': 40, '军旗': 1000
+};
+
 export class LocalJunqiAI {
   constructor(difficulty = 'standard') {
-    // Supported V1 difficulty levels: 'relaxed' or 'standard'
-    this.difficulty = (difficulty === 'relaxed' || difficulty === 'easy') ? 'relaxed' : 'standard';
+    this.difficulty = difficulty === 'relaxed' ? 'relaxed' : 'standard';
   }
 
-  selectMove(aiSide, rawBoardState) {
-    // Enforce Information Boundary: AI only observes legitimate public state
-    const obsBoard = createAiObservation(aiSide, rawBoardState);
+  /**
+   * Choose a move for `aiSide`. `rawBoardState` is the canonical board; it is
+   * immediately sanitized and never inspected directly.
+   */
+  selectMove(aiSide, rawBoardState, flagDisclosed = {}) {
+    const obs = createAiObservation(aiSide, rawBoardState, flagDisclosed);
+    const moves = legalMovesFor(aiSide, obs);
+    if (!moves.length) return null;
 
-    const legalMoves = this.getAllLegalMoves(aiSide, obsBoard);
-    if (legalMoves.length === 0) return null;
+    const scored = moves.map(m => ({ move: m, score: this.evaluate(m, obs, aiSide) }));
 
-    let bestMove = legalMoves[0];
-    let bestScore = -Infinity;
-
-    for (const move of legalMoves) {
-      let score = this.evaluateMove(move, obsBoard, aiSide);
-
-      // Relaxed difficulty adds subtle evaluation noise / variance for casual play
-      if (this.difficulty === 'relaxed') {
-        score += (Math.random() - 0.5) * 15;
-      }
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestMove = move;
-      }
+    if (this.difficulty === 'relaxed') {
+      // Casual play: pick from the upper band rather than always the best line.
+      scored.forEach(s => { s.score += (Math.random() - 0.5) * 30; });
+    } else {
+      scored.forEach(s => { s.score += (Math.random() - 0.5) * 2; });  // break ties
     }
 
-    return bestMove;
+    scored.sort((a, b) => b.score - a.score);
+    return scored[0].move;
   }
 
-  getAllLegalMoves(aiSide, obsBoard) {
-    const moves = [];
-    Object.keys(obsBoard).forEach(fromKey => {
-      const piece = obsBoard[fromKey];
-      if (piece && piece.side === aiSide && !piece.static) {
-        for (let r = 0; r < 12; r++) {
-          for (let c = 0; c < 5; c++) {
-            const toKey = `${r}-${c}`;
-            const check = canPieceMove(piece, fromKey, toKey, obsBoard);
-            if (check.allowed) {
-              moves.push({ from: fromKey, to: toKey, piece: piece });
-            }
-          }
-        }
-      }
-    });
-    return moves;
-  }
-
-  evaluateMove(move, obsBoard, aiSide) {
+  evaluate(move, obs, aiSide) {
+    const piece = move.piece;
+    const target = obs[move.to];
+    const [fr] = parseKey(move.from);
+    const [tr] = parseKey(move.to);
     let score = 0;
-    const targetPiece = obsBoard[move.to];
-    const [tRow, tCol] = move.to.split('-').map(Number);
-    const [fRow, fCol] = move.from.split('-').map(Number);
 
-    // Advancing towards opponent territory
-    const advanceBonus = (aiSide === 'red') ? (tRow - fRow) * 2 : (fRow - tRow) * 2;
-    score += advanceBonus;
+    // Push toward the opponent's back line.
+    score += (aiSide === 'red' ? (tr - fr) : (fr - tr)) * 2;
 
-    // Attacking an opponent piece
-    if (targetPiece && targetPiece.side !== aiSide) {
-      if (targetPiece.revealed) {
-        if (move.piece.rank < targetPiece.rank) {
-          score += 50; // Guaranteed win
-        } else if (move.piece.rank === targetPiece.rank) {
-          score += 20; // Equal rank trade
-        } else {
-          score -= 40; // Defeat
-        }
-      } else if (targetPiece.flagDisclosed && targetPiece.name === '军旗') {
-        score += 200; // Winning move: capture disclosed flag!
+    if (target && target.side !== aiSide) {
+      if (target.unknown) {
+        // Trading an unknown is a gamble — send cheap pieces, hold the top brass.
+        const mine = PIECE_VALUE[piece.name] ?? 20;
+        if (piece.name === ENGINEER) score += 10;
+        else if (mine <= 20) score += 12;
+        else if (mine >= 80) score -= 25;
+        else score += 2;
+      } else if (target.name === FLAG) {
+        score += 5000;
+      } else if (piece.name === '炸弹') {
+        score += (PIECE_VALUE[target.name] ?? 20) - 40;
+      } else if (target.name === '地雷') {
+        score += piece.name === ENGINEER ? 25 : -60;
+      } else if (piece.rank < target.rank) {
+        score += 40 + (PIECE_VALUE[target.name] ?? 20) * 0.4;
+      } else if (piece.rank === target.rank) {
+        score += 8 - (PIECE_VALUE[piece.name] ?? 20) * 0.1;
       } else {
-        // Unrevealed piece: conservative exploration
-        if (move.piece.name === '工兵' || move.piece.rank >= 6) {
-          score += 15;
-        } else if (move.piece.name === '司令' || move.piece.name === '军长') {
-          score -= 10; // Protect high-ranking officers
-        }
+        score -= 45;
       }
     }
 
-    // Moving into Campsite (safety)
-    const isCamp = ['1-1','1-3','2-2','3-1','3-3','7-1','7-3','8-2','9-1','9-3'].includes(move.to);
-    if (isCamp) score += 8;
+    // Campsites are safe ground.
+    if (CAMPS.has(move.to)) score += 10;
+
+    // Don't wander the Field Marshal out early.
+    if (piece.name === FIELD_MARSHAL && !target) score -= 6;
 
     return score;
   }

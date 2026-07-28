@@ -1,556 +1,1000 @@
-/* Caesar Games — Main Application Coordinator */
-import { JunqiBoard } from './board.js';
-import { initHintListeners, showHint, initPracticeModule } from './hint.js';
-import { PassIpadManager, initPassIpadListeners } from './pass_ipad.js';
+/* Caesar Games — Application Controller
+ *
+ * One explicit lifecycle. Every screen change goes through `go()`, which is
+ * the only place allowed to change what the player sees. Entering a state
+ * tears down anything transient from the previous one, so a game can never
+ * inherit timers, selections or overlays from a game the player has left.
+ *
+ * Visibility is expressed with classes only. Nothing in this app sets
+ * `element.style.display` — an inline display rule that a class could not
+ * override is what silently broke mode selection in the previous build.
+ */
+
+import { GameSession, MODES, PHASES, viewerSeatOf, boardOrientationOf, isPieceVisibleTo } from './engine/session.js';
+import { LocalJunqiAI } from './engine/ai.js';
 import { sounds } from './engine/sound.js';
-import { getLibrary, loadGameById, deleteGameById, getMostRecentActiveGame, getLastUsedNames, saveLastUsedNames, formatFriendlyDate } from './engine/persistence.js';
-import { runAutomatedTests } from './engine/test.js';
+import { BoardView } from './ui/board_view.js';
+import {
+  getPrefs, savePrefs, saveGame, loadGame, deleteGame,
+  mostRecentResumable, listGames, formatFriendlyDate
+} from './engine/persistence.js';
+import { COMBAT, FLAG, PIECE_TYPES } from './engine/rules.js';
+import { BUILD } from './build.js';
+import { t, plural, localizeDom } from './i18n/strings.js';
 
-class AppController {
+export const S = {
+  HOME: 'HOME',
+  MODE_SELECT: 'MODE_SELECT',
+  PLAYER_SETUP: 'PLAYER_SETUP',
+  CLASSIC_P1_SETUP: 'CLASSIC_P1_SETUP',
+  CLASSIC_HANDOFF: 'CLASSIC_HANDOFF',
+  CLASSIC_P2_SETUP: 'CLASSIC_P2_SETUP',
+  CLASSIC_PLAY: 'CLASSIC_PLAY',
+  VS_AI_SETUP: 'VS_AI_SETUP',
+  VS_AI_PLAY: 'VS_AI_PLAY',
+  FLIP_PLAY: 'FLIP_PLAY',
+  GAME_END: 'GAME_END',
+  GAME_LIBRARY: 'GAME_LIBRARY',
+  RECORD: 'RECORD',
+  REPLAY: 'REPLAY',
+  LEARN: 'LEARN'
+};
+
+const BOARD_STATES = new Set([
+  S.CLASSIC_P1_SETUP, S.CLASSIC_P2_SETUP, S.CLASSIC_PLAY,
+  S.VS_AI_SETUP, S.VS_AI_PLAY, S.FLIP_PLAY, S.GAME_END
+]);
+
+const SETUP_STATES = new Set([S.CLASSIC_P1_SETUP, S.CLASSIC_P2_SETUP, S.VS_AI_SETUP]);
+
+const MODE_LABEL = () => ({
+  [MODES.VS_AI]: t('mode.vsComputer'),
+  [MODES.CLASSIC]: t('mode.classic'),
+  [MODES.FLIP]: t('mode.flip')
+});
+const modeLabel = (m) => MODE_LABEL()[m] || m;
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+
+export class App {
   constructor() {
-    this.currentSurface = 'home';
-    this.board = null;
-    this.passManager = new PassIpadManager(this);
+    this.state = S.HOME;
+    this.session = null;
+    this.pending = {};            // payload for the current state
+    this.ai = new LocalJunqiAI('standard');
 
-    this.pendingMode = null;
-    this.replayGame = null;
-    this.replayStep = 0;
-    this.replayTimer = null;
+    this._aiToken = 0;
+    this._aiTimer = null;
+    this._busy = false;           // guards against double taps mid-transition
 
-    this.init();
-  }
+    this.replay = null;
 
-  init() {
-    this.bindNavigation();
-    initHintListeners();
-    initPassIpadListeners(this.passManager);
-    initPracticeModule();
-
-    this.board = new JunqiBoard('junqi-board-mount', this);
-
-    const testSummary = runAutomatedTests();
-    console.log('Automated tests executed:', testSummary);
-
-    this.updateHomeMemoryStatus();
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const surfaceParam = urlParams.get('surface');
-    const modeParam = urlParams.get('mode');
-    const modalParam = urlParams.get('modal');
-    const hashParam = window.location.hash.replace('#', '');
-
-    const initialSurface = surfaceParam || hashParam || 'home';
-    this.switchSurface(initialSurface);
-
-    if (modeParam === 'vs_computer') {
-      this.board.startNewGame('vs_computer');
-    } else if (modeParam === 'vs_computer_post_ai') {
-      this.board.initVsComputerPostAiMove();
-    } else if (modeParam === 'classic') {
-      this.board.startNewGame('classic');
-    } else if (modeParam === 'flip') {
-      this.board.startNewGame('flip');
-    } else if (modeParam === 'flip_midgame') {
-      this.board.initFlipMidGame();
-    }
-
-    if (modalParam === 'true') {
-      setTimeout(() => this.showModeSelectionModal(), 200);
-    }
-
-    if (urlParams.get('hint') === 'true' || hashParam === 'hint') {
-      setTimeout(() => showHint('ENGINEER_RAILWAY'), 300);
-    }
-
-    window.addEventListener('hashchange', () => {
-      const hash = window.location.hash.replace('#', '');
-      if (hash) this.switchSurface(hash);
+    this.board = new BoardView($('#board-mount'), {
+      onNodeTap: (k) => this.onNodeTap(k)
     });
+
+    this.bindChrome();
+    this.go(S.HOME);
   }
 
-  updateHomeMemoryStatus() {
-    const resumeBtn = document.getElementById('btn-resume-junqi');
-    const statusLine = document.getElementById('home-memory-status');
+  /* ================================================================ *
+   * State machine
+   * ================================================================ */
 
-    const recentActive = getMostRecentActiveGame();
-    const lib = getLibrary();
+  /** The only way to change what is on screen. */
+  go(next, payload = {}) {
+    const prev = this.state;
 
-    if (resumeBtn) {
-      if (recentActive) {
-        resumeBtn.style.display = 'inline-flex';
-        resumeBtn.textContent = 'Continue';
-      } else {
-        resumeBtn.style.display = 'none';
-      }
+    // Leaving a board state cancels everything transient it owned.
+    if (BOARD_STATES.has(prev) && !BOARD_STATES.has(next)) {
+      this.board.cancelAnimations();
     }
+    if (prev !== next) this.cancelAi();
 
-    if (statusLine) {
-      if (recentActive) {
-        const pTitle = `${recentActive.player1Name} vs ${recentActive.player2Name}`;
-        statusLine.textContent = `${pTitle} · Continue`;
-        statusLine.style.display = 'inline-block';
-      } else if (lib.games && lib.games.length > 0) {
-        statusLine.textContent = `${lib.games.length} ${lib.games.length === 1 ? 'game' : 'games'} recorded`;
-        statusLine.style.display = 'inline-block';
-      } else {
-        statusLine.style.display = 'none';
-      }
+    this.state = next;
+    this.pending = payload;
+    this.render();
+  }
+
+  /** Derive the correct state for a session that was just created or loaded. */
+  stateForSession(session, { resuming = false } = {}) {
+    if (session.isGameOver) return S.GAME_END;
+    switch (session.mode) {
+      case MODES.VS_AI:
+        return session.phase === PHASES.SETUP ? S.VS_AI_SETUP : S.VS_AI_PLAY;
+      case MODES.FLIP:
+        return S.FLIP_PLAY;
+      case MODES.CLASSIC:
+        if (session.phase === PHASES.SETUP) {
+          return session.setupSide === 'navy' ? S.CLASSIC_P1_SETUP : S.CLASSIC_P2_SETUP;
+        }
+        // Resuming a shared-iPad game must not expose the board to whoever
+        // happens to be holding it — always shield first.
+        return resuming ? S.CLASSIC_HANDOFF : S.CLASSIC_PLAY;
+      default:
+        return S.HOME;
     }
   }
 
-  switchSurface(surfaceId) {
-    this.currentSurface = surfaceId;
+  /* ---------------- session lifecycle ---------------- */
 
-    if (surfaceId === 'pass-ipad') {
-      this.passManager.triggerTransition(`${this.board.activeTurn === 'navy' ? this.board.player1Name : this.board.player2Name}`);
+  startGame(mode, options) {
+    this.leaveSession();                       // saves + disposes anything open
+    const session = new GameSession(mode, options);
+    session.openingBoard = JSON.parse(JSON.stringify(session.boardState));
+    this.session = session;
+    this.ai = new LocalJunqiAI(session.aiDifficulty);
+    this.persist();
+    this.go(this.stateForSession(session));
+  }
+
+  resumeGame(gameId) {
+    const rec = gameId ? loadGame(gameId) : mostRecentResumable();
+    if (!rec) return false;
+    this.leaveSession();
+    const session = GameSession.fromRecord(rec);
+    session.openingBoard = rec.openingBoard || null;
+    this.session = session;
+    this.ai = new LocalJunqiAI(session.aiDifficulty);
+
+    const next = this.stateForSession(session, { resuming: true });
+    if (next === S.CLASSIC_HANDOFF) {
+      this.go(S.CLASSIC_HANDOFF, { then: S.CLASSIC_PLAY, forSide: session.activeTurn, replayLastMove: true });
+    } else {
+      this.go(next);
+    }
+    return true;
+  }
+
+  /** Save and release the current session without destroying its record. */
+  leaveSession() {
+    this.cancelAi();
+    this.board.cancelAnimations();
+    if (this.session) {
+      this.persist();
+      this.session.dispose();
+      this.session = null;
+    }
+  }
+
+  persist() {
+    if (!this.session) return;
+    const rec = this.session.toRecord();
+    if (this.session.openingBoard) rec.openingBoard = this.session.openingBoard;
+    saveGame(rec);
+  }
+
+  /* ---------------- AI boundary ---------------- */
+
+  cancelAi() {
+    this._aiToken += 1;
+    if (this._aiTimer) { clearTimeout(this._aiTimer); this._aiTimer = null; }
+  }
+
+  scheduleAiTurn() {
+    const session = this.session;
+    if (!session || session.disposed || !session.isAiTurn) return;
+
+    const token = ++this._aiToken;
+    const stillValid = () =>
+      this.session === session && !session.disposed && token === this._aiToken && session.isAiTurn;
+
+    this._aiTimer = setTimeout(async () => {
+      this._aiTimer = null;
+      if (!stillValid()) return;
+
+      const move = this.ai.selectMove('red', session.boardState, session.flagDisclosed);
+      if (!move) { session.endTurn(); this.persist(); this.render(); return; }
+
+      const result = session.applyMove(move.from, move.to);
+      this.persist();
+      await this.presentMove(session, result, token);
+      if (!stillValid() && !session.isGameOver) return;
+      if (this.session !== session || session.disposed) return;
+
+      if (!session.isGameOver) session.endTurn();
+      this.persist();
+
+      if (session.isGameOver) { sounds.victory(); this.go(S.GAME_END); }
+      else this.render();
+    }, 620);
+  }
+
+  /* ================================================================ *
+   * Input
+   * ================================================================ */
+
+  async onNodeTap(k) {
+    const session = this.session;
+    if (!session || this._busy || this.board.animating) return;
+    if (session.isGameOver) return;
+
+    if (SETUP_STATES.has(this.state)) return this.onSetupTap(k);
+    if (this.state === S.FLIP_PLAY) return this.onFlipTap(k);
+    if (this.state === S.CLASSIC_PLAY || this.state === S.VS_AI_PLAY) return this.onPlayTap(k);
+  }
+
+  onSetupTap(k) {
+    const session = this.session;
+    const before = session.selected;
+    const res = session.setupTap(k);
+
+    if (!res.ok) { sounds.invalid(); this.flash(res.reason); return; }
+    if (res.selected) { sounds.select(); this.render(); return; }
+    if (res.deselected) { sounds.tap(); this.render(); return; }
+
+    if (res.swapped) {
+      sounds.place();
+      this.board.animateSwap(res.swapped[0], res.swapped[1]).then(() => {
+        this.persist();
+        this.render();
+      });
+      return;
+    }
+    void before;
+    this.render();
+  }
+
+  async onPlayTap(k) {
+    const session = this.session;
+    const piece = session.boardState[k];
+    const side = session.controllingSide();
+
+    if (session.selected === k) { session.selected = null; sounds.tap(); this.render(); return; }
+
+    if (piece && piece.side === side) {
+      const check = piece.static
+        ? { allowed: false, reason: t(piece.name === FLAG ? 'rule.flagStatic' : 'rule.mineStatic') }
+        : { allowed: true };
+      if (!check.allowed) { sounds.invalid(); this.flash(check.reason); return; }
+      session.selected = k;
+      sounds.select();
+      this.render();
       return;
     }
 
-    const surfaces = document.querySelectorAll('.surface-view');
-    surfaces.forEach(s => s.classList.remove('active'));
+    if (!session.selected) return;
 
-    const target = document.getElementById(`surface-${surfaceId}`);
-    if (target) {
-      target.classList.add('active');
-      target.scrollTop = 0;
+    const check = session.canMove(session.selected, k);
+    if (!check.allowed) { sounds.invalid(); this.flash(check.reason); return; }
+
+    await this.commitMove(session.selected, k);
+  }
+
+  async onFlipTap(k) {
+    const session = this.session;
+    const piece = session.boardState[k];
+    const side = session.controllingSide();
+
+    if (piece && !piece.revealed) {
+      // A reveal is a whole turn: hold the input gate until it has resolved,
+      // otherwise a second tap lands before the turn has changed hands.
+      this._busy = true;
+      session.revealPiece(k);
+      sounds.reveal();
+      this.persist();
+      this.render();
+      await this.board.pulse([k], 'is-pulse', 420);
+      this._busy = false;
+      if (this.session !== session || session.disposed) return;
+      this.afterTurn();
+      return;
+    }
+
+    if (session.selected === k) { session.selected = null; sounds.tap(); this.render(); return; }
+
+    if (piece && piece.revealed && side && piece.side === side) {
+      if (piece.static) { sounds.invalid(); this.flash(t(piece.name === FLAG ? 'rule.flagStatic' : 'rule.mineStatic')); return; }
+      session.selected = k;
+      sounds.select();
+      this.render();
+      return;
+    }
+
+    if (!session.selected) return;
+    const check = session.canMove(session.selected, k);
+    if (!check.allowed) { sounds.invalid(); this.flash(check.reason); return; }
+    await this.commitMove(session.selected, k);
+  }
+
+  /** Commit to canonical state first, then play the presentation. */
+  async commitMove(from, to) {
+    const session = this.session;
+    this._busy = true;
+    const result = session.applyMove(from, to);
+    this.persist();
+
+    await this.presentMove(session, result, this._aiToken);
+    this._busy = false;
+
+    if (this.session !== session || session.disposed) return;
+    this.afterTurn();
+  }
+
+  /** Sound + motion for a move that has already been applied. */
+  async presentMove(session, result, token) {
+    const orientationBefore = this.board.orientation;
+
+    if (result.combat) {
+      if (result.outcome === COMBAT.BOTH_REMOVED) sounds.mutualLoss();
+      else sounds.battle();
+    } else {
+      sounds.place();
+    }
+
+    const faceHtml = this.flyerHtmlFor(session, result);
+    await this.board.animateMove({
+      from: result.from,
+      to: result.to,
+      combat: result.combat,
+      outcome: result.outcome,
+      removedFrom: result.removedFrom,
+      faceHtml: faceHtml.html,
+      faceClass: faceHtml.cls
+    });
+
+    void orientationBefore; void token;
+    if (this.session === session && !session.disposed) this.render();
+  }
+
+  /** What the travelling piece looks like — concealment rules still apply. */
+  flyerHtmlFor(session, result) {
+    const viewerSeat = viewerSeatOf(session);
+    const survivor = result.survivorAt ? session.boardState[result.survivorAt] : null;
+    const moved = survivor || { side: result.actingSide, name: '', revealed: false };
+    const visible = survivor
+      ? isPieceVisibleTo(session, result.survivorAt, survivor, viewerSeat)
+      : false;
+
+    if (visible) {
+      let cls = `is-face side-${moved.side}`;
+      if (session.mode === MODES.FLIP && session.seatForSide(moved.side) === 2) cls += ' faces-top';
+      return { cls, html: moved.name };
+    }
+    return { cls: 'is-back', html: '<span class="bv-back-mark"></span>' };
+  }
+
+  /** Turn hand-over, end-of-game checks, and the Classic privacy shield. */
+  afterTurn() {
+    const session = this.session;
+    if (!session) return;
+
+    if (session.isGameOver) {
+      this.persist();
+      sounds.victory();
+      this.go(S.GAME_END);
+      return;
+    }
+
+    const res = session.endTurn();
+    this.persist();
+
+    if (res.gameOver) { sounds.victory(); this.go(S.GAME_END); return; }
+
+    if (session.mode === MODES.CLASSIC) {
+      sounds.pass();
+      this.go(S.CLASSIC_HANDOFF, { then: S.CLASSIC_PLAY, forSide: session.activeTurn, replayLastMove: true });
+      return;
+    }
+
+    if (session.mode === MODES.VS_AI && session.isAiTurn) {
+      this.render();
+      this.scheduleAiTurn();
+      return;
+    }
+
+    this.render();
+  }
+
+  /* ================================================================ *
+   * Setup controls
+   * ================================================================ */
+
+  onQuickSetup() { sounds.place(); this.session.quickSetup(); this.persist(); this.render(); }
+  onResetSetup() { sounds.tap(); this.session.resetSetup(); this.persist(); this.render(); }
+
+  onReady() {
+    const session = this.session;
+    const res = session.lockSetup();
+    if (!res.ok) {
+      sounds.invalid();
+      this.flash(res.problems[0] || t('rule.formationIllegal'));
+      return;
+    }
+    sounds.ready();
+    this.persist();
+
+    if (res.next === 'play') { this.go(S.VS_AI_PLAY); return; }
+    if (res.next === 'handoff_to_setup') {
+      this.go(S.CLASSIC_HANDOFF, { then: S.CLASSIC_P2_SETUP, forSide: 'red' });
+      return;
+    }
+    this.go(S.CLASSIC_HANDOFF, { then: S.CLASSIC_PLAY, forSide: 'navy' });
+  }
+
+  onHandoffReady() {
+    const { then, replayLastMove } = this.pending;
+    sounds.ready();
+    this.go(then || S.CLASSIC_PLAY);
+    if (replayLastMove && this.session?.lastMove) {
+      setTimeout(() => this.replayLastMove(), 220);
     }
   }
 
-  bindNavigation() {
-    const brandLink = document.getElementById('brand-header-link');
-    if (brandLink) {
-      brandLink.addEventListener('click', () => {
-        sounds.playTap();
-        window.location.hash = 'home';
-        this.switchSurface('home');
-        this.updateHomeMemoryStatus();
-      });
+  /** Replay the opponent's last move so the receiving player can follow it. */
+  async replayLastMove() {
+    const session = this.session;
+    const lm = session?.lastMove;
+    if (!lm || this.board.animating) return;
+    if (lm.reveal) { await this.board.pulse([lm.to], 'is-pulse', 620); return; }
+
+    // Put the moved piece back at its origin for the duration of the replay.
+    const survivor = lm.survivorAt ? session.boardState[lm.survivorAt] : null;
+    const viewerSeat = viewerSeatOf(session);
+    const visible = survivor ? isPieceVisibleTo(session, lm.survivorAt, survivor, viewerSeat) : false;
+    let cls = 'is-back', html = '<span class="bv-back-mark"></span>';
+    if (visible) {
+      cls = `is-face side-${survivor.side}`;
+      if (session.mode === MODES.FLIP && session.seatForSide(survivor.side) === 2) cls += ' faces-top';
+      html = survivor.name;
     }
 
-    const muteBtn = document.getElementById('btn-sound-toggle');
-    if (muteBtn) {
-      const isMuted = sounds.isMuted;
-      muteBtn.textContent = isMuted ? '🔇 Muted' : '🔊 Sound';
-      muteBtn.addEventListener('click', () => {
-        const muted = sounds.toggleMute();
-        muteBtn.textContent = muted ? '🔇 Muted' : '🔊 Sound';
-      });
+    await this.board.pulse([lm.from], 'is-replay-origin', 300);
+    if (lm.combat) sounds.battle(); else sounds.place();
+    await this.board.animateMove({
+      from: lm.from, to: lm.to,
+      combat: lm.combat,
+      outcome: lm.outcome,
+      removedFrom: [],
+      faceHtml: html, faceClass: cls
+    });
+    this.render();
+  }
+
+  /* ================================================================ *
+   * Rendering
+   * ================================================================ */
+
+  render() {
+    const st = this.state;
+    const session = this.session;
+
+    // Screens
+    $$('.screen').forEach(el => el.classList.toggle('is-active', el.dataset.screen === this.screenFor(st)));
+
+    // Dialogs
+    const dialog = this.dialogFor(st);
+    $$('.dialog').forEach(el => el.classList.toggle('is-open', el.dataset.dialog === dialog));
+    document.body.classList.toggle('has-dialog', !!dialog);
+
+    // Privacy shield
+    $('#handoff').classList.toggle('is-open', st === S.CLASSIC_HANDOFF);
+
+    // App bar
+    this.renderChrome();
+
+    if (BOARD_STATES.has(st) && session) this.renderBoard();
+    if (st === S.HOME) this.renderHome();
+    if (st === S.MODE_SELECT) this.renderModeSelect();
+    if (st === S.PLAYER_SETUP) this.renderPlayerSetup();
+    if (st === S.CLASSIC_HANDOFF) this.renderHandoff();
+    if (st === S.GAME_END) this.renderGameEnd();
+    if (st === S.GAME_LIBRARY) this.renderLibrary();
+    if (st === S.RECORD || st === S.REPLAY) this.renderRecord();
+  }
+
+  screenFor(st) {
+    if (st === S.LEARN) return 'learn';
+    if (BOARD_STATES.has(st)) return 'board';
+    return 'home';
+  }
+
+  dialogFor(st) {
+    if (st === S.MODE_SELECT) return 'mode';
+    if (st === S.PLAYER_SETUP) return 'names';
+    if (st === S.GAME_LIBRARY) return 'library';
+    if (st === S.RECORD || st === S.REPLAY) return 'record';
+    return null;
+  }
+
+  renderChrome() {
+    const st = this.state;
+    const onBoard = BOARD_STATES.has(st);
+    $('#app-bar').dataset.context = onBoard ? 'game' : 'home';
+    $('#btn-home').classList.toggle('is-hidden', !onBoard && st !== S.LEARN);
+
+    const muteBtn = $('#btn-sound');
+    muteBtn.setAttribute('aria-pressed', String(!sounds.isMuted));
+    muteBtn.querySelector('.btn-label').textContent = t(sounds.isMuted ? 'bar.soundOff' : 'bar.soundOn');
+  }
+
+  /* ---------------- home ---------------- */
+
+  renderHome() {
+    const resumable = mostRecentResumable();
+    const games = listGames();
+
+    const cont = $('#btn-continue');
+    cont.classList.toggle('is-hidden', !resumable);
+    if (resumable) {
+      $('#continue-detail').textContent =
+        `${resumable.player1Name} ${t('misc.vsSeparator')} ${resumable.player2Name} · ${modeLabel(resumable.mode)}`;
     }
 
-    const playBtn = document.getElementById('btn-play-junqi');
-    if (playBtn) {
-      playBtn.addEventListener('click', () => {
-        sounds.playTap();
-        this.showModeSelectionModal();
-      });
+    const memory = $('#home-memory');
+    if (games.length) {
+      memory.textContent = plural('home.memory', games.length);
+      memory.classList.remove('is-hidden');
+    } else {
+      memory.classList.add('is-hidden');
+    }
+  }
+
+  renderModeSelect() { /* static markup; nothing dynamic */ }
+
+  renderPlayerSetup() {
+    const mode = this.pending.mode;
+    const prefs = getPrefs();
+    const isAi = mode === MODES.VS_AI;
+
+    $('#names-title').textContent = modeLabel(mode);
+    $('#names-sub').textContent = t(isAi ? 'players.sub.ai' : 'players.sub.two');
+
+    $('#field-p2').classList.toggle('is-hidden', isAi);
+    $('#field-difficulty').classList.toggle('is-hidden', !isAi);
+
+    $('#input-p1').value = prefs.p1 || '';
+    $('#input-p2').value = prefs.p2 || '';
+    $('#input-p1').placeholder = t(isAi ? 'players.you' : 'players.p1');
+    $$('#field-difficulty .choice').forEach(b =>
+      b.classList.toggle('is-selected', b.dataset.value === (prefs.aiDifficulty || 'standard')));
+  }
+
+  renderHandoff() {
+    const session = this.session;
+    const side = this.pending.forSide || session?.activeTurn || 'navy';
+    const name = session ? session.nameForSide(side) : 'Player';
+    const isSetup = this.pending.then === S.CLASSIC_P2_SETUP;
+
+    $('#handoff-name').textContent = name;
+    $('#handoff-action').textContent = t(isSetup ? 'handoff.toSetup' : 'handoff.toPlay');
+    $('#handoff-title').textContent = t('handoff.title');
+  }
+
+  /* ---------------- board ---------------- */
+
+  renderBoard() {
+    const session = this.session;
+    const st = this.state;
+    const orientation = boardOrientationOf(session);
+    const viewerSeat = viewerSeatOf(session);
+    const isSetup = SETUP_STATES.has(st);
+
+    const legalTargets = session.selected && !isSetup ? session.legalTargetsFrom(session.selected) : [];
+
+    this.board.render(session, {
+      orientation,
+      viewerSeat,
+      legalTargets,
+      highlight: session.lastMove && !isSetup
+        ? { from: session.lastMove.from, to: session.lastMove.to }
+        : null
+    });
+
+    // Status line
+    const statusEl = $('#turn-status');
+    const dot = $('#turn-dot');
+    let label, sideClass;
+
+    if (isSetup) {
+      const side = session.setupSide;
+      sideClass = side;
+      const who = session.mode === MODES.VS_AI ? (session.player1Name || t('players.you')) : session.nameForSide(side);
+      label = t('setup.arrange', { name: who });
+    } else if (session.isGameOver) {
+      sideClass = session.winner;
+      label = t('end.wins', { name: session.winnerName });
+    } else if (session.mode === MODES.VS_AI && session.activeTurn === 'red') {
+      sideClass = 'red';
+      label = t('play.thinking', { name: session.player2Name });
+    } else if (session.mode === MODES.FLIP) {
+      const side = session.controllingSide();
+      sideClass = side || 'navy';
+      const seat = session.flipSeatTurn;
+      const who = seat === 1 ? session.player1Name : session.player2Name;
+      label = session.assignedColors.p1 ? t('play.turn', { name: who }) : t('play.flipFirst', { name: who });
+    } else {
+      const side = session.activeTurn;
+      sideClass = side;
+      label = t('play.turn', { name: session.nameForSide(side) });
     }
 
-    const resumeBtn = document.getElementById('btn-resume-junqi');
-    if (resumeBtn) {
-      resumeBtn.addEventListener('click', () => {
-        sounds.playTap();
-        const recent = getMostRecentActiveGame();
-        if (recent) {
-          this.board.loadState(recent);
-          window.location.hash = 'board';
-          this.switchSurface('board');
-        }
-      });
+    statusEl.textContent = label;
+    dot.className = `turn-dot side-${sideClass}`;
+
+    // Contextual controls
+    $('#setup-controls').classList.toggle('is-hidden', !isSetup);
+    $('#play-controls').classList.toggle('is-hidden', isSetup);
+    $('#btn-replay-move').classList.toggle('is-hidden',
+      isSetup || !session.lastMove || session.isGameOver);
+
+    const counter = $('#move-counter');
+    counter.textContent = session.history.length
+      ? t('record.moveCount', { n: session.history.length })
+      : '';
+
+    $('#board-hint').textContent = this.hintFor(session, st);
+    $('#mode-tag').textContent = modeLabel(session.mode);
+  }
+
+  hintFor(session, st) {
+    if (SETUP_STATES.has(st)) return t('setup.hint');
+    if (session.isGameOver) return '';
+    if (session.mode === MODES.FLIP && !session.assignedColors.p1) return t('play.hint.flipFirst');
+    if (session.mode === MODES.FLIP) return t('play.hint.flip');
+    if (session.selected) return t('play.hint.move');
+    return t('play.hint.select');
+  }
+
+  renderGameEnd() {
+    this.renderBoard();
+    const session = this.session;
+    $('#end-winner').textContent = t('end.wins', { name: session.winnerName });
+    $('#end-detail').textContent = t('end.detail', {
+      p1: session.player1Name, p2: session.player2Name, n: session.history.length });
+    $('#end-reason').textContent = t(session.winReason === 'flag' ? 'end.byFlag' : 'end.byImmobile');
+    $('#game-end').classList.add('is-open');
+  }
+
+  /* ---------------- library / record ---------------- */
+
+  renderLibrary() {
+    const list = $('#library-list');
+    const games = listGames();
+    list.innerHTML = '';
+
+    if (!games.length) {
+      list.innerHTML = `<p class="empty-note">${t('library.empty')}</p>`;
+      return;
     }
 
-    const gamesBtn = document.getElementById('btn-games-library');
-    if (gamesBtn) {
-      gamesBtn.addEventListener('click', () => {
-        sounds.playTap();
-        this.showGamesLibraryModal();
-      });
-    }
+    for (const g of games) {
+      const item = document.createElement('article');
+      item.className = 'game-row';
+      const finished = g.status === 'finished';
+      const winner = finished
+        ? (g.winner === 'navy' ? g.player1Name : g.player2Name)
+        : null;
 
-    const learnBtn = document.getElementById('btn-learn-rules');
-    if (learnBtn) {
-      learnBtn.addEventListener('click', () => {
-        sounds.playTap();
-        window.location.hash = 'learn';
-        this.switchSurface('learn');
-      });
-    }
+      const meta = [
+        formatFriendlyDate(g.updatedAt),
+        plural('library.moves', g.moveCount),
+        finished ? t('library.won', { name: winner }) : t('library.inProgress')
+      ].join(' · ');
 
-    const boardRulesBtn = document.getElementById('btn-board-rules');
-    if (boardRulesBtn) {
-      boardRulesBtn.addEventListener('click', () => {
-        sounds.playTap();
-        window.location.hash = 'learn';
-        this.switchSurface('learn');
-      });
-    }
+      item.innerHTML = `
+        <div class="game-row-main">
+          <p class="game-row-players">${escapeHtml(g.player1Name)} <span>${t('misc.vsSeparator')}</span> ${escapeHtml(g.player2Name)}</p>
+          <p class="game-row-meta">${escapeHtml(modeLabel(g.mode))} · ${escapeHtml(meta)}</p>
+        </div>
+        <div class="game-row-actions"></div>`;
 
-    const boardHintBtn = document.getElementById('btn-board-hint');
-    if (boardHintBtn) {
-      boardHintBtn.addEventListener('click', () => {
-        sounds.playTap();
-        showHint('ENGINEER_RAILWAY');
-      });
-    }
-
-    const boardMenuBtn = document.getElementById('btn-board-menu');
-    if (boardMenuBtn) {
-      boardMenuBtn.addEventListener('click', () => {
-        sounds.playTap();
-        window.location.hash = 'home';
-        this.switchSurface('home');
-        this.updateHomeMemoryStatus();
-      });
-    }
-
-    const passBtn = document.getElementById('btn-trigger-pass');
-    if (passBtn) {
-      passBtn.addEventListener('click', () => {
-        sounds.playTap();
-        const nextName = this.board.activeTurn === 'navy' ? this.board.player2Name : this.board.player1Name;
-        window.location.hash = 'pass-ipad';
-        this.passManager.triggerTransition(nextName, () => {
-          this.board.activeTurn = this.board.activeTurn === 'navy' ? 'red' : 'navy';
-          this.board.saveState();
-          this.board.render();
+      const actions = item.querySelector('.game-row-actions');
+      if (!finished) actions.appendChild(this.rowButton(t('library.resume'), 'primary', () => this.resumeGame(g.gameId)));
+      if (finished) actions.appendChild(this.rowButton(t('library.record'), 'quiet', () => this.openRecord(g.gameId)));
+      actions.appendChild(this.rowButton(t('library.again'), 'quiet', () => {
+        this.startGame(g.mode, {
+          player1Name: g.player1Name, player2Name: g.player2Name, aiDifficulty: g.aiDifficulty
         });
-      });
-    }
+      }));
+      actions.appendChild(this.rowButton(t('library.delete'), 'danger', () => {
+        this.confirmDelete(g);
+      }));
 
-    const learnBackBtn = document.getElementById('btn-learn-back');
-    if (learnBackBtn) {
-      learnBackBtn.addEventListener('click', () => {
-        sounds.playTap();
-        window.location.hash = 'board';
-        this.switchSurface('board');
-      });
-    }
-
-    this.bindModeModalListeners();
-    this.bindNameModalListeners();
-    this.bindLibraryModalListeners();
-    this.bindRecordModalListeners();
-  }
-
-  showModeSelectionModal() {
-    const modal = document.getElementById('mode-selection-modal');
-    if (modal) modal.classList.add('active');
-  }
-
-  hideModeSelectionModal() {
-    const modal = document.getElementById('mode-selection-modal');
-    if (modal) modal.classList.remove('active');
-  }
-
-  bindModeModalListeners() {
-    const closeBtn = document.getElementById('btn-close-mode-modal');
-    if (closeBtn) closeBtn.addEventListener('click', () => this.hideModeSelectionModal());
-
-    const modeVsComp = document.getElementById('btn-mode-vs-comp');
-    if (modeVsComp) {
-      modeVsComp.addEventListener('click', () => {
-        sounds.playTap();
-        this.hideModeSelectionModal();
-        this.showNameSetupModal('vs_computer');
-      });
-    }
-
-    const modeClassic = document.getElementById('btn-mode-2p-classic');
-    if (modeClassic) {
-      modeClassic.addEventListener('click', () => {
-        sounds.playTap();
-        this.hideModeSelectionModal();
-        this.showNameSetupModal('classic');
-      });
-    }
-
-    const modeFlip = document.getElementById('btn-mode-2p-flip');
-    if (modeFlip) {
-      modeFlip.addEventListener('click', () => {
-        sounds.playTap();
-        this.hideModeSelectionModal();
-        this.showNameSetupModal('flip');
-      });
+      list.appendChild(item);
     }
   }
 
-  showNameSetupModal(mode) {
-    this.pendingMode = mode;
-    const modal = document.getElementById('player-names-modal');
-    const titleEl = document.getElementById('name-modal-title');
-    const p1Input = document.getElementById('input-p1-name');
-    const p2Input = document.getElementById('input-p2-name');
-    const p2Group = document.getElementById('group-p2-name');
-    const aiGroup = document.getElementById('group-ai-difficulty');
+  rowButton(label, kind, onClick) {
+    const b = document.createElement('button');
+    b.className = `row-btn ${kind}`;
+    b.type = 'button';
+    b.textContent = label;
+    b.addEventListener('click', () => { sounds.tap(); onClick(); });
+    return b;
+  }
 
-    const lastNames = getLastUsedNames();
+  confirmDelete(g) {
+    this._confirmTarget = g.gameId;
+    $('#confirm-text').textContent = t('library.deleteAsk', { p1: g.player1Name, p2: g.player2Name });
+    $('#confirm').classList.add('is-open');
+  }
 
-    if (mode === 'vs_computer') {
-      titleEl.textContent = 'Vs Computer Setup';
-      p1Input.value = lastNames.human || 'Caesar';
-      p2Group.style.display = 'none';
-      aiGroup.style.display = 'flex';
+  openRecord(gameId) {
+    const rec = loadGame(gameId);
+    if (!rec) return;
+    this.replay = { rec, step: 0, timer: null, board: null };
+    this.go(S.RECORD);
+  }
+
+  renderRecord() {
+    const { rec } = this.replay;
+    $('#record-title').textContent = `${rec.player1Name} ${t('misc.vsSeparator')} ${rec.player2Name}`;
+    $('#record-meta').textContent = [
+      modeLabel(rec.mode),
+      formatFriendlyDate(rec.startedAt),
+      plural('library.moves', rec.moveCount),
+      rec.status === 'finished'
+        ? t('library.won', { name: rec.winner === 'navy' ? rec.player1Name : rec.player2Name })
+        : t('record.unfinished')
+    ].join(' · ');
+
+    const list = $('#record-moves');
+    list.innerHTML = '';
+    const moves = rec.history || [];
+    if (!moves.length) {
+      list.innerHTML = `<p class="empty-note">${t('record.noMoves')}</p>`;
     } else {
-      titleEl.textContent = '2 Players Setup';
-      p1Input.value = lastNames.p1 || 'Caesar';
-      p2Input.value = lastNames.p2 || 'Daddy';
-      p2Group.style.display = 'flex';
-      aiGroup.style.display = 'none';
+      moves.forEach((m, i) => {
+        const row = document.createElement('div');
+        row.className = 'record-move';
+        row.classList.toggle('is-current', i + 1 === this.replay.step);
+        row.innerHTML =
+          `<span class="rm-n">${m.n}</span>` +
+          `<span class="rm-who side-${m.side}">${escapeHtml(m.name)}</span>` +
+          `<span class="rm-text">${escapeHtml(m.text)}</span>`;
+        row.addEventListener('click', () => this.replaySeek(i + 1));
+        list.appendChild(row);
+      });
     }
 
-    if (modal) modal.classList.add('active');
+    $('#replay-step').textContent = t('record.step', { n: this.replay.step, total: moves.length });
+    $('#btn-replay-play').textContent = t(this.replay.timer ? 'record.pause' : 'record.play');
+    this.renderReplayBoard();
   }
 
-  hideNameSetupModal() {
-    const modal = document.getElementById('player-names-modal');
-    if (modal) modal.classList.remove('active');
+  /** Rebuild the position at `step` from the opening board plus history. */
+  replayPositionAt(step) {
+    const { rec } = this.replay;
+    if (!rec.openingBoard) return null;
+    const board = JSON.parse(JSON.stringify(rec.openingBoard));
+    const moves = (rec.history || []).slice(0, step);
+
+    for (const m of moves) {
+      if (m.reveal) { if (board[m.from]) board[m.from].revealed = true; continue; }
+      const attacker = board[m.from];
+      const defender = board[m.to];
+      if (!attacker) continue;
+      if (!defender) { board[m.to] = attacker; delete board[m.from]; continue; }
+      if (m.outcome === COMBAT.ATTACKER_WINS) { board[m.to] = attacker; delete board[m.from]; }
+      else if (m.outcome === COMBAT.DEFENDER_WINS) { delete board[m.from]; }
+      else { delete board[m.from]; delete board[m.to]; }
+      if (rec.mode === MODES.FLIP && board[m.to]) board[m.to].revealed = true;
+    }
+    return board;
   }
 
-  bindNameModalListeners() {
-    const closeBtn = document.getElementById('btn-close-name-modal');
-    if (closeBtn) closeBtn.addEventListener('click', () => this.hideNameSetupModal());
+  renderReplayBoard() {
+    const mount = $('#replay-board');
+    const { rec, step } = this.replay;
+    const board = this.replayPositionAt(step);
 
-    const confirmBtn = document.getElementById('btn-start-game-confirm');
-    if (confirmBtn) {
-      confirmBtn.addEventListener('click', () => {
-        sounds.playTap();
-        const p1Name = document.getElementById('input-p1-name').value.trim() || 'Caesar';
-        const p2Name = document.getElementById('input-p2-name').value.trim() || 'Daddy';
-        const aiDiff = document.getElementById('select-ai-difficulty').value;
+    if (!board) {
+      mount.innerHTML = `<p class="empty-note">${t('record.unavailable')}</p>`;
+      return;
+    }
 
-        if (this.pendingMode === 'vs_computer') {
-          saveLastUsedNames({ human: p1Name, p1: p1Name });
-          this.board.startNewGame('vs_computer', {
-            player1Name: p1Name,
-            player2Name: 'Computer',
-            humanName: p1Name,
-            aiDifficulty: aiDiff
-          });
-        } else {
-          saveLastUsedNames({ p1: p1Name, p2: p2Name });
-          this.board.startNewGame(this.pendingMode, {
-            player1Name: p1Name,
-            player2Name: p2Name,
-            humanName: p1Name
-          });
+    if (!this.replay.view) {
+      mount.innerHTML = '';
+      this.replay.view = new BoardView(mount, { onNodeTap: () => {} });
+    }
+
+    // Replay stays privacy-safe: identities that were never public stay hidden.
+    const shadow = GameSession.fromRecord({ ...rec, boardState: board });
+    shadow.openingBoard = rec.openingBoard;
+    const move = (rec.history || [])[step - 1];
+
+    // Vs Computer: the human always knew their own army, so showing it back to
+    // them leaks nothing and makes the record readable. Two-player games stay
+    // fully concealed — either army would leak to the other player.
+    const viewerSeat = rec.mode === MODES.VS_AI ? 1 : 0;
+
+    this.replay.view.render(shadow, {
+      orientation: 'navy_bottom',
+      viewerSeat,
+      legalTargets: [],
+      highlight: move ? { from: move.from, to: move.to } : null
+    });
+  }
+
+  replaySeek(step) {
+    const total = (this.replay.rec.history || []).length;
+    this.replay.step = Math.max(0, Math.min(total, step));
+    this.renderRecord();
+  }
+
+  replayToggle() {
+    const total = (this.replay.rec.history || []).length;
+    if (this.replay.timer) {
+      clearInterval(this.replay.timer);
+      this.replay.timer = null;
+    } else {
+      this.replay.timer = setInterval(() => {
+        if (this.replay.step >= total) {
+          clearInterval(this.replay.timer);
+          this.replay.timer = null;
+          this.renderRecord();
+          return;
         }
-
-        this.hideNameSetupModal();
-        window.location.hash = 'board';
-        this.switchSurface('board');
-        this.updateHomeMemoryStatus();
-      });
+        this.replay.step += 1;
+        this.renderRecord();
+      }, 900);
     }
+    this.renderRecord();
   }
 
-  showGamesLibraryModal() {
-    const modal = document.getElementById('games-library-modal');
-    const container = document.getElementById('games-list-container');
-    if (!modal || !container) return;
+  closeRecord() {
+    if (this.replay?.timer) clearInterval(this.replay.timer);
+    if (this.replay?.view) this.replay.view.destroy();
+    this.replay = null;
+    this.go(S.GAME_LIBRARY);
+  }
 
-    const lib = getLibrary();
-    container.innerHTML = '';
+  /* ================================================================ *
+   * Chrome bindings
+   * ================================================================ */
 
-    if (!lib.games || lib.games.length === 0) {
-      container.innerHTML = `<p style="text-align: center; padding: 24px; color: var(--color-text-muted);">No recorded games yet. Play your first match!</p>`;
-    } else {
-      lib.games.forEach(g => {
-        const item = document.createElement('div');
-        item.className = 'game-item-card';
+  flash(message) {
+    const el = $('#toast');
+    el.textContent = message;
+    el.classList.add('is-visible');
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => el.classList.remove('is-visible'), 2600);
+  }
 
-        const modeName = g.mode === 'vs_computer' ? 'Vs Computer' : (g.mode === 'classic' ? 'Classic' : 'Flip');
-        const dateStr = formatFriendlyDate(g.updatedAt);
-        const pTitle = `${g.player1Name} vs ${g.player2Name}`;
-        const winnerBadge = g.status === 'Finished' ? ` · Winner: ${g.winner === 'navy' ? g.player1Name : g.player2Name}` : '';
-
-        item.innerHTML = `
-          <div class="game-item-details">
-            <div class="game-item-title-row">
-              <span class="game-item-players">${pTitle}</span>
-              <span class="game-item-mode-badge">${modeName}</span>
-            </div>
-            <div class="game-item-meta">${dateStr} · ${g.moveCount} moves · <strong>${g.status}</strong>${winnerBadge}</div>
-          </div>
-          <div class="game-item-actions">
-            ${g.status === 'In Progress' ? `<button class="btn-item-action primary btn-lib-resume" data-id="${g.gameId}">Resume</button>` : ''}
-            ${g.status === 'Finished' ? `<button class="btn-item-action btn-lib-record" data-id="${g.gameId}">View Record</button>` : ''}
-            <button class="btn-item-action btn-lib-again" data-id="${g.gameId}">Play Again</button>
-            <button class="btn-item-action danger btn-lib-delete" data-id="${g.gameId}">Delete</button>
-          </div>
-        `;
-
-        container.appendChild(item);
+  bindChrome() {
+    const on = (sel, fn, { silent = false } = {}) => {
+      const el = $(sel);
+      if (!el) return;
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (!silent) sounds.tap();
+        fn(e);
       });
+    };
 
-      // Bind dynamic item buttons
-      container.querySelectorAll('.btn-lib-resume').forEach(b => {
-        b.onclick = () => {
-          sounds.playTap();
-          const game = loadGameById(b.dataset.id);
-          if (game) {
-            this.board.loadState(game);
-            this.hideGamesLibraryModal();
-            window.location.hash = 'board';
-            this.switchSurface('board');
-          }
-        };
+    // First gesture unlocks audio on iOS.
+    document.addEventListener('pointerdown', () => sounds.unlock(), { once: true });
+
+    on('#btn-sound', () => {
+      sounds.setMuted(!sounds.isMuted);
+      if (!sounds.isMuted) sounds.tap();
+      this.renderChrome();
+    }, { silent: true });
+
+    on('#brand', () => this.goHome());
+    on('#btn-home', () => this.goHome());
+
+    on('#btn-play', () => this.go(S.MODE_SELECT));
+    on('#btn-continue', () => { if (!this.resumeGame(null)) this.flash(t('misc.noContinue')); });
+    on('#btn-games', () => this.go(S.GAME_LIBRARY));
+    on('#btn-learn', () => this.go(S.LEARN));
+    on('#btn-learn-back', () => this.goHome());
+
+    $$('[data-mode]').forEach(card => {
+      card.addEventListener('click', () => {
+        sounds.tap();
+        this.go(S.PLAYER_SETUP, { mode: card.dataset.mode });
       });
+    });
 
-      container.querySelectorAll('.btn-lib-record').forEach(b => {
-        b.onclick = () => {
-          sounds.playTap();
-          this.hideGamesLibraryModal();
-          this.showGameRecord(b.dataset.id);
-        };
+    on('#btn-close-mode', () => this.go(S.HOME));
+    on('#btn-close-names', () => this.go(S.MODE_SELECT));
+    on('#btn-close-library', () => this.goHome());
+    on('#btn-close-record', () => this.closeRecord());
+
+    $$('#field-difficulty .choice').forEach(b => {
+      b.addEventListener('click', () => {
+        sounds.tap();
+        $$('#field-difficulty .choice').forEach(x => x.classList.remove('is-selected'));
+        b.classList.add('is-selected');
       });
+    });
 
-      container.querySelectorAll('.btn-lib-again').forEach(b => {
-        b.onclick = () => {
-          sounds.playTap();
-          const game = loadGameById(b.dataset.id);
-          if (game) {
-            this.hideGamesLibraryModal();
-            this.board.startNewGame(game.mode, {
-              player1Name: game.player1Name,
-              player2Name: game.player2Name,
-              humanName: game.humanName,
-              aiDifficulty: game.aiDifficulty
-            });
-            window.location.hash = 'board';
-            this.switchSurface('board');
-          }
-        };
+    on('#btn-start-match', () => this.confirmPlayers());
+
+    on('#btn-quick-setup', () => this.onQuickSetup(), { silent: true });
+    on('#btn-reset-setup', () => this.onResetSetup(), { silent: true });
+    on('#btn-ready', () => this.onReady(), { silent: true });
+
+    on('#btn-handoff-ready', () => this.onHandoffReady(), { silent: true });
+    on('#btn-replay-move', () => this.replayLastMove(), { silent: true });
+
+    on('#btn-end-again', () => {
+      const s = this.session;
+      this.startGame(s.mode, {
+        player1Name: s.player1Name, player2Name: s.player2Name, aiDifficulty: s.aiDifficulty
       });
+    });
+    on('#btn-end-record', () => {
+      $('#game-end').classList.remove('is-open');
+      this.openRecord(this.session.gameId);
+    });
+    on('#btn-end-home', () => this.goHome());
 
-      container.querySelectorAll('.btn-lib-delete').forEach(b => {
-        b.onclick = () => {
-          if (confirm('Delete this game record?')) {
-            sounds.playTap();
-            deleteGameById(b.dataset.id);
-            this.showGamesLibraryModal();
-            this.updateHomeMemoryStatus();
-          }
-        };
+    on('#btn-replay-prev', () => this.replaySeek(this.replay.step - 1), { silent: true });
+    on('#btn-replay-next', () => this.replaySeek(this.replay.step + 1), { silent: true });
+    on('#btn-replay-play', () => this.replayToggle(), { silent: true });
+
+    on('#btn-confirm-cancel', () => $('#confirm').classList.remove('is-open'));
+    on('#btn-confirm-ok', () => {
+      if (this._confirmTarget) deleteGame(this._confirmTarget);
+      this._confirmTarget = null;
+      $('#confirm').classList.remove('is-open');
+      this.renderLibrary();
+    });
+
+    // Backdrop dismissal for dialogs that are safe to close.
+    $$('.dialog').forEach(d => {
+      d.addEventListener('click', (e) => {
+        if (e.target !== d) return;
+        if (d.dataset.dialog === 'mode') this.go(S.HOME);
+        else if (d.dataset.dialog === 'names') this.go(S.MODE_SELECT);
+        else if (d.dataset.dialog === 'library') this.goHome();
+        else if (d.dataset.dialog === 'record') this.closeRecord();
       });
-    }
+    });
 
-    modal.classList.add('active');
+    localizeDom();
+    $('#build-tag').textContent = BUILD.version;
+    $('#learn-build').textContent = `${BUILD.version} · ${BUILD.date}`;
   }
 
-  hideGamesLibraryModal() {
-    const modal = document.getElementById('games-library-modal');
-    if (modal) modal.classList.remove('active');
+  confirmPlayers() {
+    const mode = this.pending.mode;
+    const isAi = mode === MODES.VS_AI;
+    const p1 = ($('#input-p1').value || '').trim() || t(isAi ? 'players.you' : 'players.p1');
+    const p2 = isAi ? t('players.computer') : (($('#input-p2').value || '').trim() || t('players.p2'));
+    const difficulty = $('#field-difficulty .choice.is-selected')?.dataset.value || 'standard';
+
+    savePrefs({ p1, p2: isAi ? getPrefs().p2 : p2, aiDifficulty: difficulty });
+    this.startGame(mode, { player1Name: p1, player2Name: p2, aiDifficulty: difficulty });
   }
 
-  bindLibraryModalListeners() {
-    const closeBtn = document.getElementById('btn-close-library-modal');
-    if (closeBtn) closeBtn.addEventListener('click', () => this.hideGamesLibraryModal());
-  }
-
-  showGameRecord(gameId) {
-    const game = loadGameById(gameId);
-    if (!game) return;
-
-    this.replayGame = game;
-    this.replayStep = 0;
-
-    const modal = document.getElementById('game-record-modal');
-    const titleEl = document.getElementById('record-modal-title');
-    const metaBar = document.getElementById('record-meta-bar');
-    const historyList = document.getElementById('record-history-list');
-
-    titleEl.textContent = `${game.player1Name} vs ${game.player2Name} — Match Record`;
-    const modeName = game.mode === 'vs_computer' ? 'Vs Computer' : (game.mode === 'classic' ? 'Classic' : 'Flip');
-    metaBar.innerHTML = `<span>Mode: <strong>${modeName}</strong></span> <span>Date: <strong>${formatFriendlyDate(game.startedAt)}</strong></span> <span>Status: <strong>${game.status}</strong></span>`;
-
-    // Render public history table
-    let html = `<table class="history-table"><thead><tr><th>Move #</th><th>Player</th><th>Action</th><th>Details</th></tr></thead><tbody>`;
-    if (!game.turnHistory || game.turnHistory.length === 0) {
-      html += `<tr><td colspan="4" style="text-align: center;">No moves recorded.</td></tr>`;
-    } else {
-      game.turnHistory.forEach((h, idx) => {
-        html += `<tr><td>${idx + 1}</td><td>${h.playerName}</td><td>${h.from} → ${h.to}</td><td>${h.summaryText}</td></tr>`;
-      });
-    }
-    html += `</tbody></table>`;
-    historyList.innerHTML = html;
-
-    this.updateReplayStepLabel();
-    if (modal) modal.classList.add('active');
-  }
-
-  hideGameRecordModal() {
-    const modal = document.getElementById('game-record-modal');
-    if (modal) modal.classList.remove('active');
-    if (this.replayTimer) clearInterval(this.replayTimer);
-  }
-
-  updateReplayStepLabel() {
-    const label = document.getElementById('replay-step-label');
-    if (!label || !this.replayGame) return;
-    const total = (this.replayGame.turnHistory || []).length;
-    label.textContent = `Move ${this.replayStep} / ${total}`;
-  }
-
-  bindRecordModalListeners() {
-    const closeBtn = document.getElementById('btn-close-record-modal');
-    if (closeBtn) closeBtn.addEventListener('click', () => this.hideGameRecordModal());
-
-    const prevBtn = document.getElementById('btn-replay-prev');
-    const nextBtn = document.getElementById('btn-replay-next');
-    const playBtn = document.getElementById('btn-replay-play');
-
-    if (prevBtn) {
-      prevBtn.onclick = () => {
-        sounds.playTap();
-        if (this.replayStep > 0) this.replayStep--;
-        this.updateReplayStepLabel();
-      };
-    }
-
-    if (nextBtn) {
-      nextBtn.onclick = () => {
-        sounds.playTap();
-        const total = (this.replayGame.turnHistory || []).length;
-        if (this.replayStep < total) this.replayStep++;
-        this.updateReplayStepLabel();
-      };
-    }
-
-    if (playBtn) {
-      playBtn.onclick = () => {
-        sounds.playTap();
-        const total = (this.replayGame.turnHistory || []).length;
-        if (this.replayTimer) {
-          clearInterval(this.replayTimer);
-          this.replayTimer = null;
-          playBtn.textContent = '▶ Play';
-        } else {
-          playBtn.textContent = '⏸ Pause';
-          this.replayTimer = setInterval(() => {
-            if (this.replayStep < total) {
-              this.replayStep++;
-              this.updateReplayStepLabel();
-            } else {
-              clearInterval(this.replayTimer);
-              this.replayTimer = null;
-              playBtn.textContent = '▶ Play';
-            }
-          }, 1200);
-        }
-      };
-    }
+  goHome() {
+    $('#game-end').classList.remove('is-open');
+    if (this.replay?.timer) clearInterval(this.replay.timer);
+    if (this.replay?.view) this.replay.view.destroy();
+    this.replay = null;
+    this.leaveSession();
+    this.go(S.HOME);
   }
 }
 
-function bootstrapApp() {
-  if (!window.caesarApp) {
-    window.caesarApp = new AppController();
-    console.log('[Caesar Games] AppController successfully initialized!');
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/* ------------------------------------------------------------------ */
+
+function boot() {
+  if (window.caesarApp) return;
+  window.caesarApp = new App();
+  window.CaesarDebug = { S, MODES, PIECE_TYPES };
+  console.log(`[Caesar Games] ${BUILD.version} ready`);
+
+  // Visual-audit hook. Only ever active with an explicit ?state= parameter,
+  // so it costs nothing in normal use but keeps screenshot review repeatable.
+  const wanted = new URLSearchParams(location.search).get('state');
+  if (wanted) {
+    import('../tests/states.js')
+      .then(m => m.goto(wanted))
+      .then(() => { window.__stateReady = true; })
+      .catch(err => { window.__stateError = String(err); console.error('[state]', err); });
   }
 }
 
-if (document.readyState === 'loading') {
-  window.addEventListener('DOMContentLoaded', bootstrapApp);
-} else {
-  bootstrapApp();
-}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();

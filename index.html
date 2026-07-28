@@ -1,302 +1,297 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Caesar Games — Love & Play</title>
-  <meta name="description" content="Caesar Games: A quiet, refined collection of tabletop board games designed for shared iPad play. Featuring Chinese Junqi / 陆战棋.">
-  
-  <!-- Apple iOS Standalone Web App Meta Tags & PWA Manifest -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Caesar Games">
-  <link rel="apple-touch-icon" href="assets/cd_home_mark_transparent.png">
-  <link rel="manifest" href="manifest.json">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>Caesar Games — Love &amp; Play</title>
+<meta name="description" content="Caesar Games — a quiet tabletop collection for shared iPad play. Chinese Junqi (陆战棋).">
 
-  <link rel="stylesheet" href="css/variables.css">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/board.css">
-  <link rel="stylesheet" href="css/learn.css">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Caesar Games">
+<meta name="theme-color" content="#12243F">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="assets/icon-167.png">
+<link rel="apple-touch-icon" sizes="152x152" href="assets/icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="assets/icon-120.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+<link rel="manifest" href="manifest.json">
+
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/board.css">
 </head>
 <body>
-  <div id="app">
-    <!-- App Header & Brand Bar -->
-    <header class="app-header">
-      <div class="brand-container" id="brand-header-link" title="Caesar Games Home">
-        <img src="assets/cd_home_mark_transparent.png" alt="CD Logo" class="cd-brand-logo">
-        <div class="brand-text">
-          <span class="brand-title">Caesar Games</span>
-          <span class="brand-subtitle">Love & Play</span>
-        </div>
-      </div>
-      <div class="header-controls-right">
-        <button id="btn-sound-toggle" class="btn-sound">🔊 Sound</button>
-      </div>
-    </header>
 
-    <!-- Surface 1: HOME -->
-    <main id="surface-home" class="surface-view home-surface active">
-      <div class="home-hero">
-        <div class="brand-presence-tag">Tabletop Collection</div>
-        <h1>陆战棋 · Junqi</h1>
-      </div>
+<header id="app-bar" data-context="home">
+  <button id="brand" class="brand" type="button" aria-label="Caesar Games home">
+    <img src="assets/cd_home_mark_transparent.png" alt="" class="brand-mark">
+    <span class="brand-text">
+      <span class="brand-name" data-i18n="brand.name">Caesar Games</span>
+      <span class="brand-tagline" data-i18n="brand.tagline">Love &amp; Play</span>
+    </span>
+  </button>
 
-      <!-- Playable Game Surface Card -->
-      <div class="game-library single-game">
-        <div class="game-card featured-v1">
-          <div class="game-card-preview">
-            <div class="card-preview-art">
-              <div class="mock-piece-preview navy">司令</div>
-              <span class="preview-vs-divider">·</span>
-              <div class="mock-piece-preview red">军长</div>
-            </div>
-          </div>
-          <div class="game-card-info">
-            <h2>Chinese Junqi</h2>
-            <p>Tactical tabletop strategy for iPad. Secrecy, railway blitzes, and campsite maneuvers.</p>
-            <div id="home-memory-status" class="home-memory-line" style="display: none;"></div>
-          </div>
-          <div class="game-card-actions">
-            <button id="btn-play-junqi" class="btn btn-primary">Play</button>
-            <button id="btn-resume-junqi" class="btn btn-gold" style="display: none;">Continue</button>
-            <button id="btn-games-library" class="btn btn-secondary">Games</button>
-            <button id="btn-learn-rules" class="btn btn-secondary">Learn</button>
-          </div>
-        </div>
-      </div>
+  <div class="bar-right">
+    <span id="mode-tag" class="mode-tag"></span>
+    <button id="btn-sound" class="bar-btn" type="button" aria-pressed="true">
+      <span class="btn-icon" aria-hidden="true"></span>
+      <span class="btn-label" data-i18n="bar.soundOn">Sound on</span>
+    </button>
+    <button id="btn-home" class="bar-btn is-hidden" type="button">
+      <span class="btn-label" data-i18n="bar.home">Home</span>
+    </button>
+  </div>
+</header>
 
-      <!-- Restrained First Game Personal Touch Footer with v1.0.3 Build Tag -->
-      <footer class="home-personal-footer">
-        <span>Caesar Games · Love & Play · v1.0.3 · Since 2026</span>
-      </footer>
-    </main>
+<!-- ============================ HOME ============================ -->
+<main class="screen is-active" data-screen="home">
+  <div class="home">
+    <img src="assets/cd_home_mark_transparent.png" alt="" class="home-mark">
+    <h1 class="home-title" data-i18n="brand.name">Caesar Games</h1>
+    <p class="home-tagline" data-i18n="brand.tagline">Love &amp; Play</p>
 
-    <!-- Surface 2: JUNQI GAME BOARD -->
-    <main id="surface-board" class="surface-view board-surface">
-      <!-- Board Header Controls -->
-      <div class="board-header-controls">
-        <div class="player-status-badge" id="player-status-badge">
-          <span class="status-dot navy" id="status-dot"></span>
-          <span id="player-turn-label">Your Turn (Navy)</span>
-        </div>
-        <div class="board-actions-group">
-          <button id="btn-board-hint" class="btn-ctrl">💡 Hint</button>
-          <button id="btn-trigger-pass" class="btn-ctrl">🔄 Pass iPad</button>
-          <button id="btn-board-rules" class="btn-ctrl">📖 Rules</button>
-          <button id="btn-board-menu" class="btn-ctrl">🏠 Home</button>
-        </div>
-      </div>
+    <p class="home-game">Junqi <span>陆战棋</span></p>
 
-      <!-- Board Mount Container -->
-      <div class="board-container-wrapper" id="junqi-board-mount">
-        <!-- Rendered via js/board.js -->
-      </div>
-    </main>
-
-    <!-- Surface 3: LEARN / RULES & PRACTICE -->
-    <main id="surface-learn" class="surface-view">
-      <div class="learn-container">
-        <div class="learn-header">
-          <div>
-            <h2>Junqi Rules & Interactive Practice</h2>
-            <p style="font-size: 14px; color: var(--color-text-muted);">Master piece ranks, railway movements, campsite protections, and Flip mode rules.</p>
-          </div>
-          <button id="btn-learn-back" class="btn btn-primary">Return to Game</button>
-        </div>
-
-        <!-- Interactive Practice Mini-Board Module -->
-        <div id="practice-board-mount" class="practice-section"></div>
-
-        <div class="learn-grid">
-          <div class="learn-card">
-            <h3>🎖 Rank Hierarchy (大官吃小官)</h3>
-            <p>Higher ranking pieces capture lower ranking opponent pieces upon collision.</p>
-            <div class="rank-hierarchy-list">
-              <div class="rank-item"><span class="rank-name">司令 (Field Marshal)</span><span class="rank-stars">★★★★</span></div>
-              <div class="rank-item"><span class="rank-name">军长 (Corps Commander)</span><span class="rank-stars">★★★</span></div>
-              <div class="rank-item"><span class="rank-name">师长 (Division Commander)</span><span class="rank-stars">★★</span></div>
-              <div class="rank-item"><span class="rank-name">旅长 (Brigade Commander)</span><span class="rank-stars">★</span></div>
-              <div class="rank-item"><span class="rank-name">团长 > 营长 > 连长 > 排长 > 工兵</span></div>
-            </div>
-          </div>
-
-          <div class="learn-card">
-            <h3>🚂 Roads vs Railways (公路与铁路)</h3>
-            <p>公路 (Roads): 1 step in any connected direction.<br>铁路 (Railways): Move straight along clear tracks. Only 工兵 (Engineer) can turn corners along connected tracks!</p>
-            <div class="mini-diagram">
-              <div class="diagram-rail-line"></div>
-              <div class="diagram-piece-node">工兵</div>
-            </div>
-          </div>
-
-          <div class="learn-card">
-            <h3>💣 Mines, Bombs & Camps (地雷、炸弹与行营)</h3>
-            <p><strong>地雷 (Mine):</strong> Static defense. Defeats all attackers except 工兵 or 炸弹.<br><strong>炸弹 (Bomb):</strong> Mutual destruction with any piece.<br><strong>行营 (Campsite):</strong> Safe haven! Pieces inside cannot be attacked.</p>
-          </div>
-
-          <div class="learn-card">
-            <h3>🔄 Flip Mode Rules (翻棋模式)</h3>
-            <p>Travel-friendly shared screen mode. 50 pieces shuffled face down. First reveal locks your army color. Per turn: Reveal 1 piece OR move 1 revealed piece.</p>
-          </div>
-        </div>
-
-        <div class="learn-footer-touch">
-          <span>Made for Caesar · v1.0.3 · 2026</span>
-        </div>
-      </div>
-    </main>
-
-    <!-- Surface 4: PASS THE IPAD (Privacy Shield) -->
-    <div id="surface-pass-ipad" class="pass-ipad-surface" style="display: none;">
-      <div class="pass-ipad-card">
-        <div class="pass-icon-ring">
-          <img src="assets/cd_home_mark_transparent.png" alt="CD Logo" style="width: 48px; height: 48px; object-fit: contain;">
-        </div>
-        <h2 id="pass-ipad-title">Player 2's Turn</h2>
-        <p id="pass-ipad-desc">Please pass the iPad to Player 2. Hidden piece secrecy is fully protected.</p>
-        <button id="btn-pass-ready" class="btn btn-gold" style="padding: 16px 36px; font-size: 17px;">I'm Ready</button>
+    <div class="home-actions">
+      <button id="btn-play" class="btn btn-primary" type="button" data-i18n="home.play">Play</button>
+      <button id="btn-continue" class="btn btn-continue is-hidden" type="button">
+        <span data-i18n="home.continue">Continue</span>
+        <small id="continue-detail"></small>
+      </button>
+      <div class="home-actions-quiet">
+        <button id="btn-games" class="btn btn-quiet" type="button" data-i18n="home.games">Games</button>
+        <button id="btn-learn" class="btn btn-quiet" type="button" data-i18n="home.learn">Learn</button>
       </div>
     </div>
 
-    <!-- Modal 1: Mode Selection Modal Dialog -->
-    <div id="mode-selection-modal" class="mode-modal-backdrop">
-      <div class="mode-modal-card">
-        <div class="mode-modal-header">
-          <h2>Select Game Mode</h2>
-          <button id="btn-close-mode-modal" class="btn-close-x">✕</button>
-        </div>
-        <div class="mode-options-grid">
-          <div id="btn-mode-vs-comp" class="mode-option-card">
-            <div class="mode-icon">🤖</div>
-            <h3>Vs Computer</h3>
-            <p>Play against local computer opponent. Fog-of-war information boundaries strictly obeyed.</p>
-          </div>
-          <div id="btn-mode-2p-classic" class="mode-option-card">
-            <div class="mode-icon">👥</div>
-            <h3>2 Players · Classic</h3>
-            <p>Traditional hidden-information game with Pass the iPad privacy shield between turns.</p>
-          </div>
-          <div id="btn-mode-2p-flip" class="mode-option-card">
-            <div class="mode-icon">🔄</div>
-            <h3>2 Players · Flip</h3>
-            <p>Travel-friendly face-down reveal mode. Instant shared screen play with no pass screens.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal 2: Player Names & Options Setup Modal -->
-    <div id="player-names-modal" class="mode-modal-backdrop" style="display: none;">
-      <div class="mode-modal-card name-setup-card">
-        <div class="mode-modal-header">
-          <h2 id="name-modal-title">Game Players</h2>
-          <button id="btn-close-name-modal" class="btn-close-x">✕</button>
-        </div>
-        <div class="name-inputs-body">
-          <div class="input-field-group" id="group-p1-name">
-            <label for="input-p1-name" id="label-p1-name">Player 1 (Navy / Bottom)</label>
-            <input type="text" id="input-p1-name" class="name-text-input" placeholder="Caesar" maxLength="16">
-          </div>
-          <div class="input-field-group" id="group-p2-name">
-            <label for="input-p2-name" id="label-p2-name">Player 2 (Red / Top)</label>
-            <input type="text" id="input-p2-name" class="name-text-input" placeholder="Daddy" maxLength="16">
-          </div>
-          <div class="input-field-group" id="group-ai-difficulty" style="display: none;">
-            <label for="select-ai-difficulty">Computer Difficulty</label>
-            <select id="select-ai-difficulty" class="name-select-input">
-              <option value="relaxed">Relaxed — Casual play & learning</option>
-              <option value="standard" selected>Standard — Real strategic match</option>
-            </select>
-          </div>
-        </div>
-        <div class="name-setup-actions">
-          <button id="btn-start-game-confirm" class="btn btn-gold" style="padding: 12px 32px; font-size: 16px;">Start Match</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal 3: Multi-Game Local Library Modal -->
-    <div id="games-library-modal" class="mode-modal-backdrop" style="display: none;">
-      <div class="mode-modal-card library-card">
-        <div class="mode-modal-header">
-          <h2>Recent Games & Records</h2>
-          <button id="btn-close-library-modal" class="btn-close-x">✕</button>
-        </div>
-        <div id="games-list-container" class="games-list-container">
-          <!-- Populated dynamically via js/app.js -->
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal 4: Finished Game Record & Replay Viewer Modal -->
-    <div id="game-record-modal" class="mode-modal-backdrop" style="display: none;">
-      <div class="mode-modal-card record-card">
-        <div class="mode-modal-header">
-          <h2 id="record-modal-title">Match Record</h2>
-          <button id="btn-close-record-modal" class="btn-close-x">✕</button>
-        </div>
-        <div class="record-meta-bar" id="record-meta-bar">
-          <!-- Populated dynamically -->
-        </div>
-        <div class="replay-controls-bar" id="replay-controls-bar">
-          <button id="btn-replay-prev" class="btn-ctrl">◀ Step Back</button>
-          <button id="btn-replay-play" class="btn-ctrl">▶ Play</button>
-          <button id="btn-replay-next" class="btn-ctrl">Step Forward ▶</button>
-          <span id="replay-step-label" class="replay-step-label">Move 0 / 0</span>
-        </div>
-        <div id="record-history-list" class="record-history-list">
-          <!-- Move history table -->
-        </div>
-      </div>
-    </div>
-
-    <!-- Non-blocking Contextual Hint Popover Float -->
-    <div id="hint-popover-backdrop" class="hint-popover-backdrop">
-      <div class="hint-card">
-        <div class="hint-header">
-          <span>💡 Tactical Hint</span>
-        </div>
-        <div class="hint-title" id="hint-title">Rule Explanation</div>
-        <div class="hint-body" id="hint-body">Explanation text goes here.</div>
-        <button id="btn-close-hint" class="btn btn-secondary" style="align-self: flex-end; min-height: 36px; padding: 6px 16px; font-size: 13px;">Dismiss</button>
-      </div>
-    </div>
-
+    <p id="home-memory" class="home-memory is-hidden"></p>
   </div>
 
-  <script type="module" src="js/app.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').then(reg => {
-          console.log('[PWA] ServiceWorker registered with scope:', reg.scope);
-          // Force ServiceWorker update check on app open
-          reg.update();
+  <footer class="makers-mark">
+    Caesar Games · Love &amp; Play · Since 2026 · <span id="build-tag"></span>
+  </footer>
+</main>
 
-          reg.addEventListener('updatefound', () => {
-            const newWorker = reg.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  console.log('[PWA] New update installed! Refreshing client...');
-                  window.location.reload();
-                }
-              });
-            }
-          });
-        }).catch(err => {
-          console.error('[PWA] ServiceWorker registration failed:', err);
-        });
+<!-- ============================ BOARD ============================ -->
+<main class="screen" data-screen="board">
+  <div class="table">
+    <aside class="rail rail-left">
+      <div class="turn-card">
+        <span id="turn-dot" class="turn-dot side-navy"></span>
+        <p id="turn-status" class="turn-status"></p>
+      </div>
+      <p id="board-hint" class="board-hint"></p>
+    </aside>
 
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (!refreshing) {
-            refreshing = true;
-            window.location.reload();
-          }
-        });
-      });
-    }
-  </script>
+    <div id="board-mount" class="board-mount"></div>
+
+    <aside class="rail rail-right">
+      <div id="setup-controls" class="control-stack is-hidden">
+        <button id="btn-quick-setup" class="btn btn-quiet" type="button" data-i18n="setup.quick">Quick setup</button>
+        <button id="btn-reset-setup" class="btn btn-quiet" type="button" data-i18n="setup.reset">Reset</button>
+        <button id="btn-ready" class="btn btn-primary" type="button" data-i18n="setup.ready">Ready</button>
+      </div>
+      <div id="play-controls" class="control-stack is-hidden">
+        <p id="move-counter" class="move-counter"></p>
+        <button id="btn-replay-move" class="btn btn-quiet is-hidden" type="button" data-i18n="play.replayMove">Replay last move</button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Game end -->
+  <div id="game-end" class="overlay">
+    <div class="overlay-card end-card">
+      <p class="end-eyebrow" data-i18n="end.eyebrow">Result</p>
+      <h2 id="end-winner"></h2>
+      <p id="end-detail" class="end-detail"></p>
+      <p id="end-reason" class="end-reason"></p>
+      <div class="end-actions">
+        <button id="btn-end-again" class="btn btn-primary" type="button" data-i18n="end.again">Play again</button>
+        <button id="btn-end-record" class="btn btn-quiet" type="button" data-i18n="end.record">View record</button>
+        <button id="btn-end-home" class="btn btn-quiet" type="button" data-i18n="end.home">Home</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ============================ LEARN ============================ -->
+<main class="screen" data-screen="learn">
+  <div class="learn">
+    <div class="learn-head">
+      <h2>How Junqi works</h2>
+      <button id="btn-learn-back" class="btn btn-quiet" type="button">Back</button>
+    </div>
+
+    <div class="learn-grid">
+      <section class="learn-card">
+        <h3>Ranks</h3>
+        <p>The higher rank wins. Equal ranks remove each other.</p>
+        <ol class="rank-list">
+          <li><b>司令</b> Field Marshal</li>
+          <li><b>军长</b> Corps Commander</li>
+          <li><b>师长</b> Division Commander</li>
+          <li><b>旅长</b> Brigade Commander</li>
+          <li><b>团长</b> Regiment Commander</li>
+          <li><b>营长</b> Battalion Commander</li>
+          <li><b>连长</b> Company Commander</li>
+          <li><b>排长</b> Platoon Commander</li>
+          <li><b>工兵</b> Engineer</li>
+        </ol>
+      </section>
+
+      <section class="learn-card">
+        <h3>Roads &amp; railways</h3>
+        <p>On a road a piece steps to one connected station.</p>
+        <p>On a railway it may run any distance in a straight line, as long as the track ahead is empty.</p>
+        <p>Only the <b>工兵 Engineer</b> can follow the rails around corners.</p>
+      </section>
+
+      <section class="learn-card">
+        <h3>Mines, bombs &amp; camps</h3>
+        <p><b>地雷 Mine</b> never moves and defeats anything except an Engineer or a Bomb.</p>
+        <p><b>炸弹 Bomb</b> destroys itself and whatever it meets.</p>
+        <p><b>行营 Camp</b> — a piece standing in a camp cannot be attacked.</p>
+        <p><b>大本营 Headquarters</b> — a piece that enters can never leave.</p>
+      </section>
+
+      <section class="learn-card">
+        <h3>Winning</h3>
+        <p>Capture the opposing <b>军旗 Flag</b>, which sits in a Headquarters and never moves.</p>
+        <p>A player with no legal move left also loses.</p>
+        <p>When a Field Marshal falls, that player's Flag position is disclosed.</p>
+      </section>
+
+      <section class="learn-card">
+        <h3>The three modes</h3>
+        <p><b>Vs Computer</b> — you play the navy army at the bottom.</p>
+        <p><b>2 Players · Classic</b> — concealed play on one iPad. The board turns so the player to move always sits at the bottom.</p>
+        <p><b>2 Players · Flip</b> — 50 pieces face down. Turn one over or move one of yours.</p>
+      </section>
+    </div>
+
+    <p class="learn-foot">Caesar Games · Love &amp; Play · Since 2026 · <span id="learn-build"></span></p>
+  </div>
+</main>
+
+<!-- ============================ DIALOGS ============================ -->
+<div class="dialog" data-dialog="mode">
+  <div class="dialog-card">
+    <header class="dialog-head">
+      <h2 data-i18n="mode.title">Choose a game</h2>
+      <button id="btn-close-mode" class="icon-btn" type="button" aria-label="Close">✕</button>
+    </header>
+    <div class="mode-grid">
+      <button class="mode-card" data-mode="vs_computer" type="button">
+        <h3 data-i18n="mode.vsComputer">Vs Computer</h3>
+        <p data-i18n="mode.vsComputer.desc">Play on your own against the iPad.</p>
+      </button>
+      <button class="mode-card" data-mode="classic" type="button">
+        <h3 data-i18n="mode.classic">2 Players · Classic</h3>
+        <p data-i18n="mode.classic.desc">Hidden armies. Pass the iPad between turns.</p>
+      </button>
+      <button class="mode-card" data-mode="flip" type="button">
+        <h3 data-i18n="mode.flip">2 Players · Flip</h3>
+        <p data-i18n="mode.flip.desc">Face-down pieces. Start straight away.</p>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="dialog" data-dialog="names">
+  <div class="dialog-card">
+    <header class="dialog-head">
+      <div>
+        <h2 id="names-title">Players</h2>
+        <p id="names-sub" class="dialog-sub"></p>
+      </div>
+      <button id="btn-close-names" class="icon-btn" type="button" aria-label="Back">✕</button>
+    </header>
+
+    <div class="field-list">
+      <label class="field" id="field-p1">
+        <span data-i18n="players.p1">Player 1</span>
+        <input id="input-p1" type="text" maxlength="16" autocomplete="off" spellcheck="false">
+      </label>
+      <label class="field" id="field-p2">
+        <span data-i18n="players.p2">Player 2</span>
+        <input id="input-p2" type="text" maxlength="16" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="field" id="field-difficulty">
+        <span data-i18n="players.computerLabel">Computer</span>
+        <div class="choice-row">
+          <button class="choice" data-value="relaxed" type="button" data-i18n="players.relaxed">Relaxed</button>
+          <button class="choice is-selected" data-value="standard" type="button" data-i18n="players.standard">Standard</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dialog-actions">
+      <button id="btn-start-match" class="btn btn-primary" type="button" data-i18n="players.start">Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialog" data-dialog="library">
+  <div class="dialog-card wide">
+    <header class="dialog-head">
+      <h2 data-i18n="library.title">Games</h2>
+      <button id="btn-close-library" class="icon-btn" type="button" aria-label="Close">✕</button>
+    </header>
+    <div id="library-list" class="library-list"></div>
+  </div>
+</div>
+
+<div class="dialog" data-dialog="record">
+  <div class="dialog-card wide record-dialog">
+    <header class="dialog-head">
+      <div>
+        <h2 id="record-title">Record</h2>
+        <p id="record-meta" class="dialog-sub"></p>
+      </div>
+      <button id="btn-close-record" class="icon-btn" type="button" aria-label="Close">✕</button>
+    </header>
+    <div class="record-body">
+      <div id="replay-board" class="replay-board"></div>
+      <div class="record-side">
+        <div class="replay-bar">
+          <button id="btn-replay-prev" class="row-btn quiet" type="button" data-i18n="record.back">Back</button>
+          <button id="btn-replay-play" class="row-btn primary" type="button">Play</button>
+          <button id="btn-replay-next" class="row-btn quiet" type="button" data-i18n="record.forward">Forward</button>
+          <span id="replay-step" class="replay-step"></span>
+        </div>
+        <div id="record-moves" class="record-moves"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ SHIELD & OVERLAYS ============================ -->
+<div id="handoff" class="handoff">
+  <div class="handoff-card">
+    <img src="assets/cd_home_mark_transparent.png" alt="" class="handoff-mark">
+    <p id="handoff-title" class="handoff-eyebrow">Pass the iPad</p>
+    <h2 id="handoff-name"></h2>
+    <p id="handoff-action" class="handoff-action"></p>
+    <button id="btn-handoff-ready" class="btn btn-primary" type="button" data-i18n="handoff.ready">I'm ready</button>
+  </div>
+</div>
+
+<div id="confirm" class="overlay">
+  <div class="overlay-card">
+    <h2 data-i18n="library.deleteTitle">Delete game</h2>
+    <p id="confirm-text" class="end-detail"></p>
+    <div class="end-actions">
+      <button id="btn-confirm-ok" class="btn btn-danger" type="button" data-i18n="library.deleteConfirm">Delete</button>
+      <button id="btn-confirm-cancel" class="btn btn-quiet" type="button" data-i18n="library.deleteCancel">Keep</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="js/app.js"></script>
+<script type="module" src="js/pwa.js"></script>
 </body>
 </html>

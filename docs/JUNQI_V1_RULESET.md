@@ -1,107 +1,154 @@
-# Caesar Games V1 — Junqi Core Rules & Gameplay Semantics Authority
+# Caesar Games V1 — Junqi Ruleset
 
-This document defines the canonical rules engine, mode behaviors, privacy rules, coordinate systems, combat mechanics, and AI information boundaries for **Caesar Games V1**.
+Authority for the rules engine, mode behaviour, concealment, coordinates and
+the computer opponent's information boundary.
 
----
+Variant: **Classic Concealed Junqi (暗棋)**. Opponent identities stay concealed
+before *and after* combat. This is deliberately **not** 后明棋.
 
-## 1. V1 Game Modes
-
-Caesar Games V1 implements exactly three locked game modes:
-
-1. **Vs Computer — Classic Concealed Junqi (暗棋)**
-   - Single-human player vs Local AI.
-   - Human player controls Navy (bottom territory, rows 6–11).
-   - Computer controls Red (top territory, rows 0–5).
-   - Human completes pre-game setup phase before gameplay starts.
-   - Computer formation is generated independently and remains concealed.
-   - No Pass the iPad flow; human perspective remains static at bottom.
-
-2. **2 Players — Classic Concealed Junqi (暗棋)**
-   - Shared single-iPad local play for 2 human players.
-   - Player 1 (Navy) and Player 2 (Red).
-   - Pre-game setup phase for Player 1, followed by Pass iPad Privacy Shield, followed by Pre-game setup phase for Player 2.
-   - During gameplay, the current active player is ALWAYS rendered at the **BOTTOM** of the board.
-   - Opponent pieces remain visually concealed (face-down backs) before and after combat.
-   - Full Pass the iPad privacy shield enforced between every turn.
-
-3. **2 Players — Flip Mode (翻棋)**
-   - Shared single-screen travel mode.
-   - 50 pieces shuffled face down into non-camp board slots.
-   - First piece revealed by Player 1 determines Player 1's army color.
-   - Per turn: Player reveals 1 face-down piece OR moves 1 revealed piece.
-   - Board perspective does NOT flip; board stays static.
-   - Revealed piece text faces its owner (Player 1 pieces face bottom, Player 2 pieces face top).
-   - Unrevealed pieces (`CD` backs) are orientation-neutral and identical.
+Rules version: `junqi-v1.1`
 
 ---
 
-## 2. Classic Concealed Junqi (暗棋) Semantics
+## 1. Modes
 
-### Piece Ranks & Ratios (25 Pieces per Army)
-
-| Piece Name | Chinese | Rank Number | Count | Movement / Special Rules |
-|---|---|---|---|---|
-| Field Marshal | 司令 | 1 (Highest) | 1 | 1 step road / straight rail. If eliminated, Flag position is exposed. |
-| Corps Commander | 军长 | 2 | 1 | 1 step road / straight rail. |
-| Division Commander | 师长 | 3 | 2 | 1 step road / straight rail. |
-| Brigade Commander | 旅长 | 4 | 2 | 1 step road / straight rail. |
-| Regiment Commander | 团长 | 5 | 2 | 1 step road / straight rail. |
-| Battalion Commander | 营长 | 6 | 2 | 1 step road / straight rail. |
-| Company Commander | 连长 | 7 | 3 | 1 step road / straight rail. |
-| Platoon Commander | 排长 | 8 | 3 | 1 step road / straight rail. |
-| Engineer | 工兵 | 9 (Lowest officer) | 3 | Can turn corners on clear connected railways. Disarms Mines. |
-| Mine | 地雷 | 10 (Defense) | 3 | Static (cannot move). Defeats all pieces except Engineer & Bomb. |
-| Bomb | 炸弹 | 99 (Special) | 2 | Mutual destruction with any piece it collides with. |
-| Flag | 军旗 | 0 (Objective) | 1 | Static (cannot move). Capture results in immediate game loss. |
+| Mode | Players | Concealment | Perspective |
+|---|---|---|---|
+| **Vs Computer** | 1 human + local AI | Human sees own army only | Human always at the bottom |
+| **2 Players · Classic** | 2 humans, one iPad | Each sees own army only | Player to move always at the bottom |
+| **2 Players · Flip (翻棋)** | 2 humans, one iPad | Face-down until turned over | Board never rotates |
 
 ---
 
-## 3. Pre-Game Setup Rules & Placement Restrictions
+## 2. Pieces (25 per army)
 
-1. **Territory Bounds**:
-   - Navy setup slots: Rows 6–11 (excluding 5 Campsites at `7-1`, `7-3`, `8-2`, `9-1`, `9-3`).
-   - Red setup slots: Rows 0–5 (excluding 5 Campsites at `1-1`, `1-3`, `2-2`, `3-1`, `3-3`).
-2. **Flag Placement**: Must be placed in one of the two Headquarters (大本营) slots (`11-1` or `11-3` for Navy; `0-1` or `0-3` for Red).
-3. **Mine Placement**: Must be placed in the back two rows (`10`, `11` for Navy; `0`, `1` for Red).
-4. **Bomb Placement**: Cannot be placed on the front row (`6` for Navy; `5` for Red).
-5. **Camp Placement**: Campsites (行营) must remain empty during setup.
-6. **Touch-First Interaction**: Tap piece A → tap piece B (or empty setup slot) → swap pieces.
-7. **Controls**:
-   - `Quick Setup`: Generates a 100% legal formation automatically.
-   - `Reset`: Restores initial setup formation of current session.
-   - `Ready`: Locks setup formation and advances phase.
+| Piece | Rank | Count | Notes |
+|---|---|---|---|
+| 司令 Field Marshal | 1 | 1 | When eliminated, that player's Flag position is disclosed |
+| 军长 Corps Commander | 2 | 1 | |
+| 师长 Division Commander | 3 | 2 | |
+| 旅长 Brigade Commander | 4 | 2 | |
+| 团长 Regiment Commander | 5 | 2 | |
+| 营长 Battalion Commander | 6 | 2 | |
+| 连长 Company Commander | 7 | 3 | |
+| 排长 Platoon Commander | 8 | 3 | |
+| 工兵 Engineer | 9 | 3 | Turns railway corners; disarms Mines |
+| 地雷 Mine | 10 | 3 | Never moves |
+| 炸弹 Bomb | 99 | 2 | Removes itself and whatever it meets |
+| 军旗 Flag | 0 | 1 | Never moves; its capture ends the game |
 
----
-
-## 4. Combat Resolution & Concealment
-
-- **Higher Rank Wins**: Lower rank number captures higher rank number (e.g. Rank 1 司令 defeats Rank 2 军长).
-- **Equal Rank Mutual Destruction**: Both pieces are removed from the board.
-- **Engineer vs Mine**: Engineer (工兵) disarms and captures Mine (地雷).
-- **Other Piece vs Mine**: Mine defeats and removes attacking piece; Mine remains on board.
-- **Bomb Collisions**: Bomb (炸弹) causes mutual destruction with any piece (both removed).
-- **Flag Capture**: Capturing the opponent's Flag (军旗) wins the game immediately.
-- **Concealment Rule**:
-  - In Classic (暗棋), combat participation does NOT reveal surviving opponent pieces to face-up.
-  - Surviving opponent piece remains visually concealed (hidden back) to the opponent.
-  - **Commander / Flag Special Disclosure**: When a player's Field Marshal (司令) is eliminated in combat, that player's Flag (军旗) position becomes disclosed (`flagDisclosedToOpponent: true`) and is indicated to the opponent.
+Lower rank *number* wins. Equal ranks remove each other.
 
 ---
 
-## 5. One-iPad Perspective & Canonical Coordinates
+## 3. Board topology
 
-- **Canonical Board**: 12 rows (0–11) by 5 columns (0–4). Logical board state is saved strictly in canonical coordinates.
-- **Perspective Transformation**:
-  - Player 1 (Navy turn): Rendered with Navy at bottom (`renderedRow = canonicalRow`).
-  - Player 2 (Red turn in Classic): Rendered with Red at bottom (`renderedRow = 11 - canonicalRow`, `renderedCol = 4 - canonicalCol`).
-  - Header, menus, buttons, overlays, and status indicators remain 100% upright.
-  - Touch coordinates map deterministically back to canonical coordinates (`canonicalRow = 11 - renderedRow`, `canonicalCol = 4 - renderedCol`).
+Canonical board: 12 rows (0 = Red back line, 11 = Navy back line) × 5 columns.
+Keys are `row-col`. **Canonical state never rotates.**
+
+- **Campsites 行营** — `1-1 1-3 2-2 3-1 3-3` and `7-1 7-3 8-2 9-1 9-3`
+- **Headquarters 大本营** — `0-1 0-3` and `11-1 11-3`
+- **Railways 铁路** — every station on rows 1, 5, 6 and 10, plus columns 0 and 4
+  between rows 1 and 10.
+- **Roads 公路** — horizontal links on every row; vertical links inside each
+  half; each campsite additionally joins its four diagonal corners.
+- **Front line 前线** — the two halves are joined at columns **0, 2 and 4 only**.
+  Columns 0 and 4 are railway bridges; column 2 is a road.
+
+The movement graph is generated from this topology and the drawn board is
+generated from the same graph, so the two cannot diverge.
 
 ---
 
-## 6. AI Information Boundary & Difficulties
+## 4. Setup
 
-- **Information Boundary**: AI receives a filtered observation where unrevealed human pieces contain zero private identity fields (`name` and `rank` redacted).
-- **Difficulty Levels**:
-  - `relaxed` (Relaxed): Introduces evaluation noise / variance for casual play.
-  - `standard` (Standard): Applies strategic evaluation depth and piece value weighting.
+1. 25 pieces fill the 25 non-camp stations of the player's own six rows.
+2. **Campsites stay empty.**
+3. **Flag** must sit in one of the player's two Headquarters.
+4. **Mines** must sit in the player's back two rows (10–11 navy, 0–1 red).
+5. **Bombs** may not stand on the front row (6 navy, 5 red).
+6. Tap a piece, then tap another piece or an empty own station, to swap.
+7. `Quick setup` generates a legal formation; `Reset` restores the formation
+   this player started from; `Ready` locks it in.
+8. An illegal arrangement is **refused and explained** — never silently
+   corrected.
+
+---
+
+## 5. Movement
+
+- **Road** — one step to any connected station.
+- **Railway** — any distance in a straight line along the rails, provided every
+  intervening station is empty.
+- **Engineer 工兵** — may follow the rails around corners; intervening stations
+  must still be empty.
+- A piece standing in a **Campsite** cannot be attacked.
+- A piece that enters a **Headquarters** can never leave.
+- **Mines** and the **Flag** never move.
+
+---
+
+## 6. Combat
+
+Resolution order:
+
+1. **Flag captured** → attacker wins, game over.
+2. **Bomb** involved → both pieces removed.
+3. **Mine** defending → Engineer disarms it and takes the square; anyone else
+   is destroyed and the Mine remains.
+4. **Equal rank** → both removed.
+5. Otherwise the higher rank wins.
+
+**Concealment.** In Classic and Vs Computer, combat never turns a piece face
+up. The loser leaves the board; the survivor stays concealed to the opponent.
+The opponent sees only: their own piece gone, and an enemy piece occupying the
+destination.
+
+**Commander disclosure.** When a 司令 is eliminated, that player's 军旗 position
+becomes disclosed to the opponent.
+
+**Losing.** A player loses when their Flag is captured, or when they have no
+legal move at the start of their turn.
+
+---
+
+## 7. Perspective & coordinates
+
+- Canonical state is never rotated, mirrored or re-indexed.
+- Classic renders `red_bottom` while Player 2 is acting (`row → 11-row`,
+  `col → 4-col`); Vs Computer and Flip always render `navy_bottom`.
+- Every station carries its **canonical** key, so a tap maps back to canonical
+  coordinates with no arithmetic.
+- Header, rails, buttons and overlays stay upright in every mode.
+
+**Flip face orientation.** Rotation applies to the piece face only and is a
+property of its **owner**, not of the square it stands on. Seat 1's army faces
+the bottom player, seat 2's army is rotated 180°, wherever each piece stands.
+Face-down pieces are identical and reveal nothing.
+
+---
+
+## 8. Computer opponent
+
+- The AI receives a **sanitized observation**. An opponent piece it is not
+  entitled to know carries no name, no rank and **no id** — piece ids encode
+  the rank (`navy-司令-0`), so the id is replaced with an opaque token.
+- Publicly known pieces (revealed, or a disclosed Flag) are passed through.
+- Difficulty: `relaxed` (wider spread when choosing) and `standard`.
+- Any pending AI turn is cancelled when its game is left, and its result is
+  discarded if the session it belongs to is no longer current.
+
+---
+
+## 9. Rule decisions taken during the v1.1 audit
+
+These were ambiguous or wrong in the previous build. Each is now explicit.
+
+| Decision | Rationale |
+|---|---|
+| Front line joins at columns 0, 2, 4 only | v1.0.3 allowed a step from `5-1→6-1` and `5-3→6-3`, which the board never drew. Movement now matches the drawn topology. |
+| Rows 0 and 11 are **not** railway | v1.0.3 marked `0-0 0-4 11-0 11-4` as railway, letting pieces make rail runs along the Headquarters rows. |
+| A piece in a Headquarters cannot move | Standard Junqi; the previous doc was silent. Stated here so it can be argued with rather than discovered. |
+| Flag capture resolves before the Bomb rule | A Bomb reaching the Flag destroys it either way, so it should end the game rather than read as a mutual loss. |
+| No legal move = loss | Previously unimplemented, so a stuck game simply hung. |
+| Mines cannot attack | Defensive guard; Mines are static, but the combat function no longer assumes its caller checked. |

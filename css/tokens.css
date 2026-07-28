@@ -1,0 +1,76 @@
+/* Caesar Games — design tokens
+ *
+ * A quiet mineral palette: misted blue-gray page, near-white surfaces, deep
+ * navy ink, one muted red for the opposing army, and gold used sparingly
+ * enough that it still reads as an accent.
+ */
+
+:root {
+  /* Page & surfaces */
+  --page:            #E8EDF3;
+  --page-deep:       #DDE4EC;
+  --surface:         #FBFCFD;
+  --surface-raised:  #FFFFFF;
+  --surface-sunken:  #F1F5F9;
+
+  /* Ink */
+  --ink:             #12243F;
+  --ink-soft:        #3A4A63;
+  --ink-muted:       #6B7A90;
+  --ink-faint:       #97A3B4;
+
+  /* Armies */
+  --navy:            #1B3358;
+  --navy-deep:       #0E1F3A;
+  --navy-edge:       #2E4C79;
+  --red:             #8E4238;
+  --red-deep:        #6B2F27;
+  --red-edge:        #A75B4F;
+
+  /* Accent — restrained */
+  --gold:            #A8823F;
+  --gold-soft:       #C9A76A;
+
+  /* Board */
+  --board-felt:      #DCE4EE;
+  --board-felt-2:    #E9EEF5;
+  --board-edge:      #C6D1DF;
+  --rail:            #5D6E85;
+  --rail-tie:        #AFBCCC;
+  --road:            #B6C4D5;
+  --camp:            #CAD6E4;
+  --hq:              #BECCDD;
+  --frontline:       #D2DBE6;
+
+  /* Lines */
+  --hairline:        #D6DEE8;
+  --hairline-strong: #C2CDDA;
+
+  /* Type */
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, system-ui, sans-serif;
+  --font-cn: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Heiti SC", var(--font-ui);
+
+  /* Elevation — soft and low, like objects resting on a table */
+  --lift-1: 0 1px 2px rgba(18, 36, 63, .06), 0 2px 8px rgba(18, 36, 63, .04);
+  --lift-2: 0 2px 6px rgba(18, 36, 63, .08), 0 10px 24px rgba(18, 36, 63, .07);
+  --lift-3: 0 8px 20px rgba(18, 36, 63, .12), 0 24px 60px rgba(18, 36, 63, .14);
+  --piece-lift: 0 1px 1px rgba(14, 31, 58, .18), 0 2px 4px rgba(14, 31, 58, .16);
+  --piece-lift-up: 0 4px 8px rgba(14, 31, 58, .22), 0 10px 20px rgba(14, 31, 58, .18);
+
+  /* Shape */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+
+  /* Motion */
+  --press: 90ms cubic-bezier(.4, 0, .2, 1);
+  --ease:  200ms cubic-bezier(.32, .72, .28, 1);
+  --calm:  320ms cubic-bezier(.32, .72, .28, 1);
+
+  --tap: 48px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --press: 1ms; --ease: 1ms; --calm: 1ms; }
+}

@@ -1,0 +1,77 @@
+{
+  "order": [
+    {
+      "state": "home",
+      "label": "Home"
+    },
+    {
+      "state": "mode_select",
+      "label": "Mode select"
+    },
+    {
+      "state": "players",
+      "label": "Players & difficulty"
+    },
+    {
+      "state": "vs_ai_setup",
+      "label": "Vs Computer — setup"
+    },
+    {
+      "state": "vs_ai_play",
+      "label": "Vs Computer — play"
+    },
+    {
+      "state": "classic_p1_setup",
+      "label": "Classic — P1 setup"
+    },
+    {
+      "state": "classic_handoff",
+      "label": "Pass the iPad"
+    },
+    {
+      "state": "classic_p2_setup",
+      "label": "Classic — P2 setup (P2 at bottom)"
+    },
+    {
+      "state": "classic_play_p1",
+      "label": "Classic — P1 perspective"
+    },
+    {
+      "state": "classic_play_p2",
+      "label": "Classic — P2 perspective"
+    },
+    {
+      "state": "last_move_animation",
+      "label": "Last move — mid travel"
+    },
+    {
+      "state": "flip_unrevealed",
+      "label": "Flip — all face down"
+    },
+    {
+      "state": "flip_revealed",
+      "label": "Flip — both face directions"
+    },
+    {
+      "state": "library",
+      "label": "Games library"
+    },
+    {
+      "state": "record",
+      "label": "Match record"
+    },
+    {
+      "state": "replay",
+      "label": "Replay — stepped forward"
+    },
+    {
+      "state": "game_end",
+      "label": "Game end"
+    },
+    {
+      "state": "learn",
+      "label": "Learn"
+    }
+  ],
+  "cols": 3
+}

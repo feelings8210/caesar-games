@@ -1,422 +1,256 @@
-/* Caesar Games — Junqi Board Network Topology (V1 Product) */
+/* Caesar Games — board & pieces
+ *
+ * The board is the hero: everything here is tuned so the pieces read as
+ * physical objects resting on a quiet surface, and the track network stays
+ * subordinate to them.
+ */
 
-.board-surface {
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 16px;
-  background: radial-gradient(circle at 50% 40%, #FFFFFF 0%, #F4F7FB 100%);
+.bv-board {
   position: relative;
-  overflow: hidden;
+  height: 100%;
+  width: auto;
+  aspect-ratio: 600 / 1010;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--r-lg);
+  background:
+    linear-gradient(180deg, var(--board-felt-2) 0%, var(--board-felt) 50%, var(--board-felt-2) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, .75),
+    inset 0 0 60px rgba(18, 36, 63, .05),
+    0 0 0 1px var(--board-edge),
+    var(--lift-3);
+  container-type: size;
+  touch-action: manipulation;
 }
 
-/* Secondary Controls Bar */
-.board-header-controls {
-  width: 100%;
-  max-width: 920px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 16px;
-  margin-bottom: 8px;
-  background: var(--color-bg-surface-elevated);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-subtle);
-}
+/* ---------------------------------------------------------------- *
+ * Track network
+ * ---------------------------------------------------------------- */
 
-/* Setup Phase Control Bar */
-.setup-controls-bar {
-  width: 100%;
-  max-width: 920px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 16px;
-  margin-bottom: 8px;
-  background: linear-gradient(135deg, #1E365D 0%, #2D4C7F 100%);
-  border: 1.5px solid rgba(212, 163, 89, 0.45);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-subtle);
-  color: #FFFFFF;
-}
-
-.setup-title-badge {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
-
-.setup-title-badge .setup-icon {
-  font-size: 18px;
-}
-
-.setup-btn-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-setup-action {
-  min-height: 38px;
-  padding: 6px 14px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  color: #FFFFFF;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: all var(--transition-fast);
-}
-
-.btn-setup-action:active {
-  background: rgba(255, 255, 255, 0.35);
-}
-
-.btn-setup-lock {
-  min-height: 38px;
-  padding: 6px 18px;
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 800;
-  background: linear-gradient(135deg, #D4A359, #B8863B);
-  border: 1.5px solid #F3E5AB;
-  color: #1E365D;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  box-shadow: 0 4px 12px rgba(212, 163, 89, 0.4);
-  transition: all var(--transition-fast);
-}
-
-.btn-setup-lock:active {
-  transform: translateY(1px);
-  box-shadow: 0 2px 6px rgba(212, 163, 89, 0.3);
-}
-
-.player-status-badge {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.status-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.status-dot.navy {
-  background: var(--color-navy-primary);
-  box-shadow: 0 0 0 3px rgba(30, 54, 93, 0.18);
-}
-
-.status-dot.red {
-  background: var(--color-red-primary);
-  box-shadow: 0 0 0 3px rgba(158, 75, 66, 0.18);
-}
-
-.board-actions-group {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-ctrl {
-  min-height: 36px;
-  padding: 6px 14px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 600;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-medium);
-  color: var(--color-text-main);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn-ctrl:active {
-  background: var(--color-border-subtle);
-}
-
-/* Board Topology Container */
-.board-container-wrapper {
-  flex: 1;
-  width: 100%;
-  max-width: 920px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.junqi-board-topology {
-  width: 880px;
-  height: 600px;
-  background: var(--color-bg-board);
-  border: 3px solid var(--color-border-medium);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-elevated), inset 0 0 24px rgba(62, 80, 102, 0.06);
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.4s ease;
-}
-
-/* SVG Network Layer */
-.junqi-svg-network {
+.bv-tracks {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
 }
 
-.svg-road {
-  stroke: var(--color-road);
-  stroke-width: 2px;
+.bv-road {
+  stroke: var(--road);
+  stroke-width: 2.6;
   stroke-linecap: round;
 }
 
-.svg-road-diag {
-  stroke: #CBD5E1;
-  stroke-width: 1.5px;
-  stroke-dasharray: 3 3;
+.bv-rail-bed {
+  stroke: var(--rail);
+  stroke-width: 8;
+  stroke-linecap: round;
+  opacity: .22;
+}
+.bv-rail-line {
+  stroke: var(--rail);
+  stroke-width: 3.2;
+  stroke-linecap: butt;
+  stroke-dasharray: 3.5 7;
+  opacity: .95;
 }
 
-.svg-rail {
-  stroke: var(--color-railway);
-  stroke-width: 3px;
-  stroke-dasharray: 7 5;
+.bv-frontline { fill: var(--frontline); opacity: .55; }
+.bv-frontline-edge { stroke: var(--hairline-strong); stroke-width: 1.2; }
+.bv-frontline-label {
+  fill: var(--ink-faint);
+  font-family: var(--font-cn);
+  font-size: 19px;
+  letter-spacing: 6px;
+  opacity: .5;
 }
 
-.svg-rail-border {
-  stroke: var(--color-railway);
-  stroke-width: 4px;
+.bv-camp { fill: var(--camp); opacity: .9; }
+.bv-camp-inner { fill: none; stroke: var(--hairline-strong); stroke-width: 1.2; opacity: .8; }
+.bv-hq {
+  fill: var(--hq);
+  stroke: var(--hairline-strong);
+  stroke-width: 1.2;
+  opacity: .85;
 }
 
-.svg-rail-bridge {
-  stroke: var(--color-railway);
-  stroke-width: 4px;
-  stroke-dasharray: 6 3;
-}
+/* ---------------------------------------------------------------- *
+ * Stations
+ * ---------------------------------------------------------------- */
 
-.svg-river-label {
-  font-size: 13px;
-  font-weight: 700;
-  fill: var(--color-slate);
-  letter-spacing: 2px;
-}
+.bv-nodes { position: absolute; inset: 0; }
 
-/* Board Intersections & Station Nodes */
-.board-nodes-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.board-node-station {
+.bv-node {
   position: absolute;
   transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 5;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-md);
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Post Node Station (兵站) */
-.board-node-station.station-post {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: transparent;
-}
-
-.board-node-station.station-post::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-slate-light);
-  opacity: 0.6;
-}
-
-/* Campsite Station Node (行营) */
-.board-node-station.station-camp {
-  width: 58px;
-  height: 38px;
-  border-radius: var(--radius-full);
-  background: var(--color-bg-camp);
-  border: 2px solid var(--color-gold-primary);
-  box-shadow: inset 0 2px 4px rgba(30, 54, 93, 0.08);
-}
-
-.board-node-station.station-camp::before {
-  content: '行营';
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--color-gold-dark);
-  pointer-events: none;
-}
-
-/* Headquarters Station Node (大本营) */
-.board-node-station.station-hq {
-  width: 72px;
-  height: 42px;
-  border-radius: var(--radius-md);
-  background: var(--color-bg-hq);
-  border: 2px double var(--color-navy-primary);
-}
-
-.board-node-station.station-hq::before {
-  content: '大本营';
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--color-navy-primary);
-  pointer-events: none;
-}
-
-/* Legal Target Highlight Indicator */
-.board-node-station.legal-target::after {
+/* Legal destination marker — a quiet ring, not a glow. */
+.bv-node.is-legal::after {
   content: '';
   position: absolute;
-  width: 24px;
-  height: 24px;
+  width: 30%;
+  aspect-ratio: 1;
   border-radius: 50%;
-  background: var(--color-gold-primary);
-  box-shadow: 0 0 12px var(--color-gold-glow);
-  animation: pulseTarget 1.2s infinite ease-in-out;
-  z-index: 8;
-  pointer-events: none;
+  background: var(--gold);
+  opacity: .34;
+  animation: target-in var(--ease) both;
 }
-
-@keyframes pulseTarget {
-  0% { transform: scale(0.85); opacity: 0.6; }
-  50% { transform: scale(1.2); opacity: 1; }
-  100% { transform: scale(0.85); opacity: 0.6; }
+.bv-node.is-legal:has(.bv-piece)::after {
+  width: auto;
+  inset: 4%;
+  aspect-ratio: auto;
+  border-radius: var(--r-md);
+  background: none;
+  box-shadow: inset 0 0 0 2.5px var(--gold);
+  opacity: .7;
 }
+@keyframes target-in { from { transform: scale(.4); opacity: 0 } to { transform: scale(1) } }
 
-/* Physical Strategy Tile Game Piece */
-.junqi-piece {
-  width: 74px;
-  height: 40px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-family-chinese);
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  cursor: pointer;
-  z-index: 10;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-  position: absolute;
-}
-
-/* Navy Blue Player Pieces */
-.junqi-piece.navy {
-  background: linear-gradient(145deg, #2D4C7F, #1E365D);
-  color: #FFFFFF;
-  border: 1.5px solid var(--color-navy-border);
-  box-shadow: var(--shadow-piece);
-}
-
-/* Muted Brick Red Opponent Pieces */
-.junqi-piece.red {
-  background: linear-gradient(145deg, #B75F55, #9E4B42);
-  color: #FFFFFF;
-  border: 1.5px solid var(--color-red-border);
-  box-shadow: var(--shadow-piece-red);
-}
-
-/* Hidden / Face-down Piece */
-.junqi-piece.hidden-piece {
-  background: linear-gradient(145deg, #788496, #5A6678) !important;
-  border: 1.5px solid #A0ACBD !important;
-  color: transparent !important;
-}
-
-.junqi-piece.hidden-piece::after {
-  content: 'CD';
-  font-family: var(--font-family-sans);
-  font-size: 12px;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.4);
-  letter-spacing: 0;
-}
-
-/* Piece Selection Elevate State */
-.junqi-piece.selected {
-  transform: translateY(-4px) scale(1.06);
-  box-shadow: 0 8px 22px rgba(30, 54, 93, 0.25), 0 0 0 3px var(--color-gold-primary);
-  z-index: 15;
-}
-
-/* Flip Mode Army Face Orientation: Top player pieces face top (rotated 180deg) */
-.junqi-piece.face-top-player {
-  transform: rotate(180deg);
-}
-
-.junqi-piece.face-top-player.selected {
-  transform: rotate(180deg) translateY(4px) scale(1.06);
-}
-
-/* Disclosed Flag Indicator Badge */
-.junqi-piece.flag-disclosed::before {
-  content: '🚩';
-  position: absolute;
-  top: -8px;
-  right: -6px;
-  font-size: 14px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-}
-
-/* Last Move Recap Path Highlight */
-.board-node-station.recap-highlight-from::after {
+.bv-node.is-origin::before,
+.bv-node.is-destination::before {
   content: '';
   position: absolute;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 2.5px dashed #D4A359;
-  animation: pulseRecapFrom 1.5s infinite ease-in-out;
+  inset: 2%;
+  border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 2px var(--gold-soft);
+  opacity: .5;
   pointer-events: none;
 }
+.bv-node.is-origin::before { opacity: .3; }
 
-.board-node-station.recap-highlight-to::after {
+.bv-node.is-replay-origin::before {
   content: '';
   position: absolute;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 3px solid #D4A359;
-  box-shadow: 0 0 14px rgba(212, 163, 89, 0.75);
-  animation: pulseRecapTo 1.5s infinite ease-in-out;
-  pointer-events: none;
+  inset: 0;
+  border-radius: var(--r-md);
+  background: var(--gold);
+  opacity: .22;
+  animation: pulse-soft 300ms ease-out both;
+}
+.bv-node.is-pulse .bv-piece { animation: pulse-piece 420ms cubic-bezier(.32,.72,.28,1) both; }
+
+@keyframes pulse-soft { from { opacity: 0 } 50% { opacity: .3 } to { opacity: .22 } }
+@keyframes pulse-piece {
+  0%   { transform: scale(1) }
+  45%  { transform: scale(1.09) }
+  100% { transform: scale(1) }
 }
 
-@keyframes pulseRecapFrom {
-  0% { opacity: 0.4; transform: scale(0.9); }
-  50% { opacity: 0.9; transform: scale(1.1); }
-  100% { opacity: 0.4; transform: scale(0.9); }
+/* ---------------------------------------------------------------- *
+ * Pieces
+ * ---------------------------------------------------------------- */
+
+.bv-piece,
+.bv-flyer {
+  width: 82%;
+  height: 78%;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-cn);
+  font-size: 20px;                 /* fallback where container units are absent */
+  font-weight: 600;
+  letter-spacing: .04em;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+  box-shadow: var(--piece-lift);
+  transition: transform var(--ease), box-shadow var(--ease), opacity var(--ease);
+  will-change: transform;
 }
 
-@keyframes pulseRecapTo {
-  0% { opacity: 0.5; transform: scale(0.95); }
-  50% { opacity: 1; transform: scale(1.15); }
-  100% { opacity: 0.5; transform: scale(0.95); }
+@container (min-width: 0px) {
+  .bv-piece, .bv-flyer { font-size: 5.6cqw; }
 }
+
+/* Face-up armies */
+.bv-piece.is-face.side-navy,
+.bv-flyer.is-face.side-navy {
+  background: linear-gradient(168deg, #2A4771 0%, var(--navy) 46%, var(--navy-deep) 100%);
+  color: #EAF0F8;
+  box-shadow: var(--piece-lift), inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(0,0,0,.22);
+}
+.bv-piece.is-face.side-red,
+.bv-flyer.is-face.side-red {
+  background: linear-gradient(168deg, #A05A4E 0%, var(--red) 46%, var(--red-deep) 100%);
+  color: #FBEFEC;
+  box-shadow: var(--piece-lift), inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(0,0,0,.22);
+}
+
+/* Concealed back — identical for both armies, carries no rank or ownership */
+.bv-piece.is-back,
+.bv-flyer.is-back {
+  background: linear-gradient(168deg, #FAF8F4 0%, #EFEBE3 52%, #E4DFD5 100%);
+  box-shadow: var(--piece-lift), inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(120,110,95,.18);
+}
+
+.bv-back-mark {
+  width: 46%;
+  aspect-ratio: 1499 / 925;        /* the CD mark's true proportions — never stretch */
+  background: #9AA6B6;
+  opacity: .42;
+  -webkit-mask: url(../assets/cd_home_mark_transparent.png) center / contain no-repeat;
+  mask: url(../assets/cd_home_mark_transparent.png) center / contain no-repeat;
+}
+
+/* Flip mode: a revealed piece faces its owner, wherever it stands. */
+.bv-piece.faces-top,
+.bv-flyer.faces-top { transform: rotate(180deg); }
+
+/* Selection lift */
+.bv-node.is-selected .bv-piece {
+  transform: translateY(-8%) scale(1.05);
+  box-shadow: var(--piece-lift-up), inset 0 1px 0 rgba(255,255,255,.2);
+  z-index: 3;
+}
+.bv-node.is-selected .bv-piece.faces-top { transform: translateY(-8%) scale(1.05) rotate(180deg); }
+
+/* Disclosed enemy flag */
+.bv-piece.is-disclosed { box-shadow: var(--piece-lift), 0 0 0 2px var(--gold); }
+
+/* ---------------------------------------------------------------- *
+ * Motion
+ * ---------------------------------------------------------------- */
+
+.bv-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 10; }
+
+.bv-flyer {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 12;
+  box-shadow: var(--piece-lift-up);
+}
+.bv-flyer.faces-top { transform: translate(-50%, -50%) rotate(180deg); }
+
+.bv-flyer.is-impact { animation: impact 150ms cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes impact {
+  0%   { filter: brightness(1) }
+  35%  { filter: brightness(1.22) }
+  100% { filter: brightness(1) }
+}
+
+.bv-piece.is-struck { animation: struck 150ms ease-out both; }
+@keyframes struck {
+  0%   { transform: scale(1) }
+  40%  { transform: scale(.94) }
+  100% { transform: scale(1) }
+}
+
+.bv-piece.is-removed { animation: removed 240ms cubic-bezier(.4,0,.2,1) both; }
+@keyframes removed {
+  from { opacity: 1; transform: scale(1) }
+  to   { opacity: 0; transform: scale(.82) }
+}
+
+/* ---------------------------------------------------------------- *
+ * Replay board (inside the record dialog) — smaller, non-interactive
+ * ---------------------------------------------------------------- */
+
+.replay-board .bv-board { box-shadow: inset 0 0 0 1px rgba(255,255,255,.6), var(--lift-1); }
+.replay-board .bv-node { cursor: default; }

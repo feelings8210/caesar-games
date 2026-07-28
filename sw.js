@@ -1,86 +1,129 @@
-/* Caesar Games — PWA Service Worker for Offline iPad Play (Network-First PWA Update Strategy) */
-const BUILD_VERSION = 'v1.0.3';
-const CACHE_NAME = `caesar-games-${BUILD_VERSION}-pwa`;
+/* Caesar Games — service worker
+ *
+ * Strategy
+ *   HTML / navigation : network-first, cache as fallback.  The app shell is
+ *                       never trapped in the cache, so a deployed build always
+ *                       reaches an online iPad.
+ *   Same-origin assets: stale-while-revalidate.  Instant offline start, and
+ *                       the next launch picks up whatever changed.
+ *
+ * The cache name carries the build version, so activating a new worker
+ * discards every older cache in one pass.
+ */
 
-const ASSETS_TO_CACHE = [
+const BUILD_VERSION = 'v1.1.0';
+const CACHE = `caesar-games-${BUILD_VERSION}`;
+
+const PRECACHE = [
   './',
   './index.html',
   './manifest.json',
-  './css/variables.css',
-  './css/style.css',
+  './css/tokens.css',
+  './css/app.css',
   './css/board.css',
-  './css/learn.css',
   './js/app.js',
-  './js/board.js',
-  './js/hint.js',
-  './js/pass_ipad.js',
+  './js/build.js',
+  './js/pwa.js',
+  './js/ui/board_view.js',
   './js/engine/rules.js',
+  './js/engine/session.js',
   './js/engine/ai.js',
   './js/engine/sound.js',
   './js/engine/persistence.js',
-  './js/engine/test.js',
-  './assets/cd_home_mark_transparent.png'
+  './js/i18n/strings.js',
+  './assets/cd_home_mark_transparent.png',
+  './assets/icon-180.png',
+  './assets/icon-192.png',
+  './assets/icon-512.png',
+  './assets/icon-1024.png'
 ];
 
 self.addEventListener('install', (event) => {
-  console.log(`[Service Worker] Installing version ${BUILD_VERSION}`);
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Pre-caching offline assets');
-      return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    // Tolerate a single missing asset rather than failing the whole install.
+    await Promise.all(PRECACHE.map(url =>
+      cache.add(new Request(url, { cache: 'reload' })).catch(err =>
+        console.warn('[sw] precache skipped', url, err))));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (event) => {
-  console.log(`[Service Worker] Activating version ${BUILD_VERSION}`);
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            console.log('[Service Worker] Deleting obsolete cache:', cache);
-            return caches.delete(cache);
-          }
-        })
-      );
-    }).then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    const names = await caches.keys();
+    await Promise.all(names.filter(n => n !== CACHE).map(n => caches.delete(n)));
+    await self.clients.claim();
+  })());
 });
+
+const isNavigation = (req) =>
+  req.mode === 'navigate' ||
+  (req.method === 'GET' && (req.headers.get('accept') || '').includes('text/html'));
 
 self.addEventListener('fetch', (event) => {
-  const isNavigation = event.request.mode === 'navigate' || (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'));
+  const req = event.request;
+  if (req.method !== 'GET') return;
 
-  if (isNavigation) {
-    // Network-First Strategy for HTML / Navigation requests
-    event.respondWith(
-      fetch(event.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+
+  if (isNavigation(req)) {
+    event.respondWith((async () => {
+      try {
+        const fresh = await fetch(req);
+        if (fresh && fresh.ok) {
+          const cache = await caches.open(CACHE);
+          cache.put('./index.html', fresh.clone());
         }
-        return networkResponse;
-      }).catch(() => {
-        // Fallback to offline cached HTML if network fails
-        return caches.match('./index.html').then(cachedHtml => cachedHtml || caches.match(event.request));
-      })
-    );
-  } else {
-    // Network-First with Cache Fallback for JS/CSS/Assets to ensure fresh updates
-    event.respondWith(
-      fetch(event.request).then((networkResponse) => {
-        if (event.request.method === 'GET' && networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return networkResponse;
-      }).catch(() => {
-        return caches.match(event.request);
-      })
-    );
+        return fresh;
+      } catch {
+        const cache = await caches.open(CACHE);
+        return (await cache.match('./index.html')) ||
+               (await cache.match('./')) ||
+               Response.error();
+      }
+    })());
+    return;
   }
+
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+
+    // Code and styles are network-first with a short timeout. This matters:
+    // navigation is network-first, so serving a cached script alongside a
+    // freshly fetched index.html could mix two builds together. A timeout
+    // keeps a flaky or absent network from stalling the launch.
+    const isCode = /\.(?:js|mjs|css|json)$/.test(url.pathname);
+
+    if (isCode) {
+      const cached = await cache.match(req);
+      try {
+        const res = await withTimeout(fetch(req), 2500);
+        if (res && res.ok) { cache.put(req, res.clone()); return res; }
+        if (cached) return cached;
+        return res || Response.error();
+      } catch {
+        return cached || Response.error();
+      }
+    }
+
+    // Images and everything else: cache-first, refreshed in the background.
+    const cached = await cache.match(req);
+    const network = fetch(req).then(res => {
+      if (res && res.ok) cache.put(req, res.clone());
+      return res;
+    }).catch(() => null);
+
+    if (cached) { event.waitUntil(network); return cached; }
+    return (await network) || Response.error();
+  })());
 });
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms);
+    promise.then(v => { clearTimeout(timer); resolve(v); },
+                 e => { clearTimeout(timer); reject(e); });
+  });
+}

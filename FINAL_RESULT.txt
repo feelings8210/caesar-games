@@ -1,0 +1,184 @@
+CAESAR GAMES — JUNQI V1 RECOVERY
+Build v1.1.0 · rules junqi-v1.1 · schema 3 · 2026-07-28
+
+================================================================
+ROOT_CAUSES_FOUND
+================================================================
+
+RC1  Owner-reported mode switch failure.
+     index.html gave #player-names-modal, #games-library-modal and
+     #game-record-modal an inline style="display:none". show*Modal() only
+     added an .active class, which sets opacity and pointer-events but
+     cannot override an inline display. The dialog never rendered: the mode
+     dialog closed, nothing opened, and the player was left on Home.
+     Not specific to "after Vs Computer" — it failed for EVERY mode on the
+     FIRST attempt. The same attribute silently disabled the Games library
+     and the record/replay viewer.
+     Reproduced with real coordinate taps before repair.
+
+RC2  generateLegalSetup corrupted the red army in 100% of games.
+     The bomb/front-row swap resolved to an already-placed array index, so
+     one piece object was written to two stations and one bomb was dropped.
+     Measured against the old code: 2000/2000 red formations affected,
+     0/2000 navy. Red is the computer's army in Vs Computer and Player 2's
+     army in Classic, so every game had an illegal opposing formation.
+
+RC3  Replay never replayed. Step/Play only incremented a text label.
+
+RC4  Every app launch created and saved a junk game (constructor called
+     startNewGame -> saveState). Against a 20-game cap this evicted real games.
+
+RC5  AI information boundary leaked identity through the piece id
+     ("navy-司令-0"); name and rank were redacted but id was not.
+
+RC6  Movement did not match the drawn board: any adjacent step was legal, so
+     pieces crossed the front line at columns 1 and 3 where no line exists;
+     rows 0 and 11 were wrongly marked as railway.
+
+RC7  Move animation often did not run — transition and transform were set in
+     the same rAF callback, so the browser could coalesce them into a jump.
+
+RC8  No session isolation: one long-lived board object, and AI timers that
+     wrote into whatever game existed when they fired.
+
+RC9  Service worker version skew — network-first HTML paired with
+     stale-while-revalidate code could mix two builds.
+
+RC10 Game-over "Home" called this.app.showSurface(), which does not exist.
+
+Full list of 14 defects: review/junqi-v1-recovery/REGRESSION_RESULTS.json
+
+================================================================
+STATUS
+================================================================
+
+STATE_MACHINE_STATUS:            REBUILT — 15 explicit states, App.go() the
+                                 only entry point, transient state torn down
+                                 on every transition
+MODE_TRANSITION_MATRIX:          PASS — full 3x3 at zero moves and after real
+                                 play; plus mid-AI, post-finish, post-rematch,
+                                 post-resume, post-reload
+OWNER_REPORTED_MODE_SWITCH_BUG:  FIXED — reproduced, root-caused, regression
+                                 test added asserting no dialog carries an
+                                 inline display and every dialog paints
+
+JUNQI_RULE_AUDIT:                REBUILT — explicit adjacency graph; board is
+                                 drawn from the same graph so rules and visuals
+                                 cannot diverge. 66 tests written from the
+                                 ruleset document, not from the code.
+CLASSIC_SETUP:                   PASS — camps empty, Flag in HQ, mines in back
+                                 rows, bombs off the front row; illegal swaps
+                                 refused and explained, never auto-corrected
+CLASSIC_PRIVACY:                 PASS — combat never reveals the survivor;
+                                 asserted at DOM level (no text, no side class,
+                                 no attribute leak); concealed backs render
+                                 identically for both armies
+CLASSIC_PERSPECTIVE:             PASS — player to move always at the bottom,
+                                 display-only transform, canonical state never
+                                 rotates, taps map via the canonical node
+LAST_MOVE:                       PASS — visible travel, contact, impact,
+                                 removal, settle; verified as a real animation
+                                 with a real distance and a 150-400ms duration
+
+VS_COMPUTER:                     PASS — human bottom, no pass screen, exactly
+                                 one reply per turn, never moves twice
+AI_BOUNDARY:                     PASS — name, rank AND id redacted; leaving
+                                 mid-thinking cannot corrupt the next game
+
+FLIP_RULES:                      PASS — 50 face-down pieces, camps empty,
+                                 first reveal fixes both armies
+FLIP_FACE_ORIENTATION:           PASS — board never rotates; face rotation
+                                 follows the OWNER, not the square, verified in
+                                 both halves of the board
+
+GAME_LIBRARY:                    REBUILT — stable ids, multi-game coexistence,
+                                 no junk game on boot, delete isolation,
+                                 20-game pruning that retains unfinished games
+SAVE_RESUME:                     PASS — round-trips at 8 lifecycle stages;
+                                 transient UI state deliberately not restored;
+                                 resuming a Classic game shields the board first
+REPLAY_RECORD:                   REBUILT — positions reconstructed from opening
+                                 board + public history; does not mutate the
+                                 record; privacy-safe for two-player games
+
+VISUAL_REDESIGN:                 REBUILT — mineral palette, board as hero,
+                                 chrome reduced to a thin bar and two rails
+BOARD_VISUALS:                   REBUILT — tile-proportioned stations, legible
+                                 railways, elegant orientation-neutral backs
+IPAD_LAYOUT:                     PASS — fits 1180x820, 1024x768 and 1366x1024
+                                 with no page scroll and no hidden controls
+
+SOUND_DESIGN:                    REBUILT — noise transient + resonant body per
+                                 cue (select, place, battle, mutual loss,
+                                 invalid, pass, ready, reveal, win). No music,
+                                 persistent mute, no state depends on audio.
+MOTION_DESIGN:                   REBUILT — Web Animations API; entrance motion
+                                 is additive so a stalled animation can never
+                                 hide a control; every animation raced against
+                                 a hard timeout so it cannot block game logic
+APP_ICON:                        REBUILT — square masters from the CD mark with
+                                 its aspect ratio preserved by construction;
+                                 navy ground, ivory mark at 54% width; sizes
+                                 1024/512/192/180/167/152/120 + maskable 512.
+                                 Candidate strip reviewed before selection:
+                                 review/junqi-v1-recovery/ICON_REVIEW_STRIP.png
+
+PWA_UPDATE_PATH:                 REBUILT — network-first navigation,
+                                 network-first code with a 2.5s timeout and
+                                 cache fallback, versioned cache with activate
+                                 cleanup, single-reload guard (no reload loop)
+OFFLINE_STATUS:                  PASS (local, browser) — server killed, app
+                                 relaunched from cache, resumed a saved game,
+                                 played a move, AI replied, state persisted
+PRODUCTION_VERSION:              v1.1.0
+PRODUCTION_COMMIT:               see PRODUCTION_VERIFIED below
+
+UNIT_TESTS:                      66 / 66 (tests/rules.test.mjs)
+E2E_TESTS:                       61 / 61 (tests/e2e.js — real clicks, asserts
+                                 rendered state, not object state)
+VISUAL_AUDIT:                    18 real states captured and reviewed;
+                                 7 issues found and fixed before finalising
+FAILURE_INJECTION:               11 scenarios, all PASS
+
+I18N_READINESS:                  READY — all user-facing copy behind
+                                 js/i18n/strings.js with t(key, vars); zh
+                                 dictionary scaffolded with per-key English
+                                 fallback; no language selector added; layout
+                                 is content-sized throughout
+
+================================================================
+KNOWN_REMAINING_ISSUES
+================================================================
+
+1. Safari has not been exercised directly. All automated runs used Chromium
+   150. The CSS avoids Chromium-only features and carries -webkit- prefixes
+   for masks and backdrop filters, but this is an inference, not a measurement.
+
+2. Physical iPad behaviour is unverified: touch accuracy, Home Screen icon
+   rendering, real audio output, and a true offline launch from an installed
+   PWA. This is exactly what the owner's acceptance pass covers.
+
+Neither is a known defect. Both are honestly untested surfaces, listed rather
+than papered over.
+
+================================================================
+READY_FOR_OWNER_PHYSICAL_SMOKE_TEST: YES
+OFFLINE_IPAD_PASS: NOT CLAIMED — requires the owner's device
+================================================================
+
+Two minutes, in this order:
+
+  1. Open Caesar Games; footer should read v1.1.0
+  2. Play -> Vs Computer -> Ready -> one move
+     (the piece should visibly travel and click)
+  3. Home -> Play -> 2 Players Classic -> opens, your army at the bottom
+  4. Home -> Play -> 2 Players Flip -> turn over ~6 pieces
+     (the two armies should face opposite ways)
+  5. Games and Continue visible on Home
+  6. Wi-Fi off -> close and reopen -> Continue -> one move
+  7. Home Screen icon is the navy CD mark, not stretched
+
+If any step fails, it is a real defect and this report should be treated as
+suspect.
+
+TERMINAL_TAB: CLOSE
