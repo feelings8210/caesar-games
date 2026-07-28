@@ -163,6 +163,15 @@
   will-change: transform;
 }
 
+.bv-face {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  transform: rotate(0deg);
+  transition: transform var(--ease);
+}
+
 /* Face-up armies */
 .bv-piece.is-face.side-navy,
 .bv-flyer.is-face.side-navy {
@@ -193,9 +202,10 @@
   mask: url(../assets/cd_home_mark_transparent.png) center / contain no-repeat;
 }
 
-/* Flip mode: a revealed piece faces its owner, wherever it stands. */
-.bv-piece.faces-top,
-.bv-flyer.faces-top { transform: rotate(180deg); }
+/* Flip mode: only the face rotates. The piece/flyer shell remains in board
+ * coordinates so its screen-space movement vector can never be inverted. */
+.bv-piece.faces-top > .bv-face,
+.bv-flyer.faces-top > .bv-face { transform: rotate(180deg); }
 
 /* Selection lift */
 .bv-node.is-selected .bv-piece {
@@ -203,7 +213,6 @@
   box-shadow: var(--piece-lift-up), inset 0 1px 0 rgba(255,255,255,.2);
   z-index: 3;
 }
-.bv-node.is-selected .bv-piece.faces-top { transform: translateY(-8%) scale(1.05) rotate(180deg); }
 
 /* Disclosed enemy flag */
 .bv-piece.is-disclosed { box-shadow: var(--piece-lift), 0 0 0 2px var(--gold); }

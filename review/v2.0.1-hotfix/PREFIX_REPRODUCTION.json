@@ -1,0 +1,26 @@
+{
+  "build": "v2.0.0",
+  "rootCause": "The flyer shell composed translate(-50%, -50%), rotate(180deg), and the travel translate(dx, dy) in one transform context. The 180-degree rotation inverted the local translation axes.",
+  "engines": {
+    "chromium": {
+      "topFacingAssertions": 8,
+      "reversedAtMidAnimation": 8,
+      "examples": {
+        "logicalRightMidDx": -76.65,
+        "logicalLeftMidDx": 70.59,
+        "logicalDownMidDy": -47.09,
+        "logicalUpMidDy": 47.07
+      }
+    },
+    "webkit": {
+      "topFacingAssertions": 8,
+      "reversedAtMidAnimation": 8,
+      "examples": {
+        "logicalRightMidDx": -75.76,
+        "logicalLeftMidDx": 75.28,
+        "logicalDownMidDy": -49.27,
+        "logicalUpMidDy": 47.31
+      }
+    }
+  }
+}

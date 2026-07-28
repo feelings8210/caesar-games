@@ -492,6 +492,31 @@ t('the AI only ever produces legal moves', () => {
   }
 });
 
+t('Standard AI decision is invariant when hidden enemy identities are swapped', () => {
+  const boardA = { ...generateLegalSetup('navy'), ...generateLegalSetup('red') };
+  const hidden = Object.keys(boardA).filter(k => boardA[k].side === 'navy');
+  const boardB = JSON.parse(JSON.stringify(boardA));
+  const [a, b] = hidden.slice(0, 2);
+  [boardB[a], boardB[b]] = [
+    { ...boardB[b], id: boardA[a].id },
+    { ...boardB[a], id: boardA[b].id }
+  ];
+  // Positions, sides, and public reveal state are identical. Only secrets vary.
+  const ai = new LocalJunqiAI('standard');
+  const first = ai.selectMove('red', boardA);
+  const second = ai.selectMove('red', boardB);
+  eq(`${first.from}:${first.to}`, `${second.from}:${second.to}`,
+    'hidden identity changed the AI decision');
+});
+
+t('Standard AI reports that its decision used the sanitized observation only', () => {
+  const board = { ...generateLegalSetup('navy'), ...generateLegalSetup('red') };
+  const diagnostics = {};
+  new LocalJunqiAI('standard').selectMove('red', board, {}, diagnostics);
+  ok(diagnostics.observationOnly);
+  ok(diagnostics.candidates > 0);
+});
+
 /* ================================================================== *
  * 10. Session lifecycle
  * ================================================================== */

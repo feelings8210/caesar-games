@@ -149,6 +149,27 @@ test('Xiangqi Relaxed and Standard AI return legal moves', () => {
   }
 });
 
+test('Xiangqi Standard searches beyond the Relaxed one-ply horizon', () => {
+  const game = new XiangqiGame();
+  const diagnostics = {};
+  const move = chooseXiangqiMove(game.serialize(), 'standard', diagnostics);
+  assert.ok(game.legalMoves().some(m => m.from === move.from && m.to === move.to));
+  assert.equal(diagnostics.depth >= 2, true);
+  assert.equal(diagnostics.nodes > 0, true);
+  assert.equal(diagnostics.elapsedMs <= 1500, true);
+});
+
+test('Xiangqi Standard takes an exposed General immediately', () => {
+  const game = new XiangqiGame({
+    board: board([
+      ['0,4','b','g'], ['1,4','r','r'], ['9,3','r','g'], ['5,3','r','s']
+    ]),
+    turn: 'r'
+  });
+  const move = chooseXiangqiMove(game.serialize(), 'standard');
+  assert.deepEqual([move.from, move.to], ['1,4', '0,4']);
+});
+
 test('Chess initial state and standard piece movement are authoritative', () => {
   const game = new ChessGame();
   assert.equal(Object.keys(game.board).length, 32);
@@ -243,6 +264,25 @@ test('Chess Relaxed and Standard AI return legal moves', () => {
     const move = chooseChessMove(game.serialize(), difficulty);
     assert.ok(game.legalMoves().some(m => m.from === move.from && m.to === move.to && m.promotion === move.promotion));
   }
+});
+
+test('Chess Standard completes a deeper alpha-beta iteration within budget', () => {
+  const game = new ChessGame();
+  const diagnostics = {};
+  const move = chooseChessMove(game.serialize(), 'standard', diagnostics);
+  assert.ok(game.legalMoves().some(m =>
+    m.from === move.from && m.to === move.to && m.promotion === move.promotion));
+  assert.equal(diagnostics.depth >= 3, true);
+  assert.equal(diagnostics.nodes > 100, true);
+  assert.equal(diagnostics.elapsedMs <= 1500, true);
+});
+
+test('Chess Standard converts a forced mate in one', () => {
+  const game = new ChessGame({ fen: '7k/5Q2/6K1/8/8/8/8/8 w - - 0 1' });
+  const move = chooseChessMove(game.serialize(), 'standard');
+  const result = game.move(move.from, move.to, move.promotion);
+  assert.equal(result.status, 'finished');
+  assert.equal(result.result, 'checkmate');
 });
 
 console.log(`\nCaesar Games — Xiangqi + Chess rules: ${passed} passed, ${failed} failed\n`);

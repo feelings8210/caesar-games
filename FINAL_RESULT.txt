@@ -1,103 +1,96 @@
-CAESAR GAMES — XIANGQI + CHESS + BILINGUAL V1
-Build v2.0.0 · 2026-07-28
+CAESAR GAMES — AI STRENGTH + FLIP MOTION DIRECTION HOTFIX
+Build v2.0.1 · 2026-07-28
 
-================================================================
-OUTCOME
-================================================================
+AI_AUDIT:
+  PASS — Standard was genuinely shallow in all three games and is now
+  materially deeper/better. Relaxed remains child-friendly and randomized.
 
-Caesar Games is one coherent three-game PWA:
+JUNQI_RELAXED_STRENGTH:
+  PASS — legal one-ply heuristic choice with meaningful randomness.
 
-  陆战棋 / Junqi
-  中国象棋 / Xiangqi
-  国际象棋 / Chess
+JUNQI_STANDARD_STRENGTH:
+  PASS — deterministic sanitized-observation scoring with public probability,
+  safer captures, reply pressure, mobility, flag, mine, engineer, camp and
+  railway strategy.
 
-The existing Junqi engine and recovered physical interaction model remain
-isolated and pass their full original suites. Xiangqi and Chess use isolated
-rules/AI adapters behind a shared game registry, shell, bilingual UI, local
-library, Continue, Record/Replay, sound, motion and PWA infrastructure.
+JUNQI_NO_CHEATING_TEST:
+  PASS — concealed identity swap produces the identical Standard decision;
+  unknown name, rank, static status and encoded ID remain unavailable.
 
-================================================================
-RELEASE GATES
-================================================================
+XIANGQI_RELAXED_STRENGTH:
+  PASS — randomized choice from six sound one-ply candidates.
 
-JUNQI_UNIT:
-  PASS — 66 / 66
+XIANGQI_STANDARD_STRENGTH:
+  PASS — bounded iterative selective alpha-beta through measured depth 4,
+  attack/defense maps, hanging avoidance, General safety, checks, cannon/horse
+  legality, material, activity, soldier advancement and tactical ordering.
 
-XIANGQI_CHESS_RULES_AND_AI:
-  PASS — 33 / 33
+CHESS_RELAXED_STRENGTH:
+  PASS — randomized choice from seven sound one-ply candidates.
 
-JUNQI_CHROMIUM_E2E:
-  PASS — 62 / 62
+CHESS_STANDARD_STRENGTH:
+  PASS — bounded iterative alpha-beta through measured depth 4, mate/capture/
+  check/promotion/castling ordering, material/activity/pawn/bishop-pair/
+  king-safety evaluation and forced-mate coverage.
 
-JUNQI_WEBKIT_E2E:
-  PASS — 62 / 62
+AI_RESPONSE_TIME:
+  PASS — compute medians Relaxed/Standard:
+  Chess 4.5 / 826.2 ms; Xiangqi 63.8 / 935.6 ms; Junqi 0.7 / 10.1 ms.
+  Complete Standard browser replies:
+  Chromium Xiangqi 1433.5 ms, Chess 1735.0 ms;
+  WebKit Xiangqi 1140.0 ms, Chess 1728.0 ms.
+  Chess/Xiangqi search runs in a cancellable module worker.
 
-XIANGQI_CHESS_SHARED_CHROMIUM_E2E:
-  PASS — 17 / 17
+FLIP_MOTION_ROOT_CAUSE:
+  CONFIRMED — centering translate, rotate(180deg), and travel translate shared
+  one transform context, inverting top-face local motion axes.
 
-XIANGQI_CHESS_SHARED_WEBKIT_E2E:
-  PASS — 17 / 17
+FLIP_LEFT_RIGHT_TEST:
+  PASS — both armies, both face directions, Chromium and WebKit; mid-path dx
+  sign always matches logical left/right.
 
-CROSS_GAME_TRANSITIONS:
-  PASS — all six directions, new identity/type isolation, stale AI rejection,
-  Continue, Resume, Replay, completed-game Rematch and Home transitions
+FLIP_UP_DOWN_TEST:
+  PASS — both armies, both face directions, Chromium and WebKit; mid-path dy
+  sign always matches logical up/down across rows 5↔6.
 
-I18N:
-  PASS — English and Simplified Chinese; 184 / 184 dictionary keys in both
+FLIP_TOP_SIDE_ROTATION_TEST:
+  PASS — shell translates in screen coordinates while child face remains
+  rotated 180°; 32/32 path assertions, no arc, correction, or snap-back.
 
-PERSISTENCE:
-  PASS — schema 4; legacy records without gameType migrate to gameType=junqi;
-  corrupt records are isolated; no legacy Junqi wipe
+CHROMIUM_E2E:
+  PASS — Junqi 63/63; Xiangqi/Chess/shared 17/17; motion 16/16.
 
-OFFLINE:
-  PASS — WebKit installed caesar-games-v2.0.0, local server stopped and
-  independently confirmed unreachable, app reloaded from cache, Xiangqi
-  Continue restored the same game at 483.80 × 537.55 with 32 painted pieces,
-  and another legal move completed offline
+WEBKIT_E2E:
+  PASS — Junqi 63/63; Xiangqi/Chess/shared 17/17; motion 16/16.
 
-VISUAL_AUDIT:
-  PASS — 16 real WebKit iPad-landscape states reviewed
-  Evidence: review/xiangqi-chess-v1/FINAL_CONTACT_SHEET.png
+NON_REGRESSION:
+  PASS — Junqi rules/session/AI 68/68; Xiangqi/Chess rules/AI 37/37;
+  Classic, Flip, Xiangqi, Chess, Games, Continue, bilingual UI, sound,
+  persistence, records/replay, cross-game transitions and stale-AI isolation.
 
-THIRD_PARTY:
-  PASS — chess.js 1.4.0 / BSD-2-Clause, npm gitHead and integrity verified,
-  exact ESM distribution and license vendored locally, no runtime CDN
+OFFLINE_STATUS:
+  PASS — WebKit installed caesar-games-v2.0.1, server was stopped and confirmed
+  unreachable, cached app resumed the same Xiangqi game with 32 pieces and
+  completed another legal move.
 
-BUILD_AND_CACHE:
-  v2.0.0 / caesar-games-v2.0.0
+BUILD_VERSION:
+  v2.0.1 / caesar-games-v2.0.1
 
-================================================================
-RULE AUTHORITIES
-================================================================
+PRODUCTION_COMMIT:
+  Final main/HEAD commit is reported in the task result.
 
-Junqi:
-  docs/JUNQI_V1_RULESET.md
+PAGES_STATUS:
+  BLOCKED BY PUBLISHING GUARD — production remains verified at v2.0.0.
+  Local v2.0.1 release state is clean. Exact owner command:
+  git push origin main
 
-Xiangqi:
-  docs/XIANGQI_V1_RULESET.md
-  Family V1 uses same-position third occurrence as a draw and does not claim
-  full judge-based WXF/AXF perpetual-chase adjudication.
+KNOWN_REMAINING_ISSUES:
+  No known automated software blocker. This environment rejected external
+  push, so Pages cannot deploy or be verified until the owner runs the command
+  above. Physical iPad timing/feel remains the owner smoke test; local bounded
+  AI is not represented as tournament grade.
 
-Chess:
-  chess.js 1.4.0, vendored at js/vendor/chessjs/chess.js
-  Legal moves, check, checkmate, stalemate, castling, en passant, promotion,
-  repetition, fifty-move and insufficient-material behavior are authoritative.
+READY_FOR_OWNER_SHORT_SMOKE_TEST:
+  YES after owner push and GitHub Pages serves v2.0.1.
 
-Licenses:
-  docs/THIRD_PARTY_LICENSES.md
-
-================================================================
-OWNER PHYSICAL PASS
-================================================================
-
-Only confirm:
-
-1. Home shows Junqi / Xiangqi / Chess
-2. Language switches English / 中文
-3. Xiangqi 2 Players opens and a legal move works
-4. Top-side Xiangqi characters face the top player
-5. Chess Vs Computer opens, human moves, AI responds
-6. Games Library contains new game records
-7. Offline reopen works
-
-No manual rule validation is requested.
+TERMINAL_TAB: CLOSE

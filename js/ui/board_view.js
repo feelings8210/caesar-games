@@ -261,13 +261,17 @@ export class BoardView {
     el.className = classes.join(' ');
 
     if (visible) {
-      el.textContent = piece.name;
+      el.innerHTML = '';
+      const face = document.createElement('span');
+      face.className = 'bv-face';
+      face.textContent = piece.name;
+      el.appendChild(face);
       el.setAttribute('aria-label', piece.name);
     } else {
       // A concealed piece must carry no identifying data in the DOM at all.
       el.textContent = '';
       el.removeAttribute('aria-label');
-      el.innerHTML = '<span class="bv-back-mark" aria-hidden="true"></span>';
+      el.innerHTML = '<span class="bv-face"><span class="bv-back-mark" aria-hidden="true"></span></span>';
     }
   }
 
@@ -312,13 +316,15 @@ export class BoardView {
     if (destPiece) destPiece.style.visibility = 'hidden';
     if (origPiece) origPiece.style.visibility = 'hidden';
 
-    const base = faceClass.includes('faces-top')
-      ? 'translate(-50%, -50%) rotate(180deg)'
-      : 'translate(-50%, -50%)';
+    // The shell owns screen-space translation. Orientation belongs only to
+    // its child face; composing rotate + translate on this element reverses
+    // the apparent vector for top-facing pieces.
+    const base = 'translate(-50%, -50%)';
 
     const flyer = document.createElement('div');
     flyer.className = `bv-flyer ${faceClass}`;
-    if (faceHtml !== null) flyer.innerHTML = faceHtml;
+    flyer.innerHTML = '<span class="bv-face"></span>';
+    if (faceHtml !== null) flyer.firstElementChild.innerHTML = faceHtml;
     flyer.style.width = `${a.w}px`;
     flyer.style.height = `${a.h}px`;
     flyer.style.left = `${a.x}px`;

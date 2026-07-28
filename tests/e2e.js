@@ -619,6 +619,60 @@ export async function runE2E({ verbose = false } = {}) {
     }
   });
 
+  await T('flip: shell motion follows screen vectors for both armies and face directions', async () => {
+    const view = app().board;
+    const vectors = [
+      ['right', '4-0', '4-1'],
+      ['left', '4-1', '4-0'],
+      ['down-cross-half', '5-0', '6-0'],
+      ['up-cross-half', '6-0', '5-0']
+    ];
+    for (const side of ['navy', 'red']) {
+      for (const topFacing of [false, true]) {
+        for (const [direction, from, to] of vectors) {
+          const start = view.centerOf(from);
+          const end = view.centerOf(to);
+          const cls = `is-face side-${side}${topFacing ? ' faces-top' : ''}`;
+          const motion = view.animateMove({
+            from, to, combat: false, faceHtml: '兵', faceClass: cls
+          });
+          let flyer = $('.bv-flyer');
+          // WebKit may defer the first animation tick under load. Sample only
+          // after the shell has genuinely entered the path.
+          for (let tick = 0; tick < 10; tick++) {
+            await sleep(20);
+            flyer = $('.bv-flyer');
+            const active = flyer?.getAnimations().some(a => (a.currentTime || 0) >= 30);
+            if (active) break;
+          }
+          const rect = flyer.getBoundingClientRect();
+          const board = $('.bv-board').getBoundingClientRect();
+          const mid = {
+            x: rect.left - board.left + rect.width / 2,
+            y: rect.top - board.top + rect.height / 2
+          };
+          const expectedX = Math.sign(end.x - start.x);
+          const expectedY = Math.sign(end.y - start.y);
+          if (expectedX) {
+            ok(Math.sign(mid.x - start.x) === expectedX,
+              `${side} ${topFacing ? 'top' : 'bottom'} ${direction} reversed horizontally`);
+            ok(Math.abs(mid.y - start.y) < 3, `${direction} drifted vertically`);
+          }
+          if (expectedY) {
+            ok(Math.sign(mid.y - start.y) === expectedY,
+              `${side} ${topFacing ? 'top' : 'bottom'} ${direction} reversed vertically`);
+            ok(Math.abs(mid.x - start.x) < 3, `${direction} drifted horizontally`);
+          }
+          const faceTransform = getComputedStyle(flyer.querySelector('.bv-face')).transform;
+          if (topFacing) no(faceTransform === 'none', 'top face did not rotate');
+          else ok(faceTransform === 'none' || /matrix\(1,\s*0,\s*0,\s*1/.test(faceTransform),
+            `bottom face rotated: ${faceTransform}`);
+          await motion;
+        }
+      }
+    }
+  });
+
   /* ---------------- vs computer ---------------- */
 
   await T('vs computer: setup, Quick Setup, Reset and Ready keep a painted board', async () => {

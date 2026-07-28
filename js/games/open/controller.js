@@ -18,6 +18,7 @@ export class OpenGameController {
     this.selected = null;
     this.aiToken = 0;
     this.aiTimer = null;
+    this.aiWorker = null;
     this.busy = false;
   }
 
@@ -138,12 +139,43 @@ export class OpenGameController {
       this.aiTimer = null;
       if (!this.validAi(s, token, gameId, gameType)) return;
       const state = s.engine.serialize();
-      const move = gameType === 'xiangqi'
-        ? chooseXiangqiMove(state, s.aiDifficulty)
-        : chooseChessMove(state, s.aiDifficulty);
+      const move = await this.chooseAiMove(gameType, state, s.aiDifficulty, token);
       if (!move || !this.validAi(s, token, gameId, gameType)) return;
       await this.commit(move.from, move.to, move.promotion);
     }, 120);
+  }
+
+  chooseAiMove(gameType, state, difficulty, token) {
+    if (typeof Worker === 'undefined') {
+      return Promise.resolve(gameType === 'xiangqi'
+        ? chooseXiangqiMove(state, difficulty)
+        : chooseChessMove(state, difficulty));
+    }
+
+    this.aiWorker?.terminate();
+    const worker = new Worker(new URL('./ai_worker.js', import.meta.url), { type: 'module' });
+    this.aiWorker = worker;
+    return new Promise(resolve => {
+      const timer = setTimeout(() => {
+        worker.terminate();
+        if (this.aiWorker === worker) this.aiWorker = null;
+        resolve(null);
+      }, 2200);
+      worker.onmessage = event => {
+        if (event.data.id !== token) return;
+        clearTimeout(timer);
+        worker.terminate();
+        if (this.aiWorker === worker) this.aiWorker = null;
+        resolve(event.data.error ? null : event.data.move);
+      };
+      worker.onerror = () => {
+        clearTimeout(timer);
+        worker.terminate();
+        if (this.aiWorker === worker) this.aiWorker = null;
+        resolve(null);
+      };
+      worker.postMessage({ id: token, gameType, serialized: state, difficulty });
+    });
   }
 
   validAi(s, token, gameId, gameType) {
@@ -194,6 +226,8 @@ export class OpenGameController {
   dispose() {
     this.aiToken++;
     if (this.aiTimer) clearTimeout(this.aiTimer);
+    if (this.aiWorker) this.aiWorker.terminate();
+    this.aiWorker = null;
     this.aiTimer = null; this.selected = null; this.busy = false; this.session = null;
   }
 }

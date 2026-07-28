@@ -1,0 +1,51 @@
+{
+  "environment": {
+    "date": "2026-07-28",
+    "samplesPerComputeMedian": 5,
+    "note": "Compute medians were measured in the local Node runtime. Browser response measurements include human move settlement, the AI worker, and AI move presentation."
+  },
+  "preHotfixStandardComputeMedianMs": {
+    "chess": 83.5,
+    "xiangqi": 185.7,
+    "junqi": 0.5
+  },
+  "v2.0.1ComputeMs": [
+    {
+      "game": "chess",
+      "relaxedMedian": 4.5,
+      "standardMedian": 826.2,
+      "standardRange": [821.0, 868.3]
+    },
+    {
+      "game": "xiangqi",
+      "relaxedMedian": 63.8,
+      "standardMedian": 935.6,
+      "standardRange": [909.2, 1073.8]
+    },
+    {
+      "game": "junqi",
+      "relaxedMedian": 0.7,
+      "standardMedian": 10.1,
+      "standardRange": [9.5, 17.9]
+    }
+  ],
+  "standardBrowserResponseMs": {
+    "chromium": {
+      "xiangqi": 1433.5,
+      "chess": 1735.0
+    },
+    "webkit": {
+      "xiangqi": 1140.0,
+      "chess": 1728.0
+    }
+  },
+  "mainThreadResponsiveness": {
+    "architecture": "Chess and Xiangqi Standard search runs in a dedicated module worker.",
+    "observedMaxTimerGapMs": {
+      "chromiumXiangqi": 149.4,
+      "chromiumChess": 17.7,
+      "webkitXiangqi": 60.0,
+      "webkitChess": 21.0
+    }
+  }
+}
