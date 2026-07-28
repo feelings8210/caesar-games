@@ -1,107 +1,137 @@
-CAESAR GAMES — PRE-TRAVEL FINAL HARDENING
-Build v2.0.2 · 2026-07-28
+CAESAR GAMES v2.0.3 — FAST PRE-TRAVEL UPGRADE
+2026-07-28
 
-SAFE_EXIT_GAME_SWITCHING:
-  PASS — Home, game-to-game switching, Games Library, Continue, and new-game
-  paths preserve independent unfinished and historical records. Resume now
-  constructs a complete candidate before releasing the healthy live session.
+BASELINE_VERIFIED:
+  PASS — main was clean and synchronized with origin/main at 21544ad before
+  work began. Production independently reported v2.0.2 at
+  https://feelings8210.github.io/caesar-games/.
 
-IPAD_TOUCH_HARDENING:
-  PASS — game boards suppress selection, drag, scroll gestures, callouts, and
-  context behavior. Suppression is board-scoped; page zoom and Learn/Record
-  scrolling remain available. WebKit landscape safe-area and positive rendered
-  geometry checks pass. This is automated WebKit evidence, not physical-iPad
-  acceptance.
+MOTION_READABILITY:
+  PASS — Junqi, Xiangqi and Chess now show a legible lift, screen-space travel,
+  contact and settle sequence. Gomoku stones visibly lower onto the board.
+  Canonical state remains committed before presentation.
 
-AUDIO_LIFECYCLE:
-  PASS — audio unlocks on real gestures, wakes on visible/pageshow, recreates a
-  closed context after interruption, persists mute, and remains decorative.
-  Fresh-process offline WebKit audio ran with local select/capture cues and no
-  doubled or stale cross-game cue failures.
+MOTION_PACING:
+  PASS — Junqi travel is 250–380 ms by distance; Xiangqi 330 ms; Chess 300 ms;
+  Gomoku placement 310 ms. Non-capture settle is 110 ms. Reduced-motion remains
+  effectively immediate.
 
-INTERRUPTION_RESUME_SAFETY:
-  PASS — Junqi human, reveal, and AI turns are advanced and persisted as one
-  canonical transaction before presentation. Reload during human animation
-  resumes exactly one AI reply; reload during AI animation restores the human
-  turn with no duplicate. Ready restores the privacy shield. Capture, Replay,
-  and game-end reloads restore canonical state with no flyer, ghost, transient
-  replay timer, stale modal, wrong turn, or duplicate move.
+LAST_MOVE_READABILITY:
+  PASS — origin and destination use restrained warm memory marks that persist
+  until the next move. Gomoku marks the last stone without covering its face.
 
-STORAGE_CORRUPTION_SAFETY:
-  PASS — complete records are normalized and validated before replacement.
-  Malformed records are skipped individually; whole-payload corruption falls
-  back to a last-good copy. Quota failure leaves the in-memory game playable
-  and does not wipe unrelated history.
+CAPTURE_READABILITY:
+  PASS — captured pieces remain physically present through contact, then use a
+  restrained 225 ms compression/fade. No midpoint removal, snap or stale ghost
+  remained in Chromium, WebKit, replay or reload gates.
 
-TRAVEL_OFFLINE_COLD_START:
-  PASS FOR THE v2.0.2 RELEASE CANDIDATE — WebKit installed the complete cache,
-  saved all three games, fully terminated its browser process, confirmed the
-  origin unreachable, and launched a fresh process. Home, Library, Continue,
-  Junqi, Xiangqi, Chess, one move per game, local Junqi AI, sound, and positive
-  board geometry all passed from disk. Production v2.0.2 cold-start verification
-  remains pending only because the publishing guard blocked the push.
+SOUND_QUALITY:
+  PASS — all cues remain repo-local and synthesized offline. Select, place,
+  capture, invalid, check, win, reveal and replay-adjacent UI feedback use a
+  calmer physical-tabletop vocabulary. Victory is a quiet settling cadence.
 
-JUNQI_NON_REGRESSION:
-  PASS — rules/session/AI 68/68; rendered Chromium and WebKit coverage includes
-  Classic setup/privacy/current-player-bottom/Last Move, Flip orientation and
-  direction, Vs Computer, hidden-information boundary, persistence, sound,
-  motion, records, replay, interruption, and offline AI.
+SOUND_SYNC:
+  PASS — placement/capture cues fire once at contact; invalid fires once at
+  resistance; stale AI work emits no delayed cue. Audio recreates a closed
+  context and worked in the fresh-process offline WebKit gate.
 
-XIANGQI_NON_REGRESSION:
-  PASS — legal rules, two-player orientation, Vs Computer AI, capture motion,
-  Continue, Record/Replay, persistence, geometry, and offline moves pass in
-  Chromium and WebKit.
+SOUND_DEFERRED_ITEMS:
+  NONE — subtle safe material profiles ship for Junqi block, Xiangqi disc,
+  Chess piece and Gomoku stone.
 
-CHESS_NON_REGRESSION:
-  PASS — legal rules, captures, promotion, castling, check/end state, Vs
-  Computer AI, Record/Replay, persistence, geometry, and offline moves pass in
-  Chromium and WebKit.
+VISUAL_UPLIFT:
+  PASS — Home tiles, boards and pieces received restrained depth, grain, bevel,
+  shadow and warm highlight improvements without new heavy assets or layout
+  redesign.
 
-CHROMIUM_E2E:
-  PASS — Junqi/shared 70/70; Xiangqi/Chess/shared 21/21; interruption/reload
-  6/6; zero runtime errors; final rendered board 381.75×468.46 with 32 pieces.
+BOARD_MATERIAL_DIRECTION:
+  Warm felt/painted Junqi, softly grained Xiangqi wood, quiet two-tone Chess,
+  and a honey-toned 15×15 Gomoku board with aligned star points.
 
-WEBKIT_E2E:
-  PASS — Junqi/shared 70/70; Xiangqi/Chess/shared 21/21; interruption/reload
-  6/6; zero runtime errors; final rendered board 381.75×468.46 with 32 pieces.
+PIECE_MATERIAL_DIRECTION:
+  Junqi blocks retain their compact physical form; Xiangqi discs have warmer
+  carved depth; Chess remains crisp and readable; Gomoku uses shaded black and
+  ivory stone bowls.
 
-FAMILY_GAME_MEMORY:
-  IMPLEMENTED — finished result and Record surfaces show one quiet bilingual
-  line using existing player, move-count, and completion-date metadata.
+JUNQI_REGRESSION:
+  PASS — rules/session/AI 68/68; Chromium 70/70; WebKit 70/70. Classic privacy,
+  Flip orientation/direction, AI, Last Move, sound, replay, interruption and
+  offline behavior remain green.
 
-THREE_MATERIAL_SOUND_FLAVORS:
-  DEFERRED_NOT_BLOCKING — current shared local sound vocabulary is stable.
-  Per-game timbre retuning immediately before travel adds subjective risk and
-  is not required for any P0 gate.
+XIANGQI_REGRESSION:
+  PASS — shared rules/AI suite 37/37; rendered move/capture/check/AI/Continue/
+  replay/interruption/offline paths pass in Chromium and WebKit.
+
+CHESS_REGRESSION:
+  PASS — shared rules/AI suite 37/37; capture, promotion, castling, checkmate,
+  AI, Continue, replay, interruption and offline paths pass in both engines.
+
+GOMOKU_STATUS:
+  SHIPPED — documented Freestyle Gomoku on 15×15: Black first; place on empty
+  intersections; first horizontal, vertical or diagonal line of five or more
+  wins; no captures, forbidden moves or opening restrictions; full board draw.
+  Includes 2 Players, Vs Computer, EN/ZH, Continue, Library, Record/Replay,
+  persistence, sound, motion and PWA integration.
+
+GOMOKU_AI:
+  PASS — Relaxed uses varied high-value local plans. Standard takes immediate
+  wins, blocks immediate losses, and evaluates attack, defense, open ends and
+  center influence. Both remained legal and bounded in unit and browser gates.
+
+GOMOKU_OFFLINE:
+  PASS — the complete engine and AI are precached. A fully closed WebKit process
+  reopened v2.0.3 with the origin unreachable, resumed Gomoku and placed another
+  legal stone from cache.
+
+MANCALA_STATUS:
+  DEFERRED_NOT_BLOCKING — deliberately omitted after all requested priorities
+  passed; adding a fifth game would exceed the safe pre-travel scope.
+
+CHROMIUM:
+  PASS — Junqi/shared 70/70; Xiangqi/Chess/Gomoku/shared 26/26; interruption
+  7/7; focused polish coverage included; zero runtime errors.
+
+WEBKIT:
+  PASS — Junqi/shared 70/70; Xiangqi/Chess/Gomoku/shared 26/26; interruption
+  7/7; focused polish coverage included; zero runtime errors.
+
+OFFLINE_COLD_START:
+  PASS — cache caesar-games-v2.0.3 installed completely; browser process fully
+  terminated; origin confirmed unreachable; fresh WebKit process reopened Home,
+  four Library rows, Continue, sound, local AI and all four playable boards.
+
+TOTAL_TESTS:
+  361 — 118 unit assertions, 192 rendered browser tests, 36 focused motion/
+  sound/reduced-motion assertions, 14 interruption scenarios and 1 true
+  fresh-process offline gate.
+
+FAILED_TESTS:
+  0
 
 BUILD_VERSION:
-  v2.0.2
+  v2.0.3
 
-SERVICE_WORKER_VERSION:
-  caesar-games-v2.0.2
+COMMIT:
+  908bb27 — Ship Caesar Games v2.0.3 with Gomoku and tabletop polish
 
-PRODUCTION_COMMIT:
-  RELEASE CANDIDATE 94d076b. Current GitHub Pages production remains 36c341b
-  (v2.0.0) because this environment blocked external publication.
+WORKTREE:
+  CLEAN after this release report commit.
 
-PAGES_STATUS:
-  PUBLISH BLOCKED BY GLOBAL GUARD — production was verified online at
-  https://feelings8210.github.io/caesar-games/ and still reports v2.0.0.
-  Exact owner command: git push origin main
-
-KNOWN_REMAINING_ISSUES:
-  No known automated software blocker. The owner push and subsequent production
-  v2.0.2 cold-start confirmation remain. Physical iPad/Home-Screen and real
-  travel feel remain the owner’s final smoke test. No physical-device
-  acceptance is claimed here.
-
-READY_FOR_OWNER_FINAL_TRAVEL_SMOKE_TEST:
-  YES — after the owner pushes main and Pages serves v2.0.2.
+PUBLISH_STATUS:
+  BLOCKED_BY_OWNER_BOUNDARY — no external push was attempted. Exact owner
+  command:
+  git push origin main
 
 EVIDENCE:
-  review/v2.0.2-pre-travel/QA_SUMMARY.md
-  review/v2.0.2-pre-travel/BROWSER_E2E.json
-  review/v2.0.2-pre-travel/INTERRUPTION_RESUME.json
-  review/v2.0.2-pre-travel/COLD_START_OFFLINE.json
+  review/v2.0.3-pre-travel/QA_SUMMARY.md
+  review/v2.0.3-pre-travel/BROWSER_E2E.json
+  review/v2.0.3-pre-travel/INTERRUPTION_RESUME.json
+  review/v2.0.3-pre-travel/COLD_START_OFFLINE.json
+  review/kid-friendly-polish/POLISH_QA.json
+
+KNOWN_LIMIT:
+  Automated tablet-landscape and WebKit evidence is complete. No physical-iPad,
+  Home-Screen install, speaker-quality or real-airplane acceptance is claimed;
+  the owner should still perform the short physical travel smoke test.
 
 TERMINAL_TAB: CLOSE
