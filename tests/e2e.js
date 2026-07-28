@@ -147,6 +147,14 @@ export async function runE2E({ verbose = false } = {}) {
   const eq = (a, b, m = '') => { if (a !== b) throw new Error(`${m} expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); };
   const ok = (v, m) => { if (!v) throw new Error(m || 'expected truthy'); };
   const no = (v, m) => { if (v) throw new Error(m || 'expected falsy'); };
+  const assertBoardGeometry = (label) => {
+    const b = box($('.bv-board'));
+    ok(b.w > 0, `${label}: board width must be positive, got ${b.w}`);
+    ok(b.h > 0, `${label}: board height must be positive, got ${b.h}`);
+    return b;
+  };
+  const visiblePieceCount = (selector = '.bv-piece') =>
+    $$(selector).filter(isVisible).length;
 
   localStorage.clear();
   await goHome();
@@ -307,7 +315,9 @@ export async function runE2E({ verbose = false } = {}) {
     await goHome();
     await startMode('classic');
     eq(app().state, S().CLASSIC_P1_SETUP);
+    assertBoardGeometry('Classic P1 setup');
     eq($$('.bv-piece.is-face').length, 25, 'own army face up');
+    eq(visiblePieceCount('.bv-piece.is-face'), 25, 'visible P1 pieces');
     eq($$('.bv-piece.is-back').length, 25, 'opponent concealed');
     for (const el of $$('.bv-piece.is-back')) eq(el.textContent.trim(), '', 'a back must carry no text');
   });
@@ -391,10 +401,12 @@ export async function runE2E({ verbose = false } = {}) {
     tap('#btn-handoff-ready');
     await waitFor(() => app().state === S().CLASSIC_P2_SETUP, { label: 'P2 setup' });
     eq(app().session.setupSide, 'red');
+    assertBoardGeometry('Classic P2 setup');
     eq($('.bv-board').dataset.orientation, 'red_bottom', 'board must rotate for P2');
     // P2's own army (red, canonical rows 0-5) must be painted in the lower half.
     const redEls = $$('.bv-piece.is-face.side-red');
     eq(redEls.length, 25);
+    eq(visiblePieceCount('.bv-piece.is-face.side-red'), 25, 'visible P2 pieces');
     const boardRect = $('.bv-board').getBoundingClientRect();
     const mid = boardRect.top + boardRect.height / 2;
     const below = redEls.filter(e => e.getBoundingClientRect().top > mid).length;
@@ -406,6 +418,7 @@ export async function runE2E({ verbose = false } = {}) {
     await waitFor(() => isVisible($('#handoff')));
     tap('#btn-handoff-ready');
     await waitFor(() => app().state === S().CLASSIC_PLAY, { label: 'classic play' });
+    assertBoardGeometry('Classic gameplay');
     eq($('.bv-board').dataset.orientation, 'navy_bottom');
     const navyEls = $$('.bv-piece.is-face.side-navy');
     const boardRect = $('.bv-board').getBoundingClientRect();
@@ -549,6 +562,8 @@ export async function runE2E({ verbose = false } = {}) {
     await startMode('flip', { p1: 'Caesar', p2: 'Daddy' });
     eq($$('.bv-piece').length, 50);
     eq($$('.bv-piece.is-back').length, 50, 'everything starts face down');
+    assertBoardGeometry('Flip initial');
+    eq(visiblePieceCount('.bv-piece.is-back'), 50, 'all initial piece backs must be visible');
     eq($('.bv-board').dataset.orientation, 'navy_bottom');
   });
 
@@ -605,6 +620,28 @@ export async function runE2E({ verbose = false } = {}) {
   });
 
   /* ---------------- vs computer ---------------- */
+
+  await T('vs computer: setup, Quick Setup, Reset and Ready keep a painted board', async () => {
+    await goHome();
+    await startMode('vs_computer', { p1: 'Caesar' });
+    assertBoardGeometry('Vs Computer setup');
+    eq(visiblePieceCount('.bv-piece.is-face.side-navy'), 25, 'visible own setup pieces');
+
+    tap('#btn-quick-setup');
+    await sleep(100);
+    assertBoardGeometry('Vs Computer Quick Setup');
+    eq(visiblePieceCount('.bv-piece.is-face.side-navy'), 25, 'visible pieces after Quick Setup');
+
+    tap('#btn-reset-setup');
+    await sleep(100);
+    assertBoardGeometry('Vs Computer Reset');
+    eq(visiblePieceCount('.bv-piece.is-face.side-navy'), 25, 'visible pieces after Reset');
+
+    tap('#btn-ready');
+    await waitFor(() => app().state === S().VS_AI_PLAY, { label: 'vs computer gameplay' });
+    assertBoardGeometry('Vs Computer gameplay');
+    eq(visiblePieceCount('.bv-piece'), 50, 'all gameplay pieces have visible geometry');
+  });
 
   await T('vs computer: human is bottom, computer is top, no pass screen', async () => {
     await goHome();
@@ -972,7 +1009,7 @@ export async function runE2E({ verbose = false } = {}) {
     await goHome();
     await startMode('classic', { p1: 'A', p2: 'B' });
     await sleep(120);
-    const b = $('.bv-board').getBoundingClientRect();
+    const b = assertBoardGeometry('iPad landscape');
     ok(b.top >= -1, `board is clipped at the top (${b.top})`);
     ok(b.bottom <= window.innerHeight + 1, `board overflows the bottom (${b.bottom} > ${window.innerHeight})`);
     ok(b.left >= -1 && b.right <= window.innerWidth + 1, 'board overflows horizontally');

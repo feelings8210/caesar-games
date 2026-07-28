@@ -232,7 +232,18 @@ button { cursor: pointer; border: none; background: none; }
   padding: 4px clamp(14px, 3vw, 44px) max(12px, env(safe-area-inset-bottom));
 }
 
-.board-mount { height: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; }
+.board-mount {
+  /* Width is the primary dimension. 53vh leaves room for the app bar and
+   * table padding while the vw bound preserves both side rails. The board
+   * derives its height from this definite width in every rendering engine. */
+  width: min(44vw, 53vh);
+  width: min(44vw, 53dvh);
+  aspect-ratio: 600 / 1010;
+  align-self: center;
+  justify-self: center;
+  min-width: 0;
+  min-height: 0;
+}
 
 .rail { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .rail-left { align-items: flex-end; text-align: right; }
@@ -403,7 +414,13 @@ button { cursor: pointer; border: none; background: none; }
 /* Record & replay */
 .record-dialog { max-height: calc(100vh - 40px); }
 .record-body { display: grid; grid-template-columns: auto 1fr; gap: 22px; min-height: 0; overflow: hidden; }
-.replay-board { height: min(58vh, 520px); display: flex; align-items: center; justify-content: center; }
+.replay-board {
+  height: min(58vh, 520px);
+  aspect-ratio: 600 / 1010;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .record-side { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
 
 .replay-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -557,6 +574,10 @@ button { cursor: pointer; border: none; background: none; }
 
 @media (max-width: 860px), (orientation: portrait) {
   .table { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; gap: 10px; }
+  .board-mount {
+    width: min(88vw, 47vh);
+    width: min(88vw, 47dvh);
+  }
   .rail-left { align-items: center; text-align: center; flex-direction: row; justify-content: center; gap: 12px; }
   .rail-right { align-items: center; }
   .board-hint { max-width: none; }
