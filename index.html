@@ -65,9 +65,9 @@
         </div>
       </div>
 
-      <!-- Restrained First Game Personal Touch Footer -->
+      <!-- Restrained First Game Personal Touch Footer with v1.0.3 Build Tag -->
       <footer class="home-personal-footer">
-        <span>Caesar Games · Love & Play · Since 2026</span>
+        <span>Caesar Games · Love & Play · v1.0.3 · Since 2026</span>
       </footer>
     </main>
 
@@ -141,7 +141,7 @@
         </div>
 
         <div class="learn-footer-touch">
-          <span>Made for Caesar · 2026</span>
+          <span>Made for Caesar · v1.0.3 · 2026</span>
         </div>
       </div>
     </main>
@@ -270,8 +270,30 @@
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').then(reg => {
           console.log('[PWA] ServiceWorker registered with scope:', reg.scope);
+          // Force ServiceWorker update check on app open
+          reg.update();
+
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('[PWA] New update installed! Refreshing client...');
+                  window.location.reload();
+                }
+              });
+            }
+          });
         }).catch(err => {
           console.error('[PWA] ServiceWorker registration failed:', err);
+        });
+
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
         });
       });
     }
