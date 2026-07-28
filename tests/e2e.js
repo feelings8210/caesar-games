@@ -323,7 +323,7 @@ export async function runE2E({ verbose = false } = {}) {
   });
 
   await T('campsites start empty', async () => {
-    for (const c of ['7-1', '7-3', '8-2', '9-1', '9-3', '1-1', '1-3', '2-2', '3-1', '3-3']) {
+    for (const c of ['7-1', '7-3', '8-2', '9-1', '9-3', '2-1', '2-3', '3-2', '4-1', '4-3']) {
       no($(`.bv-node[data-key="${c}"] .bv-piece`), `camp ${c} must be empty at setup`);
     }
   });

@@ -46,7 +46,7 @@ Lower rank *number* wins. Equal ranks remove each other.
 Canonical board: 12 rows (0 = Red back line, 11 = Navy back line) × 5 columns.
 Keys are `row-col`. **Canonical state never rotates.**
 
-- **Campsites 行营** — `1-1 1-3 2-2 3-1 3-3` and `7-1 7-3 8-2 9-1 9-3`
+- **Campsites 行营** — `2-1 2-3 3-2 4-1 4-3` and `7-1 7-3 8-2 9-1 9-3`
 - **Headquarters 大本营** — `0-1 0-3` and `11-1 11-3`
 - **Railways 铁路** — every station on rows 1, 5, 6 and 10, plus columns 0 and 4
   between rows 1 and 10.

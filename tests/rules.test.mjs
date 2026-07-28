@@ -15,6 +15,7 @@ import {
 } from '../js/engine/rules.js';
 import { GameSession, MODES, PHASES, isPieceVisibleTo, viewerSeatOf, boardOrientationOf } from '../js/engine/session.js';
 import { createAiObservation, LocalJunqiAI } from '../js/engine/ai.js';
+import { displayPos } from '../js/ui/board_view.js';
 
 let pass = 0, fail = 0;
 const failures = [];
@@ -77,6 +78,34 @@ t('there are 10 campsites and 4 headquarters', () => {
   eq(HEADQUARTERS.size, 4);
 });
 
+t('camp coordinates keep navy fixed and move every red camp one row toward center', () => {
+  const oldRed = ['1-1', '1-3', '2-2', '3-1', '3-3'];
+  const red = ['2-1', '2-3', '3-2', '4-1', '4-3'];
+  const navy = ['7-1', '7-3', '8-2', '9-1', '9-3'];
+  eq([...CAMPS].sort().join(' '), [...red, ...navy].sort().join(' '), 'exact camp set');
+  for (let i = 0; i < oldRed.length; i++) {
+    const [oldRow, oldCol] = oldRed[i].split('-').map(Number);
+    const [newRow, newCol] = red[i].split('-').map(Number);
+    eq(newRow, oldRow + 1, `${oldRed[i]} row toward center`);
+    eq(newCol, oldCol, `${oldRed[i]} column unchanged`);
+    no(CAMPS.has(oldRed[i]), `${oldRed[i]} must no longer be a camp`);
+  }
+  for (const k of navy) ok(CAMPS.has(k), `${k} navy camp unchanged`);
+});
+
+t('rotated view maps corrected physical camps without changing their canonical keys', () => {
+  for (const k of ['2-1', '2-3', '3-2', '4-1', '4-3']) {
+    const [r, c] = k.split('-').map(Number);
+    const normal = displayPos(r, c, 'navy_bottom');
+    const rotated = displayPos(r, c, 'red_bottom');
+    const expected = displayPos(11 - r, 4 - c, 'navy_bottom');
+    eq(rotated.x, expected.x, `${k} rotated x`);
+    eq(rotated.y, expected.y, `${k} rotated y`);
+    ok(normal.y < rotated.y, `${k} crosses presentation midpoint when rotated`);
+    ok(CAMPS.has(k), `${k} remains the canonical camp key`);
+  }
+});
+
 t('headquarters rows are not railway', () => {
   for (const k of ['0-0', '0-4', '11-0', '11-4']) no(RAILWAYS.has(k), `${k} must not be railway`);
 });
@@ -98,11 +127,11 @@ t('the front line is crossed only at columns 0, 2 and 4', () => {
 });
 
 t('campsites connect diagonally to their four corners', () => {
-  ok(isRoadAdjacent('2-2', '1-1'));
-  ok(isRoadAdjacent('2-2', '3-3'));
+  ok(isRoadAdjacent('3-2', '2-1'));
+  ok(isRoadAdjacent('3-2', '4-3'));
   ok(isRoadAdjacent('8-2', '7-1'));
   ok(isRoadAdjacent('8-2', '9-3'));
-  no(isRoadAdjacent('0-0', '1-1') === false, 'camp 1-1 joins corner 0-0');
+  ok(isRoadAdjacent('2-1', '1-0'), 'camp 2-1 joins corner 1-0');
 });
 
 t('non-camp squares have no diagonal connections', () => {
@@ -238,6 +267,20 @@ t('a piece in a campsite cannot be attacked', () => {
 t('a piece may still move into an empty campsite', () => {
   const b = { '8-1': piece('navy', '连长') };
   ok(canPieceMove(b['8-1'], '8-1', '7-1', b).allowed);
+});
+
+t('red camp safety follows corrected cells and leaves old cells attackable', () => {
+  const corrected = {
+    '2-0': piece('red', '连长'),
+    '2-1': piece('navy', '排长')
+  };
+  no(canPieceMove(corrected['2-0'], '2-0', '2-1', corrected).allowed, 'new red camp is safe');
+
+  const old = {
+    '1-0': piece('red', '连长'),
+    '1-1': piece('navy', '排长')
+  };
+  ok(canPieceMove(old['1-0'], '1-0', '1-1', old).allowed, 'old red camp is attackable');
 });
 
 t('a piece cannot capture its own side', () => {
