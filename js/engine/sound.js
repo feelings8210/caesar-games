@@ -37,10 +37,30 @@ class SoundEngine {
   /** Must be called from a user gesture the first time (iOS requirement). */
   unlock() {
     this._ensure();
-    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    return this.resume();
+  }
+
+  /** Best-effort wake after iOS interruption/backgrounding. */
+  resume() {
+    if (this.ctx?.state === 'closed') this._dropContext();
+    const ctx = this._ensure();
+    if (!ctx || ctx.state === 'running') return Promise.resolve(!!ctx);
+    try {
+      return Promise.resolve(ctx.resume()).then(() => ctx.state === 'running').catch(() => false);
+    } catch {
+      return Promise.resolve(false);
+    }
+  }
+
+  _dropContext() {
+    this.ctx = null;
+    this.master = null;
+    this.noise = null;
+    this.materialWave = null;
   }
 
   _ensure() {
+    if (this.ctx?.state === 'closed') this._dropContext();
     if (this.ctx) return this.ctx;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
@@ -94,7 +114,7 @@ class SoundEngine {
       this._record(cue, false);
       return null;
     }
-    if (ctx.state === 'suspended') ctx.resume();
+    if (ctx.state !== 'running') void this.resume();
     this._record(cue, true);
     return ctx;
   }

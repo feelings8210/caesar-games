@@ -11,7 +11,7 @@
  * discards every older cache in one pass.
  */
 
-const BUILD_VERSION = 'v2.0.1';
+const BUILD_VERSION = 'v2.0.2';
 const CACHE = `caesar-games-${BUILD_VERSION}`;
 
 const PRECACHE = [
@@ -43,19 +43,23 @@ const PRECACHE = [
   './js/vendor/chessjs/chess.js',
   './js/vendor/chessjs/LICENSE',
   './assets/cd_home_mark_transparent.png',
+  './assets/icon-120.png',
+  './assets/icon-152.png',
+  './assets/icon-167.png',
   './assets/icon-180.png',
   './assets/icon-192.png',
   './assets/icon-512.png',
-  './assets/icon-1024.png'
+  './assets/icon-1024.png',
+  './assets/icon-maskable-512.png'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    // Tolerate a single missing asset rather than failing the whole install.
-    await Promise.all(PRECACHE.map(url =>
-      cache.add(new Request(url, { cache: 'reload' })).catch(err =>
-        console.warn('[sw] precache skipped', url, err))));
+    // A candidate worker may activate only with a complete travel cache. If an
+    // asset is unavailable, installation fails and the prior known-good worker
+    // remains in control.
+    await cache.addAll(PRECACHE.map(url => new Request(url, { cache: 'reload' })));
     await self.skipWaiting();
   })());
 });

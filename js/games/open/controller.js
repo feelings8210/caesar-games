@@ -47,10 +47,9 @@ export class OpenGameController {
     return this.session;
   }
 
-  resume(record) {
-    this.dispose();
+  sessionFromRecord(record) {
     const state = record.serializedState || {};
-    this.session = {
+    return {
       gameId: record.gameId, gameType: record.gameType,
       mode: record.mode, player1Name: record.player1Name,
       player2Name: record.player2Name, aiDifficulty: record.aiDifficulty || 'standard',
@@ -60,8 +59,17 @@ export class OpenGameController {
       engine: record.gameType === 'xiangqi' ? new XiangqiGame(state) : new ChessGame(state),
       opening: clone(record.opening || state)
     };
+  }
+
+  resumeSession(session) {
+    this.dispose();
+    this.session = session;
     this.render();
     if (this.isAiTurn()) this.scheduleAi();
+  }
+
+  resume(record) {
+    this.resumeSession(this.sessionFromRecord(record));
   }
 
   sideAt(key) { return this.session?.engine.board[key]?.side || null; }

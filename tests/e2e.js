@@ -1001,6 +1001,40 @@ export async function runE2E({ verbose = false } = {}) {
 
   /* ---------------- failure injection ---------------- */
 
+  await T('INTERRUPTION: a move is saved as one complete turn before animation settles', async () => {
+    const { loadGame } = await import('../js/engine/persistence.js');
+    await goHome();
+    await startMode('vs_computer', { p1: 'A' });
+    await reachPlay('vs_computer');
+    const s = app().session;
+    const from = Object.keys(s.boardState).find(k =>
+      s.boardState[k].side === 'navy' && !s.boardState[k].static &&
+      s.legalTargetsFrom(k).length);
+    const to = s.legalTargetsFrom(from)[0];
+    const settling = app().commitMove(from, to);
+    await sleep(30);
+    const saved = loadGame(s.gameId);
+    eq(saved.history.length, 1, 'the canonical move must already be saved');
+    eq(saved.activeTurn, 'red', 'the saved turn must already belong to the computer');
+    no(saved.selected, 'transient selection must never be persisted');
+    await settling;
+    app().cancelAi();
+  });
+
+  await T('INTERRUPTION: reloading after P1 Ready restores the privacy shield', async () => {
+    await goHome();
+    await startMode('classic', { p1: 'A', p2: 'B' });
+    tap('#btn-ready');
+    await waitFor(() => isVisible($('#handoff')), { label: 'P2 handoff' });
+    const gameId = app().session.gameId;
+    await goHome();
+    ok(app().resumeGame(gameId), 'saved setup must resume');
+    await sleep(80);
+    eq(app().state, S().CLASSIC_HANDOFF);
+    ok(isVisible($('#handoff')), 'P2 formation must remain shielded');
+    eq(app().pending.then, S().CLASSIC_P2_SETUP);
+  });
+
   await T('FAILURE: double-tapping a mode card starts exactly one game', async () => {
     localStorage.clear();
     await goHome();
@@ -1075,15 +1109,49 @@ export async function runE2E({ verbose = false } = {}) {
     eq(s.history.length, 0, 'no move was made');
   });
 
-  await T('FAILURE: a corrupt library falls back to empty instead of crashing', async () => {
-    const { getLibrary } = await import('../js/engine/persistence.js');
-    const saved = localStorage.getItem('caesar_games_library');
+  await T('FAILURE: corruption uses last-good recovery and isolates one malformed record', async () => {
+    const { getLibrary, saveGame } = await import('../js/engine/persistence.js');
+    localStorage.clear();
+    const valid = {
+      gameId: 'corruption_keeper', mode: 'flip', player1Name: 'A', player2Name: 'B',
+      startedAt: Date.now(), updatedAt: Date.now(), status: 'in_progress',
+      boardState: { '0-0': { id: 'x', side: 'navy', name: '连长', rank: 7 } },
+      history: [], flagDisclosed: { navy: false, red: false },
+      assignedColors: { p1: 'navy', p2: 'red' }, capturedPieces: [],
+      phase: 'play', activeTurn: 'navy', winner: null
+    };
+    saveGame(valid);
     localStorage.setItem('caesar_games_library', '{{{not json');
     const lib = getLibrary();
-    ok(Array.isArray(lib.games), 'must still return a usable library');
-    localStorage.setItem('caesar_games_library', JSON.stringify({ games: [{ nonsense: true }, null] }));
-    ok(getLibrary().games.length === 0, 'unusable records are dropped');
-    if (saved) localStorage.setItem('caesar_games_library', saved);
+    eq(lib.games.length, 1, 'last-good library must survive whole-payload corruption');
+    eq(lib.games[0].gameId, valid.gameId);
+    localStorage.setItem('caesar_games_library', JSON.stringify({
+      games: [valid, { nonsense: true }, null]
+    }));
+    const isolated = getLibrary();
+    eq(isolated.games.length, 1, 'only unusable records are dropped');
+    eq(isolated.games[0].gameId, valid.gameId);
+  });
+
+  await T('FAILURE: a storage quota error cannot stop live play', async () => {
+    await goHome();
+    await startMode('flip', { p1: 'A', p2: 'B' });
+    const s = app().session;
+    const first = Object.keys(s.boardState)[0];
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function quotaFailure(key, value) {
+      if (key === 'caesar_games_library' || key === 'caesar_games_library_last_good') {
+        throw new DOMException('quota', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+    try {
+      await app().onFlipTap(first);
+      eq(s.history.length, 1, 'the action must remain committed in memory');
+      ok(s.boardState[first].revealed, 'the live board must remain playable');
+    } finally {
+      Storage.prototype.setItem = original;
+    }
   });
 
   await T('FAILURE: a legacy v1 save migrates instead of being lost', async () => {
@@ -1110,6 +1178,38 @@ export async function runE2E({ verbose = false } = {}) {
     if (sounds.isMuted !== start) { tap('#btn-sound'); await sleep(40); }
   });
 
+  await T('audio recreates a closed context after an iOS-style interruption', async () => {
+    const { sounds } = await import('../js/engine/sound.js');
+    void sounds.unlock();
+    await sleep(60);
+    const interrupted = sounds.ctx;
+    if (!interrupted?.close) return;
+    await interrupted.close();
+    void sounds.resume();
+    await sleep(60);
+    ok(sounds.ctx !== interrupted, 'a closed context must be replaced');
+    no(sounds.ctx?.state === 'closed', 'replacement context must not stay closed');
+  });
+
+  await T('finished family memory uses existing metadata in both languages', async () => {
+    const { formatFamilyMemory } = await import('../js/engine/persistence.js');
+    const { setLocale } = await import('../js/i18n/strings.js');
+    const record = {
+      player1Name: 'Caesar', player2Name: 'Daddy', moveCount: 38,
+      completedAt: new Date(2026, 6, 28).getTime()
+    };
+    setLocale('en');
+    const english = formatFamilyMemory(record);
+    ok(english.includes('Caesar vs Daddy') && english.includes('38 moves') &&
+      english.includes('2026'), english);
+    setLocale('zh');
+    const chinese = formatFamilyMemory(record);
+    ok(chinese.includes('Caesar') && chinese.includes('Daddy') && chinese.includes('38 步') &&
+      chinese.includes('2026'), chinese);
+    setLocale('en');
+    app().render();
+  });
+
   await T('iPad landscape: the board fits without scrolling', async () => {
     await goHome();
     await startMode('classic', { p1: 'A', p2: 'B' });
@@ -1119,6 +1219,26 @@ export async function runE2E({ verbose = false } = {}) {
     ok(b.bottom <= window.innerHeight + 1, `board overflows the bottom (${b.bottom} > ${window.innerHeight})`);
     ok(b.left >= -1 && b.right <= window.innerWidth + 1, 'board overflows horizontally');
     eq(document.documentElement.scrollHeight <= window.innerHeight + 2, true, 'the page must not scroll during play');
+  });
+
+  await T('iPad touch suppression is board-scoped and page zoom remains accessible', async () => {
+    const board = $('.bv-board');
+    const style = getComputedStyle(board);
+    eq(style.touchAction, 'none', 'the game board must own touch gestures');
+    eq(style.userSelect || style.webkitUserSelect, 'none',
+      'board text must not be selectable');
+    const menu = new Event('contextmenu', { bubbles: true, cancelable: true });
+    board.dispatchEvent(menu);
+    ok(menu.defaultPrevented, 'board long-press context behavior must be suppressed');
+    const viewport = document.querySelector('meta[name="viewport"]').content;
+    no(viewport.includes('user-scalable=no'), 'page zoom must remain available');
+    no(viewport.includes('maximum-scale'), 'page zoom must not be capped');
+    app().go(S().LEARN);
+    await sleep(40);
+    no(getComputedStyle($('[data-screen="learn"]')).touchAction === 'none',
+      'Learn scrolling must not inherit board touch suppression');
+    app().go(S().CLASSIC_P1_SETUP);
+    await sleep(40);
   });
 
   await T('iPad landscape: controls stay on screen and tappable', async () => {

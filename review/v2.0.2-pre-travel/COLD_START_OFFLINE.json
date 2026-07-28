@@ -1,0 +1,65 @@
+{
+  "gate": "fully closed WebKit process, unreachable origin, fresh offline process",
+  "build": "v2.0.2",
+  "cache": "caesar-games-v2.0.2",
+  "generatedAt": "2026-07-28T15:51:13.784Z",
+  "online": {
+    "ids": {
+      "junqi": "gms4u2ay01ga24nb",
+      "xiangqi": "xiangqi_ms4u2ahn_zfdx30",
+      "chess": "chess_ms4u2aqm_2q8ktb"
+    },
+    "build": "v2.0.2",
+    "cacheNames": [
+      "caesar-games-v2.0.2"
+    ],
+    "savedGames": 3,
+    "controller": true,
+    "processFullyClosed": true,
+    "originUnreachableAfterShutdown": true
+  },
+  "offline": {
+    "freshProcess": true,
+    "homeLoaded": true,
+    "build": "v2.0.2",
+    "cacheNames": [
+      "caesar-games-v2.0.2"
+    ],
+    "onlySameOriginResources": true,
+    "libraryRows": 3,
+    "junqiBefore": {
+      "width": 434.59375,
+      "height": 731.5625,
+      "visiblePieces": 50
+    },
+    "junqi": {
+      "width": 434.59375,
+      "height": 731.5625,
+      "visiblePieces": 48,
+      "history": 2,
+      "aiResponded": true
+    },
+    "sound": {
+      "muted": false,
+      "contextState": "running",
+      "playedCues": [
+        "select",
+        "capture",
+        "capture"
+      ]
+    },
+    "xiangqi": {
+      "width": 483.796875,
+      "height": 537.546875,
+      "visiblePieces": 32,
+      "history": 2
+    },
+    "chess": {
+      "width": 557.59375,
+      "height": 557.59375,
+      "visiblePieces": 32,
+      "history": 2
+    }
+  },
+  "runtimeErrors": []
+}

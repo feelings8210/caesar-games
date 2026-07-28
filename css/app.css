@@ -354,6 +354,12 @@ button { cursor: pointer; border: none; background: none; }
 }
 .dialog-head h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.015em; }
 .dialog-sub { margin: 4px 0 0; font-size: 13px; color: var(--ink-muted); }
+.family-memory {
+  margin: 7px 0 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+  letter-spacing: .01em;
+}
 
 .dialog-actions { display: flex; justify-content: flex-end; margin-top: 22px; }
 
@@ -566,7 +572,8 @@ button { cursor: pointer; border: none; background: none; }
   color: var(--gold);
 }
 .end-detail { margin: 0 0 4px; font-size: 14px; color: var(--ink-muted); }
-.end-reason { margin: 0 0 26px; font-size: 13px; color: var(--ink-faint); }
+.end-reason { margin: 0 0 8px; font-size: 13px; color: var(--ink-faint); }
+.end-card .family-memory { margin: 0 0 22px; }
 .end-actions { display: flex; flex-direction: column; gap: 9px; align-items: stretch; }
 .end-actions .btn { min-width: 0; width: 100%; }
 

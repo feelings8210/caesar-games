@@ -16,7 +16,7 @@ import { sounds } from './engine/sound.js';
 import { BoardView } from './ui/board_view.js';
 import {
   getPrefs, savePrefs, saveGame, loadGame, deleteGame,
-  mostRecentResumable, listGames, formatFriendlyDate
+  mostRecentResumable, listGames, formatFriendlyDate, formatFamilyMemory
 } from './engine/persistence.js';
 import { COMBAT, FLAG, PIECE_TYPES } from './engine/rules.js';
 import { BUILD } from './build.js';
@@ -144,26 +144,46 @@ export class App {
   resumeGame(gameId) {
     const rec = gameId ? loadGame(gameId) : mostRecentResumable();
     if (!rec) return false;
+
+    // Construct a complete candidate before replacing the current session.
+    // One malformed record must never destroy a healthy live game.
+    let session;
+    try {
+      session = (rec.gameType || GAME_TYPES.JUNQI) === GAME_TYPES.JUNQI
+        ? GameSession.fromRecord(rec)
+        : this.openGame.sessionFromRecord(rec);
+    } catch (error) {
+      console.warn('[resume] skipped malformed game', rec.gameId, error);
+      return false;
+    }
+
+    this.leaveSession();
     if ((rec.gameType || GAME_TYPES.JUNQI) !== GAME_TYPES.JUNQI) {
-      this.leaveSession();
       this.board.destroy();
       this.selectedGameType = rec.gameType;
-      this.openGame.resume(rec);
+      this.openGame.resumeSession(session);
       this.go(rec.status === 'finished' ? S.OPEN_END : S.OPEN_PLAY);
       return true;
     }
-    this.leaveSession();
-    const session = GameSession.fromRecord(rec);
+
     session.openingBoard = rec.openingBoard || null;
     this.session = session;
     this.ai = new LocalJunqiAI(session.aiDifficulty);
 
     const next = this.stateForSession(session, { resuming: true });
-    if (next === S.CLASSIC_HANDOFF) {
+    if (session.mode === MODES.CLASSIC &&
+        session.phase === PHASES.SETUP &&
+        session.setupSide === 'red') {
+      this.go(S.CLASSIC_HANDOFF, {
+        then: S.CLASSIC_P2_SETUP,
+        forSide: 'red'
+      });
+    } else if (next === S.CLASSIC_HANDOFF) {
       this.go(S.CLASSIC_HANDOFF, { then: S.CLASSIC_PLAY, forSide: session.activeTurn, replayLastMove: true });
     } else {
       this.go(next);
     }
+    if (session.isAiTurn) this.scheduleAiTurn();
     return true;
   }
 
@@ -217,8 +237,9 @@ export class App {
     if (!session || session.disposed || !session.isAiTurn) return;
 
     const token = ++this._aiToken;
-    const stillValid = () =>
-      this.session === session && !session.disposed && token === this._aiToken && session.isAiTurn;
+    const sameJob = () =>
+      this.session === session && !session.disposed && token === this._aiToken;
+    const stillValid = () => sameJob() && session.isAiTurn;
 
     this._aiTimer = setTimeout(async () => {
       this._aiTimer = null;
@@ -228,16 +249,12 @@ export class App {
       if (!move) { session.endTurn(); this.persist(); this.render(); return; }
 
       const result = session.applyMove(move.from, move.to);
-      this.persist();
-      await this.presentMove(session, result, token);
-      if (!stillValid() && !session.isGameOver) return;
-      if (this.session !== session || session.disposed) return;
-
+      const faceHtml = this.flyerHtmlFor(session, result);
       if (!session.isGameOver) session.endTurn();
       this.persist();
-
-      if (session.isGameOver) { sounds.victory(); this.go(S.GAME_END); }
-      else this.render();
+      await this.presentMove(session, result, token, faceHtml);
+      if (!sameJob()) return;
+      this.afterTurn();
     }, 620);
   }
 
@@ -328,6 +345,7 @@ export class App {
       this._busy = true;
       const concealed = this.board.capturePiece(k);
       session.revealPiece(k);
+      if (!session.isGameOver) session.endTurn();
       this.persist();
       this.render();
       await this.board.animateReveal(k, concealed, () => {
@@ -370,9 +388,14 @@ export class App {
     const session = this.session;
     this._busy = true;
     const result = session.applyMove(from, to);
+    // Capture what the acting player is allowed to see before advancing the
+    // canonical turn. Presentation may finish later; the saved transaction may
+    // not.
+    const faceHtml = this.flyerHtmlFor(session, result);
+    if (!session.isGameOver) session.endTurn();
     this.persist();
 
-    await this.presentMove(session, result, this._aiToken);
+    await this.presentMove(session, result, this._aiToken, faceHtml);
     this._busy = false;
 
     if (this.session !== session || session.disposed) return;
@@ -380,10 +403,10 @@ export class App {
   }
 
   /** Sound + motion for a move that has already been applied. */
-  async presentMove(session, result, token) {
+  async presentMove(session, result, token, capturedFace = null) {
     const orientationBefore = this.board.orientation;
 
-    const faceHtml = this.flyerHtmlFor(session, result);
+    const faceHtml = capturedFace || this.flyerHtmlFor(session, result);
     await this.board.animateMove({
       from: result.from,
       to: result.to,
@@ -404,7 +427,6 @@ export class App {
     });
 
     void orientationBefore; void token;
-    if (this.session === session && !session.disposed) this.render();
   }
 
   /** What the travelling piece looks like — concealment rules still apply. */
@@ -435,11 +457,6 @@ export class App {
       this.go(S.GAME_END);
       return;
     }
-
-    const res = session.endTurn();
-    this.persist();
-
-    if (res.gameOver) { sounds.victory(); this.go(S.GAME_END); return; }
 
     if (session.mode === MODES.CLASSIC) {
       sounds.pass();
@@ -801,6 +818,7 @@ export class App {
         general: 'end.byGeneral', draw: 'end.draws'
       };
       $('#end-reason').textContent = t(reasonKeys[engine.result] || 'end.byNoLegal');
+      $('#end-memory').textContent = formatFamilyMemory(this.openGame.toRecord());
       $('#game-end').classList.add('is-open');
       return;
     }
@@ -810,6 +828,7 @@ export class App {
     $('#end-detail').textContent = t('end.detail', {
       p1: session.player1Name, p2: session.player2Name, n: session.history.length });
     $('#end-reason').textContent = t(session.winReason === 'flag' ? 'end.byFlag' : 'end.byImmobile');
+    $('#end-memory').textContent = formatFamilyMemory(session.toRecord());
     $('#game-end').classList.add('is-open');
   }
 
@@ -911,6 +930,9 @@ export class App {
 
   renderRecord() {
     const { rec } = this.replay;
+    const memory = $('#record-memory');
+    memory.textContent = rec.status === 'finished' ? formatFamilyMemory(rec) : '';
+    memory.classList.toggle('is-hidden', rec.status !== 'finished');
     if ((rec.gameType || GAME_TYPES.JUNQI) !== GAME_TYPES.JUNQI) {
       this.renderOpenRecord();
       return;
@@ -1109,8 +1131,22 @@ export class App {
       });
     };
 
-    // First gesture unlocks audio on iOS.
-    document.addEventListener('pointerdown', () => sounds.unlock(), { once: true });
+    // iOS may suspend or interrupt Web Audio whenever the app backgrounds.
+    // Re-unlock on every real gesture and also make a best-effort wake when the
+    // page becomes visible; the next gesture remains the authoritative path.
+    document.addEventListener('pointerdown', () => { void sounds.unlock(); }, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void sounds.resume();
+    });
+    window.addEventListener('pageshow', () => { void sounds.resume(); });
+
+    const boardSurface = $('#board-mount');
+    boardSurface.addEventListener('contextmenu', event => {
+      if (event.target.closest('.bv-board, .open-board')) event.preventDefault();
+    });
+    boardSurface.addEventListener('dragstart', event => {
+      if (event.target.closest('.bv-board, .open-board')) event.preventDefault();
+    });
 
     on('#btn-sound', () => {
       sounds.setMuted(!sounds.isMuted);
