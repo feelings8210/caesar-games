@@ -178,8 +178,18 @@
     "note": "Every assertion is made against rendered state — element boxes, computed styles, rendered text — not against object state."
   },
 
+  "deployment": {
+    "status": "NOT DEPLOYED",
+    "reason": "git push was denied by the execution environment's permission gate",
+    "localCommit": "2fb7341",
+    "ownerAction": "git push origin main",
+    "verifyAfter": "footer at https://feelings8210.github.io/caesar-games/ reads v1.1.0",
+    "productionCurrentlyServing": "v1.0.3"
+  },
+
   "notVerifiedHere": [
     "Physical iPad hardware: touch accuracy, Home Screen icon rendering, real audio output, true offline launch from the Home Screen. Requires the owner's 2-minute acceptance pass.",
-    "Safari-specific rendering. The automated runs used Chromium 150; the CSS avoids Chromium-only features, but Safari has not been exercised directly."
+    "Safari-specific rendering. The automated runs used Chromium 150; the CSS avoids Chromium-only features, but Safari has not been exercised directly.",
+    "Production. The build was never pushed, so nothing was verified against GitHub Pages."
   ]
 }

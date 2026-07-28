@@ -130,8 +130,16 @@ PWA_UPDATE_PATH:                 REBUILT — network-first navigation,
 OFFLINE_STATUS:                  PASS (local, browser) — server killed, app
                                  relaunched from cache, resumed a saved game,
                                  played a move, AI replied, state persisted
-PRODUCTION_VERSION:              v1.1.0
-PRODUCTION_COMMIT:               see PRODUCTION_VERIFIED below
+PRODUCTION_VERSION:              NOT DEPLOYED — v1.1.0 is committed locally
+                                 but `git push` was blocked by this
+                                 environment's permission gate, so GitHub Pages
+                                 still serves v1.0.3.
+PRODUCTION_COMMIT:               local commit 2fb7341 (unpushed)
+                                 Owner action required:  git push origin main
+                                 That triggers .github/workflows/deploy.yml.
+                                 Verify afterwards that the footer on
+                                 https://feelings8210.github.io/caesar-games/
+                                 reads v1.1.0.
 
 UNIT_TESTS:                      66 / 66 (tests/rules.test.mjs)
 E2E_TESTS:                       61 / 61 (tests/e2e.js — real clicks, asserts
@@ -158,15 +166,23 @@ KNOWN_REMAINING_ISSUES
    rendering, real audio output, and a true offline launch from an installed
    PWA. This is exactly what the owner's acceptance pass covers.
 
+3. NOT DEPLOYED. `git push` was denied by this environment, so production is
+   still running v1.0.3 and carries every defect listed above. The build is
+   committed locally and ready; it needs one push from the owner.
+
 Neither is a known defect. Both are honestly untested surfaces, listed rather
 than papered over.
 
 ================================================================
-READY_FOR_OWNER_PHYSICAL_SMOKE_TEST: YES
+READY_FOR_OWNER_PHYSICAL_SMOKE_TEST: YES — after the push below
 OFFLINE_IPAD_PASS: NOT CLAIMED — requires the owner's device
 ================================================================
 
-Two minutes, in this order:
+FIRST, one command (deployment could not be performed from here):
+
+    git push origin main
+
+Then two minutes on the iPad, in this order:
 
   1. Open Caesar Games; footer should read v1.1.0
   2. Play -> Vs Computer -> Ready -> one move

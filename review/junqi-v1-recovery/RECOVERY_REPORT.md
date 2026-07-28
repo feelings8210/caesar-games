@@ -172,9 +172,25 @@ Neither is a known defect; both are honestly untested surfaces.
 
 ---
 
-## 7. Owner acceptance pass
+## 7. Deployment — one command needed from the owner
 
-Roughly two minutes. Everything else has been verified here.
+`git push` is blocked by this environment's permission gate, so **production
+still serves v1.0.3** and still carries every defect above. The build is
+committed locally as `2fb7341` and is ready to go:
+
+```
+git push origin main
+```
+
+That triggers `.github/workflows/deploy.yml`. Afterwards, confirm the footer at
+<https://feelings8210.github.io/caesar-games/> reads **v1.1.0** — that is the
+single check that the deploy landed.
+
+---
+
+## 8. Owner acceptance pass
+
+Roughly two minutes, after the push. Everything else has been verified here.
 
 1. Open Caesar Games; confirm the footer reads **v1.1.0**
 2. Play → Vs Computer → Ready → make one move (confirm the piece visibly travels and clicks)
