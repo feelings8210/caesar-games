@@ -11,7 +11,7 @@
  * discards every older cache in one pass.
  */
 
-const BUILD_VERSION = 'v2.0.4';
+const BUILD_VERSION = 'v2.0.5';
 const CACHE = `caesar-games-${BUILD_VERSION}`;
 
 const PRECACHE = [

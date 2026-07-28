@@ -3,6 +3,9 @@ import { Chess } from '../../vendor/chessjs/chess.js';
 export const CHESS_RULES_VERSION = 'chess.js-1.4.0';
 
 const clone = value => JSON.parse(JSON.stringify(value));
+const squareIndex = square => /^[a-h][1-8]$/.test(square || '')
+  ? (8 - Number(square[1])) * 16 + square.charCodeAt(0) - 97
+  : -1;
 
 export class ChessGame {
   constructor(data = {}) {
@@ -16,7 +19,8 @@ export class ChessGame {
       });
     }
     this.terminal = data.terminal ||
-      (data.status === 'finished' && data.result === 'resignation' ? 'finished' : null);
+      (data.status === 'finished' &&
+       ['resignation', 'draw_agreement'].includes(data.result) ? 'finished' : null);
     this.terminalWinner = data.winner || null;
     this.terminalResult = data.result || null;
   }
@@ -59,9 +63,24 @@ export class ChessGame {
   }
   inCheck() { return this.chess.inCheck(); }
 
+  illegalReason(from, to) {
+    if (this.legalMoves().some(move => move.from === from && move.to === to)) return null;
+    const target = squareIndex(to);
+    const pseudoLegal = this.chess._moves({ legal: false, square: from })
+      .some(move => move.to === target);
+    return pseudoLegal ? 'selfCheck' : 'illegal';
+  }
+
   move(from, to, promotion) {
     if (this.terminal) return { ok: false, reason: 'gameOver' };
-    const move = this.chess.move({ from, to, promotion: promotion || 'q' });
+    const reason = this.illegalReason(from, to);
+    if (reason) return { ok: false, reason };
+    let move;
+    try {
+      move = this.chess.move({ from, to, promotion: promotion || 'q' });
+    } catch {
+      return { ok: false, reason: 'illegal' };
+    }
     if (!move) return { ok: false, reason: 'illegal' };
     const entry = {
       n: this.history.length + 1, from: move.from, to: move.to,
@@ -73,6 +92,28 @@ export class ChessGame {
       ok: true, ...entry, capture: !!move.captured,
       status: this.status, result: this.result
     };
+  }
+
+  acceptDraw(offeredBy = this.turn) {
+    if (this.status !== 'in_progress' || !['w', 'b'].includes(offeredBy)) return { ok: false };
+    const acceptedBy = offeredBy === 'w' ? 'b' : 'w';
+    const entry = {
+      n: this.history.length + 1,
+      side: offeredBy,
+      offerBy: offeredBy,
+      acceptedBy,
+      piece: null,
+      from: null,
+      to: null,
+      drawAgreement: true,
+      capture: false,
+      check: false
+    };
+    this.history.push(entry);
+    this.terminal = 'finished';
+    this.terminalWinner = null;
+    this.terminalResult = 'draw_agreement';
+    return { ok: true, ...entry, status: 'finished', winner: null, result: 'draw_agreement' };
   }
 
   resign(side = this.turn) {

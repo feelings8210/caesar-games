@@ -23,6 +23,14 @@ function localAiMove(gameType, state, difficulty) {
   return chooseChessMove(state, difficulty);
 }
 
+function illegalCopy(gameType, reason) {
+  if (reason === 'flyingGeneral') return t('open.flyingGeneral');
+  if (reason === 'selfCheck') {
+    return t(gameType === 'xiangqi' ? 'open.xiangqiSelfCheck' : 'open.chessSelfCheck');
+  }
+  return t('open.illegal');
+}
+
 export class OpenGameController {
   constructor(host, mount) {
     this.host = host;
@@ -135,7 +143,10 @@ export class OpenGameController {
     if (!legal.includes(key)) {
       sounds.invalid();
       void this.view.nudge(this.selected);
-      this.host.flash(t('open.illegal'));
+      this.host.flash(illegalCopy(
+        s.gameType,
+        s.engine.illegalReason?.(this.selected, key) || 'illegal'
+      ));
       return;
     }
     let promotion = null;
@@ -165,7 +176,10 @@ export class OpenGameController {
     this.selected = null;
     const result = s.engine.move(from, to, promotion);
     if (!result.ok) {
-      this.busy = false; sounds.invalid(); this.host.flash(t('open.illegal')); return;
+      this.busy = false;
+      sounds.invalid();
+      this.host.flash(illegalCopy(s.gameType, result.reason));
+      return;
     }
     s.updatedAt = Date.now();
     if (s.engine.status === 'finished') s.completedAt = Date.now();
@@ -268,6 +282,21 @@ export class OpenGameController {
     return true;
   }
 
+  acceptDraw(offeredBy) {
+    const s = this.session;
+    if (!s || s.mode !== 'two_player' || !['xiangqi', 'chess'].includes(s.gameType) ||
+        s.engine.status !== 'in_progress') return false;
+    const result = s.engine.acceptDraw?.(offeredBy);
+    if (!result?.ok) return false;
+    s.updatedAt = Date.now();
+    s.completedAt = Date.now();
+    this.selected = null;
+    this.persist();
+    this.render();
+    this.host.onOpenGameEnd();
+    return true;
+  }
+
   render() {
     const s = this.session;
     if (!s) return;
@@ -323,7 +352,8 @@ export class OpenGameController {
 export function replayOpenRecord(record, step) {
   const game = createEngine(record.gameType, record.opening);
   for (const move of (record.history || []).slice(0, step)) {
-    if (move.resign) game.resign(move.side);
+    if (move.drawAgreement) game.acceptDraw(move.offerBy || move.side);
+    else if (move.resign) game.resign(move.side);
     else game.move(move.from, move.to, move.promotion);
   }
   return game;

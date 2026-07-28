@@ -136,6 +136,19 @@ export function isInCheck(board, side) {
     board[from]?.side === enemy && pseudoMoves(board, from).includes(general));
 }
 
+export function generalsFace(board) {
+  const red = generalSquare(board, 'r');
+  const black = generalSquare(board, 'b');
+  if (!red || !black) return false;
+  const [redRow, redCol] = red.split(',').map(Number);
+  const [blackRow, blackCol] = black.split(',').map(Number);
+  if (redCol !== blackCol) return false;
+  for (let row = Math.min(redRow, blackRow) + 1; row < Math.max(redRow, blackRow); row++) {
+    if (board[key(row, redCol)]) return false;
+  }
+  return true;
+}
+
 export function legalMovesFor(board, side) {
   const moves = [];
   for (const from of Object.keys(board)) {
@@ -194,10 +207,23 @@ export class XiangqiGame {
   legalTargets(from) { return this.legalMoves().filter(m => m.from === from).map(m => m.to); }
   inCheck(side = this.turn) { return isInCheck(this.board, side); }
 
+  illegalReason(from, to) {
+    const moving = this.board[from];
+    if (!moving || moving.side !== this.turn || !pseudoMoves(this.board, from).includes(to)) {
+      return 'illegal';
+    }
+    const next = clone(this.board);
+    next[to] = next[from];
+    delete next[from];
+    if (generalsFace(next)) return 'flyingGeneral';
+    if (isInCheck(next, this.turn)) return 'selfCheck';
+    return 'illegal';
+  }
+
   move(from, to) {
     if (this.status !== 'in_progress') return { ok: false, reason: 'gameOver' };
     const legal = this.legalMoves().find(m => m.from === from && m.to === to);
-    if (!legal) return { ok: false, reason: 'illegal' };
+    if (!legal) return { ok: false, reason: this.illegalReason(from, to) };
     const moving = this.board[from];
     const captured = this.board[to] || null;
     this.board[to] = moving;
@@ -228,6 +254,28 @@ export class XiangqiGame {
       }
     }
     return { ok: true, ...entry, capture: !!captured, status: this.status, result: this.result };
+  }
+
+  acceptDraw(offeredBy = this.turn) {
+    if (this.status !== 'in_progress' || !['r', 'b'].includes(offeredBy)) return { ok: false };
+    const acceptedBy = offeredBy === 'r' ? 'b' : 'r';
+    const entry = {
+      n: this.history.length + 1,
+      side: offeredBy,
+      offerBy: offeredBy,
+      acceptedBy,
+      piece: null,
+      from: null,
+      to: null,
+      drawAgreement: true,
+      capture: false,
+      check: false
+    };
+    this.history.push(entry);
+    this.status = 'finished';
+    this.winner = null;
+    this.result = 'draw_agreement';
+    return { ok: true, ...entry, status: this.status, winner: null, result: this.result };
   }
 
   resign(side = this.turn) {

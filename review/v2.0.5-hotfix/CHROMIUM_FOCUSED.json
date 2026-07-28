@@ -1,0 +1,39 @@
+{
+  "build": "v2.0.5",
+  "generatedAt": "2026-07-28T18:14:57.623Z",
+  "smoke": {
+    "pass": 7,
+    "fail": 0,
+    "results": [
+      {
+        "name": "Xiangqi refusals use specific natural copy and Resign stays visible",
+        "status": "PASS"
+      },
+      {
+        "name": "Chess self-check uses natural copy and Resign stays visible",
+        "status": "PASS"
+      },
+      {
+        "name": "Xiangqi two-player draw offer accepts, persists, and replays",
+        "status": "PASS"
+      },
+      {
+        "name": "Xiangqi two-player draw offer can be declined",
+        "status": "PASS"
+      },
+      {
+        "name": "Chess two-player draw offer accepts, persists, and replays",
+        "status": "PASS"
+      },
+      {
+        "name": "Chess two-player draw offer can be declined",
+        "status": "PASS"
+      },
+      {
+        "name": "Vs Computer never exposes Offer Draw",
+        "status": "PASS"
+      }
+    ]
+  },
+  "runtimeErrors": []
+}

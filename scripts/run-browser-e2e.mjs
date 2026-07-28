@@ -9,7 +9,7 @@ import {
 
 const port = 8107;
 const origin = `http://127.0.0.1:${port}`;
-const outputDir = path.resolve('review/v2.0.4-hotfix');
+const outputDir = path.resolve('review/v2.0.5-hotfix');
 fs.mkdirSync(outputDir, { recursive: true });
 
 const server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], {
@@ -29,7 +29,7 @@ const engines = [
 ];
 
 const report = {
-  build: 'v2.0.4',
+  build: 'v2.0.5',
   viewport: { width: 1180, height: 820 },
   generatedAt: new Date().toISOString(),
   engines: {}

@@ -773,6 +773,7 @@ export class App {
     $('#play-controls').classList.toggle('is-hidden', isSetup);
     $('#btn-replay-move').classList.toggle('is-hidden',
       isSetup || !session.lastMove || session.isGameOver);
+    $('#btn-offer-draw').classList.add('is-hidden');
     $('#btn-resign').classList.toggle('is-hidden', isSetup || session.isGameOver);
 
     const counter = $('#move-counter');
@@ -790,6 +791,10 @@ export class App {
     $('#setup-controls').classList.add('is-hidden');
     $('#play-controls').classList.remove('is-hidden');
     $('#btn-replay-move').classList.add('is-hidden');
+    const canOfferDraw = status === 'in_progress' &&
+      this.openGame.session.mode === 'two_player' &&
+      [GAME_TYPES.XIANGQI, GAME_TYPES.CHESS].includes(gameType);
+    $('#btn-offer-draw').classList.toggle('is-hidden', !canOfferDraw);
     $('#btn-resign').classList.toggle('is-hidden', status !== 'in_progress');
     $('#move-counter').textContent = moveCount ? t('record.moveCount', { n: moveCount }) : '';
     $('#turn-status').textContent = thinking
@@ -829,7 +834,8 @@ export class App {
         repetition: 'end.byRepetition', insufficient: 'end.byInsufficient',
         fifty_move: 'end.byFifty', no_legal_move: 'end.byNoLegal',
         general: 'end.byGeneral', five: 'end.byFive',
-        resignation: 'end.byResignation', draw: 'end.draws'
+        resignation: 'end.byResignation', draw_agreement: 'end.byAgreement',
+        draw: 'end.draws'
       };
       $('#end-reason').textContent = t(reasonKeys[engine.result] || 'end.byNoLegal');
       $('#end-memory').textContent = formatFamilyMemory(this.openGame.toRecord());
@@ -991,6 +997,21 @@ export class App {
     this.go(S.GAME_END);
   }
 
+  requestDraw() {
+    const s = this.openGame.session;
+    if (!s || s.mode !== 'two_player' ||
+        ![GAME_TYPES.XIANGQI, GAME_TYPES.CHESS].includes(s.gameType) ||
+        s.engine.status !== 'in_progress') return;
+    const offeredBy = s.engine.turn;
+    this.confirmAction({
+      title: t('draw.offered'),
+      text: '',
+      confirm: t('draw.accept'),
+      cancel: t('draw.keepPlaying'),
+      action: () => this.openGame.acceptDraw(offeredBy)
+    });
+  }
+
   openRecord(gameId) {
     const rec = loadGame(gameId);
     if (!rec) return;
@@ -1065,7 +1086,9 @@ export class App {
       row.className = 'record-move';
       row.classList.toggle('is-current', i + 1 === step);
       const who = m.side === firstSide ? rec.player1Name : rec.player2Name;
-      const moveText = m.resign
+      const moveText = m.drawAgreement
+        ? t('record.drawAgreed')
+        : m.resign
         ? t('record.resigned', { name: who })
         : rec.gameType === GAME_TYPES.GOMOKU
           ? t('record.moveOpen', { piece: t('gomoku.stone'), from: '—', to: m.to })
@@ -1290,6 +1313,7 @@ export class App {
 
     on('#btn-handoff-ready', () => this.onHandoffReady(), { silent: true });
     on('#btn-replay-move', () => this.replayLastMove(), { silent: true });
+    on('#btn-offer-draw', () => this.requestDraw());
     on('#btn-resign', () => this.requestResign());
 
     on('#btn-end-again', () => {

@@ -9,7 +9,7 @@ import {
 
 const port = 8109;
 const origin = `http://127.0.0.1:${port}`;
-const outputDir = path.resolve('review/v2.0.4-hotfix');
+const outputDir = path.resolve('review/v2.0.5-hotfix');
 fs.mkdirSync(outputDir, { recursive: true });
 
 const server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], {
@@ -26,7 +26,7 @@ const engines = [
     executablePath: '/Users/cdmini/Library/Caches/ms-playwright/webkit-2287/pw_run.sh'
   }]
 ];
-const report = { build: 'v2.0.4', generatedAt: new Date().toISOString(), engines: {} };
+const report = { build: 'v2.0.5', generatedAt: new Date().toISOString(), engines: {} };
 
 const check = (condition, message) => {
   if (!condition) throw new Error(message);

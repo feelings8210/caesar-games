@@ -5,6 +5,7 @@ import {
 import { chooseXiangqiMove } from '../js/games/xiangqi/ai.js';
 import { ChessGame } from '../js/games/chess/adapter.js';
 import { chooseChessMove } from '../js/games/chess/ai.js';
+import { setLocale, t as copy } from '../js/i18n/strings.js';
 
 let passed = 0, failed = 0;
 const test = (name, fn) => {
@@ -92,6 +93,51 @@ test('Flying General makes an open file check', () => {
 test('A move exposing Flying General is illegal self-check', () => {
   const b = board([['9,4','r','g'],['0,4','b','g'],['5,4','r','r']]);
   assert.equal(legalMovesFor(b, 'r').some(m => m.from === '5,4' && m.to === '5,3'), false);
+});
+
+test('Xiangqi allows a legal move even when the opponent can check next turn', () => {
+  const game = new XiangqiGame({
+    board: board([
+      ['9,4','r','g'],['0,3','b','g'],['6,8','r','s'],['2,0','b','r']
+    ]),
+    turn: 'r'
+  });
+  assert.equal(game.move('6,8', '5,8').ok, true);
+  assert.equal(game.legalTargets('2,0').includes('2,4'), true);
+  assert.equal(game.move('2,0', '2,4').check, true);
+});
+
+test('Xiangqi allows hanging material that can be captured next turn', () => {
+  const game = new XiangqiGame({
+    board: board([
+      ['9,4','r','g'],['0,3','b','g'],['6,0','r','r'],['5,8','b','r']
+    ]),
+    turn: 'r'
+  });
+  assert.equal(game.move('6,0', '5,0').ok, true);
+  assert.equal(game.legalMoves().some(move =>
+    move.from === '5,8' && move.to === '5,0' && move.capture), true);
+});
+
+test('Xiangqi blocks a move that leaves its own General currently in check', () => {
+  const game = new XiangqiGame({
+    board: board([
+      ['9,4','r','g'],['0,3','b','g'],['5,4','b','r'],['6,0','r','s']
+    ]),
+    turn: 'r'
+  });
+  assert.equal(game.status, 'in_progress');
+  assert.equal(game.move('6,0', '5,0').ok, false);
+  assert.equal(game.illegalReason('6,0', '5,0'), 'selfCheck');
+});
+
+test('Xiangqi identifies a facing-General violation specifically', () => {
+  const game = new XiangqiGame({
+    board: board([['9,4','r','g'],['0,4','b','g'],['5,4','r','r']]),
+    turn: 'r'
+  });
+  assert.equal(game.move('5,4', '5,3').ok, false);
+  assert.equal(game.illegalReason('5,4', '5,3'), 'flyingGeneral');
 });
 
 test('Check is detected from a chariot', () => {
@@ -272,6 +318,16 @@ test('Xiangqi resignation is terminal and survives serialization', () => {
   assert.equal(chooseXiangqiMove(resumed.serialize(), 'standard'), null);
 });
 
+test('Xiangqi agreed draw is terminal and survives serialization', () => {
+  const game = new XiangqiGame();
+  assert.equal(game.acceptDraw('r').ok, true);
+  assert.equal(game.status, 'finished');
+  assert.equal(game.winner, null);
+  assert.equal(game.result, 'draw_agreement');
+  assert.equal(game.history.at(-1).drawAgreement, true);
+  assert.equal(new XiangqiGame(game.serialize()).result, 'draw_agreement');
+});
+
 test('Chess initial state and standard piece movement are authoritative', () => {
   const game = new ChessGame();
   assert.equal(Object.keys(game.board).length, 32);
@@ -297,6 +353,20 @@ test('Chess pinned piece cannot expose its own King', () => {
   const game = new ChessGame({ fen: '4r1k1/8/8/8/8/8/4R3/4K3 w - - 0 1' });
   assert.equal(game.legalTargets('e2').includes('d2'), false);
   assert.equal(game.legalTargets('e2').includes('e8'), true);
+});
+
+test('Chess allows a legal bad move when the opponent can check next turn', () => {
+  const game = new ChessGame({ fen: '4k3/8/8/8/8/8/r6P/4K3 w - - 0 1' });
+  assert.equal(game.move('h2', 'h3').ok, true);
+  assert.equal(game.legalTargets('a2').includes('e2'), true);
+  assert.equal(game.move('a2', 'e2').check, true);
+});
+
+test('Chess blocks a pseudo-legal move that leaves its own King in check', () => {
+  const game = new ChessGame({ fen: 'k3r3/8/8/8/8/8/4R3/4K3 w - - 0 1' });
+  assert.equal(game.legalTargets('e2').includes('d2'), false);
+  assert.equal(game.illegalReason('e2', 'd2'), 'selfCheck');
+  assert.equal(game.move('e2', 'd2').ok, false);
 });
 
 test('Chess capture and illegal self-check', () => {
@@ -398,6 +468,38 @@ test('Chess resignation is terminal, persisted and stops AI', () => {
   assert.equal(resumed.status, 'finished');
   assert.equal(resumed.result, 'resignation');
   assert.equal(chooseChessMove(resumed.serialize(), 'standard'), null);
+});
+
+test('Chess agreed draw is terminal, persisted and stops AI', () => {
+  const game = new ChessGame();
+  assert.equal(game.acceptDraw('w').ok, true);
+  assert.equal(game.status, 'finished');
+  assert.equal(game.winner, null);
+  assert.equal(game.result, 'draw_agreement');
+  assert.equal(game.history.at(-1).drawAgreement, true);
+  const resumed = new ChessGame(game.serialize());
+  assert.equal(resumed.result, 'draw_agreement');
+  assert.equal(chooseChessMove(resumed.serialize(), 'standard'), null);
+});
+
+test('Focused illegal-move and draw copy is exact in English and Simplified Chinese', () => {
+  setLocale('en');
+  assert.equal(copy('open.xiangqiSelfCheck'), 'Your General would still be in check.');
+  assert.equal(copy('open.flyingGeneral'), "The Generals can't face each other.");
+  assert.equal(copy('open.chessSelfCheck'), 'Your King would still be in check.');
+  assert.equal(copy('open.illegal'), "That move doesn't work.");
+  assert.equal(copy('draw.offered'), 'Draw offered.');
+  assert.equal(copy('draw.accept'), 'Accept');
+  assert.equal(copy('draw.keepPlaying'), 'Keep Playing');
+  setLocale('zh');
+  assert.equal(copy('open.xiangqiSelfCheck'), '这样老将还在被将军。');
+  assert.equal(copy('open.flyingGeneral'), '将帅不能直接照面。');
+  assert.equal(copy('open.chessSelfCheck'), '这样王还在被将军。');
+  assert.equal(copy('open.illegal'), '这步走不了。');
+  assert.equal(copy('draw.offered'), '对方提出和棋。');
+  assert.equal(copy('draw.accept'), '接受');
+  assert.equal(copy('draw.keepPlaying'), '继续下');
+  setLocale('en');
 });
 
 console.log(`\nCaesar Games — Xiangqi + Chess rules: ${passed} passed, ${failed} failed\n`);
