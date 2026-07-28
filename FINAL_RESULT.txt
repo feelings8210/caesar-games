@@ -1,134 +1,103 @@
-CAESAR GAMES — P0 WEBKIT BLANK BOARD HOTFIX
-Build v1.1.1 · 2026-07-28
+CAESAR GAMES — XIANGQI + CHESS + BILINGUAL V1
+Build v2.0.0 · 2026-07-28
 
 ================================================================
-ROOT_CAUSE_CONFIRMED
+OUTCOME
 ================================================================
 
-YES.
+Caesar Games is one coherent three-game PWA:
 
-The v1.1.0 board combined:
+  陆战棋 / Junqi
+  中国象棋 / Xiangqi
+  国际象棋 / Chess
 
-  container-type: size
-  height: 100%
-  width: auto
-  aspect-ratio: 600 / 1010
-
-WebKit 2287 resolved that size-contained board to width 0 while preserving its
-height. The DOM and game state were healthy (60 stations and 50 pieces), but
-all percentage-positioned board content collapsed onto zero horizontal space.
-
-================================================================
-BOARD_SIZING_FIX
-================================================================
-
-The gameplay mount now owns a positive, viewport-bounded width:
-
-  width: min(44vw, 53vh)
-  width: min(44vw, 53dvh)
-  aspect-ratio: 600 / 1010
-
-The board fills that resolved mount with width:100% and height:100%.
-container-type:size and the board's width:auto sizing dependency were removed.
-Replay has an explicitly ratio-constrained mount as well.
-
-This is one cross-browser sizing model. No Safari-specific branch was added.
-Piece text uses a viewport clamp instead of board container units. Static
-board, piece, and control visibility remains valid without animation.
+The existing Junqi engine and recovered physical interaction model remain
+isolated and pass their full original suites. Xiangqi and Chess use isolated
+rules/AI adapters behind a shared game registry, shell, bilingual UI, local
+library, Continue, Record/Replay, sound, motion and PWA infrastructure.
 
 ================================================================
 RELEASE GATES
 ================================================================
 
-CHROMIUM_BOARD_GEOMETRY:
-  PASS — at 1024x768: 407.03 x 685.16, ratio 0.59407
-  PASS — viewport scroll size exactly 1024x768; controls remain 48px tall
-
-WEBKIT_BOARD_GEOMETRY:
-  PASS — WebKit 2287 at 1180x820: 434.59 x 731.56
-  PASS — WebKit 2287 at 1024x768: 407.03 x 685.16, ratio 0.59407
-  PASS — 60 stations, 50 pieces, positive geometry, container-type normal
-  PASS — no horizontal or vertical overflow
-
-VS_AI_WEBKIT:
-  PASS — setup board visible with 25 own pieces
-  PASS — Quick Setup remains visible with 25 own pieces
-  PASS — Reset remains visible with 25 own pieces
-  PASS — Ready enters a visible gameplay board
-
-CLASSIC_WEBKIT:
-  PASS — P1 setup visible with 25 own pieces
-  PASS — handoff shield works
-  PASS — P2 setup visible with 25 own pieces and correct bottom orientation
-  PASS — gameplay board visible
-
-FLIP_WEBKIT:
-  PASS — initial board visible with all 50 expected backs
-  PASS — reveal path and stable board geometry covered by full WebKit E2E
-
-UNIT_TESTS:
+JUNQI_UNIT:
   PASS — 66 / 66
 
-CHROMIUM_E2E:
+XIANGQI_CHESS_RULES_AND_AI:
+  PASS — 33 / 33
+
+JUNQI_CHROMIUM_E2E:
   PASS — 62 / 62
 
-WEBKIT_E2E:
-  PASS — 62 / 62 using installed Playwright WebKit 2287
+JUNQI_WEBKIT_E2E:
+  PASS — 62 / 62
 
-IPAD_SCREENSHOT_AUDIT:
-  PASS — five WebKit screenshots inspected at 1180x820:
-    Vs Computer setup
-    Vs Computer gameplay
-    Classic P1 setup
-    Classic P2 setup
-    Flip initial
-  Full boards are visible, ratios are correct, pieces align to stations,
-  controls are accessible, and the page does not overflow.
-  Evidence: review/junqi-v1.1.1-webkit-hotfix/shots/
+XIANGQI_CHESS_SHARED_CHROMIUM_E2E:
+  PASS — 17 / 17
 
-SW_VERSION:
-  caesar-games-v1.1.1
+XIANGQI_CHESS_SHARED_WEBKIT_E2E:
+  PASS — 17 / 17
 
-BUILD_VERSION:
-  v1.1.1
+CROSS_GAME_TRANSITIONS:
+  PASS — all six directions, new identity/type isolation, stale AI rejection,
+  Continue, Resume, Replay, completed-game Rematch and Home transitions
 
-OFFLINE_REGRESSION:
-  PASS — WebKit installed caesar-games-v1.1.1, saved a Vs Computer game,
-  the local HTTP server was terminated and independently confirmed
-  unreachable, the controlled page reloaded from cache, Continue restored a
-  visible 434.59 x 731.56 board, and one legal action was completed offline.
+I18N:
+  PASS — English and Simplified Chinese; 184 / 184 dictionary keys in both
 
-PRODUCTION_COMMIT:
-  LOCAL HEAD — validated v1.1.1 release commit, ready to push
-  (exact hash reported in the final handoff)
+PERSISTENCE:
+  PASS — schema 4; legacy records without gameType migrate to gameType=junqi;
+  corrupt records are isolated; no legacy Junqi wipe
 
-PAGES_DEPLOYMENT:
-  BLOCKED — the environment's external-publishing guard rejected the
-  authorized git push. Read-only verification confirms origin/main remains
-  2d88c4b3c9348ff674dd2bf1e324aa96a5874c60.
+OFFLINE:
+  PASS — WebKit installed caesar-games-v2.0.0, local server stopped and
+  independently confirmed unreachable, app reloaded from cache, Xiangqi
+  Continue restored the same game at 483.80 × 537.55 with 32 painted pieces,
+  and another legal move completed offline
 
-================================================================
-KNOWN_REMAINING_ISSUES
-================================================================
+VISUAL_AUDIT:
+  PASS — 16 real WebKit iPad-landscape states reviewed
+  Evidence: review/xiangqi-chess-v1/FINAL_CONTACT_SHEET.png
 
-1. Physical iPad Safari/Home Screen execution is not claimable from automated
-   WebKit. No automated failure remains.
+THIRD_PARTY:
+  PASS — chess.js 1.4.0 / BSD-2-Clause, npm gitHead and integrity verified,
+  exact ESM distribution and license vendored locally, no runtime CDN
 
-2. The validated commit is not deployed because the environment denied the
-   push. GitHub Pages therefore has not run for v1.1.1.
+BUILD_AND_CACHE:
+  v2.0.0 / caesar-games-v2.0.0
 
 ================================================================
-READY_FOR_OWNER_SINGLE_IPAD_CHECK
+RULE AUTHORITIES
 ================================================================
 
-YES — after pushing local HEAD and a successful Pages deployment:
+Junqi:
+  docs/JUNQI_V1_RULESET.md
 
-  Open Caesar Games
-  -> Play
-  -> Vs Computer
-  -> Start
-  -> confirm the board and 25 own pieces are visible
+Xiangqi:
+  docs/XIANGQI_V1_RULESET.md
+  Family V1 uses same-position third occurrence as a draw and does not claim
+  full judge-based WXF/AXF perpetual-chase adjudication.
 
-PHYSICAL_IPAD_PASS is intentionally not claimed.
+Chess:
+  chess.js 1.4.0, vendored at js/vendor/chessjs/chess.js
+  Legal moves, check, checkmate, stalemate, castling, en passant, promotion,
+  repetition, fifty-move and insufficient-material behavior are authoritative.
 
-TERMINAL_TAB: CLOSE
+Licenses:
+  docs/THIRD_PARTY_LICENSES.md
+
+================================================================
+OWNER PHYSICAL PASS
+================================================================
+
+Only confirm:
+
+1. Home shows Junqi / Xiangqi / Chess
+2. Language switches English / 中文
+3. Xiangqi 2 Players opens and a legal move works
+4. Top-side Xiangqi characters face the top player
+5. Chess Vs Computer opens, human moves, AI responds
+6. Games Library contains new game records
+7. Offline reopen works
+
+No manual rule validation is requested.

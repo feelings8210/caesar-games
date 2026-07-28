@@ -22,7 +22,7 @@ export const PHASES = {
   FINISHED: 'finished'
 };
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 let sessionCounter = 0;
 function newGameId() {
@@ -477,7 +477,9 @@ export class GameSession {
       schemaVersion: SCHEMA_VERSION,
       rulesVersion: this.rulesVersion,
       gameId: this.gameId,
+      gameType: 'junqi',
       mode: this.mode,
+      players: [this.player1Name, this.player2Name],
       player1Name: this.player1Name,
       player2Name: this.player2Name,
       aiDifficulty: this.aiDifficulty,
@@ -486,6 +488,7 @@ export class GameSession {
       completedAt: this.completedAt,
       status: this.isGameOver ? 'finished' : 'in_progress',
       winner: this.winner,
+      result: this.winReason,
       winReason: this.winReason,
       moveCount: this.history.length,
       phase: this.phase,

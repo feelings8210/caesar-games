@@ -6,6 +6,7 @@
  */
 
 import { SCHEMA_VERSION } from './session.js';
+import { getLocale, t } from '../i18n/strings.js';
 
 const LIBRARY_KEY = 'caesar_games_library';
 const LEGACY_KEYS = ['caesar_games_state'];
@@ -27,7 +28,10 @@ function storage() {
 
 export function getPrefs() {
   const s = storage();
-  const fallback = { p1: '', p2: '', aiDifficulty: 'standard' };
+  const fallback = {
+    p1: '', p2: '', aiDifficulty: 'standard', language: 'en',
+    xiangqiSide: 'r', chessSide: 'w'
+  };
   if (!s) return fallback;
   try {
     const raw = s.getItem(PREFS_KEY);
@@ -54,7 +58,13 @@ export function getLibrary() {
     const lib = JSON.parse(raw);
     if (!lib || !Array.isArray(lib.games)) return emptyLibrary();
     // Drop anything structurally unusable rather than crashing on it.
-    lib.games = lib.games.filter(g => g && g.gameId && g.mode && g.boardState);
+    lib.games = lib.games
+      .filter(g => g && g.gameId && g.mode && (g.boardState || g.serializedState))
+      .map(g => ({
+        ...g,
+        gameType: g.gameType || 'junqi',
+        players: g.players || [g.player1Name || 'Player 1', g.player2Name || 'Player 2']
+      }));
     lib.schemaVersion = SCHEMA_VERSION;
     return lib;
   } catch (e) {
@@ -100,6 +110,7 @@ function migrateLegacy(s) {
       lib.games.push({
         schemaVersion: SCHEMA_VERSION,
         gameId: `legacy_${k}`,
+        gameType: 'junqi',
         mode: old.mode || 'vs_computer',
         player1Name: old.player1Name || 'Player 1',
         player2Name: old.player2Name || 'Player 2',
@@ -170,10 +181,10 @@ export function formatFriendlyDate(ts) {
   if (!ts) return '';
   const d = new Date(ts);
   const now = new Date();
-  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  if (d.toDateString() === now.toDateString()) return `Today · ${time}`;
+  const locale = getLocale() === 'zh' ? 'zh-CN' : 'en-US';
+  const time = d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return `${t('date.today')} · ${time}`;
   const y = new Date(now); y.setDate(now.getDate() - 1);
-  if (d.toDateString() === y.toDateString()) return `Yesterday · ${time}`;
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${months[d.getMonth()]} ${d.getDate()} · ${time}`;
+  if (d.toDateString() === y.toDateString()) return `${t('date.yesterday')} · ${time}`;
+  return `${d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })} · ${time}`;
 }

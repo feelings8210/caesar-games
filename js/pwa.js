@@ -8,8 +8,21 @@
  */
 
 import { BUILD } from './build.js';
+import { t } from './i18n/strings.js';
 
 const RELOAD_FLAG = 'caesar_sw_reloaded';
+
+function renderNetworkStatus(updating = false) {
+  const el = document.querySelector('#network-status');
+  if (!el) return;
+  const offline = !navigator.onLine;
+  el.classList.toggle('is-hidden', !offline && !updating);
+  el.textContent = t(updating ? 'pwa.updating' : 'pwa.offline');
+}
+
+window.addEventListener('online', () => renderNetworkStatus());
+window.addEventListener('offline', () => renderNetworkStatus());
+renderNetworkStatus();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
@@ -23,6 +36,7 @@ if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!hadController) return;                       // first install — nothing to refresh
         if (sessionStorage.getItem(RELOAD_FLAG) === '1') return;
+        renderNetworkStatus(true);
         sessionStorage.setItem(RELOAD_FLAG, '1');
         window.location.reload();
       });

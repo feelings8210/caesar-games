@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <title>Caesar Games — Love &amp; Play</title>
-<meta name="description" content="Caesar Games — a quiet tabletop collection for shared iPad play. Chinese Junqi (陆战棋).">
+<meta name="description" content="Caesar Games — Junqi, Xiangqi and Chess in one quiet bilingual tabletop collection.">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -35,6 +35,8 @@
 
   <div class="bar-right">
     <span id="mode-tag" class="mode-tag"></span>
+    <span id="network-status" class="network-status is-hidden" data-i18n="pwa.offline">Offline</span>
+    <button id="btn-language" class="bar-btn language-btn" type="button" aria-label="Switch language">中文</button>
     <button id="btn-sound" class="bar-btn" type="button" aria-pressed="true">
       <span class="btn-icon" aria-hidden="true"></span>
       <span class="btn-label" data-i18n="bar.soundOn">Sound on</span>
@@ -52,10 +54,25 @@
     <h1 class="home-title" data-i18n="brand.name">Caesar Games</h1>
     <p class="home-tagline" data-i18n="brand.tagline">Love &amp; Play</p>
 
-    <p class="home-game">Junqi <span>陆战棋</span></p>
+    <div class="game-shelf" aria-label="Games">
+      <button id="btn-play" class="game-tile" type="button" data-game-type="junqi">
+        <span class="game-native" data-i18n="game.junqi.native">陆战棋</span>
+        <span class="game-english" data-i18n="game.junqi.title">Junqi</span>
+        <span class="game-desc" data-i18n="game.junqi.desc">Hidden information · strategy</span>
+      </button>
+      <button id="btn-xiangqi" class="game-tile" type="button" data-game-type="xiangqi">
+        <span class="game-native" data-i18n="game.xiangqi.native">中国象棋</span>
+        <span class="game-english" data-i18n="game.xiangqi.title">Xiangqi</span>
+        <span class="game-desc" data-i18n="game.xiangqi.desc">Classic Chinese strategy</span>
+      </button>
+      <button id="btn-chess" class="game-tile" type="button" data-game-type="chess">
+        <span class="game-native" data-i18n="game.chess.native">国际象棋</span>
+        <span class="game-english" data-i18n="game.chess.title">Chess</span>
+        <span class="game-desc" data-i18n="game.chess.desc">Classic world strategy</span>
+      </button>
+    </div>
 
     <div class="home-actions">
-      <button id="btn-play" class="btn btn-primary" type="button" data-i18n="home.play">Play</button>
       <button id="btn-continue" class="btn btn-continue is-hidden" type="button">
         <span data-i18n="home.continue">Continue</span>
         <small id="continue-detail"></small>
@@ -70,7 +87,7 @@
   </div>
 
   <footer class="makers-mark">
-    Caesar Games · Love &amp; Play · Since 2026 · <span id="build-tag"></span>
+    <span data-i18n="brand.mark">Caesar Games · Love &amp; Play · Since 2026</span> · <span id="build-tag"></span>
   </footer>
 </main>
 
@@ -120,58 +137,13 @@
 <main class="screen" data-screen="learn">
   <div class="learn">
     <div class="learn-head">
-      <h2>How Junqi works</h2>
-      <button id="btn-learn-back" class="btn btn-quiet" type="button">Back</button>
+      <h2 id="learn-title"></h2>
+      <button id="btn-learn-back" class="btn btn-quiet" type="button" data-i18n="record.back">Back</button>
     </div>
 
-    <div class="learn-grid">
-      <section class="learn-card">
-        <h3>Ranks</h3>
-        <p>The higher rank wins. Equal ranks remove each other.</p>
-        <ol class="rank-list">
-          <li><b>司令</b> Field Marshal</li>
-          <li><b>军长</b> Corps Commander</li>
-          <li><b>师长</b> Division Commander</li>
-          <li><b>旅长</b> Brigade Commander</li>
-          <li><b>团长</b> Regiment Commander</li>
-          <li><b>营长</b> Battalion Commander</li>
-          <li><b>连长</b> Company Commander</li>
-          <li><b>排长</b> Platoon Commander</li>
-          <li><b>工兵</b> Engineer</li>
-        </ol>
-      </section>
+    <div id="learn-grid" class="learn-grid"></div>
 
-      <section class="learn-card">
-        <h3>Roads &amp; railways</h3>
-        <p>On a road a piece steps to one connected station.</p>
-        <p>On a railway it may run any distance in a straight line, as long as the track ahead is empty.</p>
-        <p>Only the <b>工兵 Engineer</b> can follow the rails around corners.</p>
-      </section>
-
-      <section class="learn-card">
-        <h3>Mines, bombs &amp; camps</h3>
-        <p><b>地雷 Mine</b> never moves and defeats anything except an Engineer or a Bomb.</p>
-        <p><b>炸弹 Bomb</b> destroys itself and whatever it meets.</p>
-        <p><b>行营 Camp</b> — a piece standing in a camp cannot be attacked.</p>
-        <p><b>大本营 Headquarters</b> — a piece that enters can never leave.</p>
-      </section>
-
-      <section class="learn-card">
-        <h3>Winning</h3>
-        <p>Capture the opposing <b>军旗 Flag</b>, which sits in a Headquarters and never moves.</p>
-        <p>A player with no legal move left also loses.</p>
-        <p>When a Field Marshal falls, that player's Flag position is disclosed.</p>
-      </section>
-
-      <section class="learn-card">
-        <h3>The three modes</h3>
-        <p><b>Vs Computer</b> — you play the navy army at the bottom.</p>
-        <p><b>2 Players · Classic</b> — concealed play on one iPad. The board turns so the player to move always sits at the bottom.</p>
-        <p><b>2 Players · Flip</b> — 50 pieces face down. Turn one over or move one of yours.</p>
-      </section>
-    </div>
-
-    <p class="learn-foot">Caesar Games · Love &amp; Play · Since 2026 · <span id="learn-build"></span></p>
+    <p class="learn-foot"><span data-i18n="brand.mark">Caesar Games · Love &amp; Play · Since 2026</span> · <span id="learn-build"></span></p>
   </div>
 </main>
 
@@ -179,19 +151,19 @@
 <div class="dialog" data-dialog="mode">
   <div class="dialog-card">
     <header class="dialog-head">
-      <h2 data-i18n="mode.title">Choose a game</h2>
-      <button id="btn-close-mode" class="icon-btn" type="button" aria-label="Close">✕</button>
+      <h2 id="mode-title" data-i18n="mode.title">Choose a mode</h2>
+      <button id="btn-close-mode" class="icon-btn" type="button" aria-label="Close" data-i18n-label="misc.close">✕</button>
     </header>
     <div class="mode-grid">
       <button class="mode-card" data-mode="vs_computer" type="button">
         <h3 data-i18n="mode.vsComputer">Vs Computer</h3>
         <p data-i18n="mode.vsComputer.desc">Play on your own against the iPad.</p>
       </button>
-      <button class="mode-card" data-mode="classic" type="button">
+      <button id="mode-two-player" class="mode-card" data-mode="classic" type="button">
         <h3 data-i18n="mode.classic">2 Players · Classic</h3>
         <p data-i18n="mode.classic.desc">Hidden armies. Pass the iPad between turns.</p>
       </button>
-      <button class="mode-card" data-mode="flip" type="button">
+      <button id="mode-flip" class="mode-card" data-mode="flip" type="button">
         <h3 data-i18n="mode.flip">2 Players · Flip</h3>
         <p data-i18n="mode.flip.desc">Face-down pieces. Start straight away.</p>
       </button>
@@ -206,7 +178,7 @@
         <h2 id="names-title">Players</h2>
         <p id="names-sub" class="dialog-sub"></p>
       </div>
-      <button id="btn-close-names" class="icon-btn" type="button" aria-label="Back">✕</button>
+      <button id="btn-close-names" class="icon-btn" type="button" aria-label="Back" data-i18n-label="record.back">✕</button>
     </header>
 
     <div class="field-list">
@@ -225,6 +197,13 @@
           <button class="choice is-selected" data-value="standard" type="button" data-i18n="players.standard">Standard</button>
         </div>
       </div>
+      <div class="field is-hidden" id="field-side">
+        <span data-i18n="players.side">Your side</span>
+        <div class="choice-row">
+          <button class="choice is-selected" data-side="first" type="button"></button>
+          <button class="choice" data-side="second" type="button"></button>
+        </div>
+      </div>
     </div>
 
     <div class="dialog-actions">
@@ -237,7 +216,7 @@
   <div class="dialog-card wide">
     <header class="dialog-head">
       <h2 data-i18n="library.title">Games</h2>
-      <button id="btn-close-library" class="icon-btn" type="button" aria-label="Close">✕</button>
+      <button id="btn-close-library" class="icon-btn" type="button" aria-label="Close" data-i18n-label="misc.close">✕</button>
     </header>
     <div id="library-list" class="library-list"></div>
   </div>
@@ -250,7 +229,7 @@
         <h2 id="record-title">Record</h2>
         <p id="record-meta" class="dialog-sub"></p>
       </div>
-      <button id="btn-close-record" class="icon-btn" type="button" aria-label="Close">✕</button>
+      <button id="btn-close-record" class="icon-btn" type="button" aria-label="Close" data-i18n-label="misc.close">✕</button>
     </header>
     <div class="record-body">
       <div id="replay-board" class="replay-board"></div>
@@ -285,6 +264,19 @@
     <div class="end-actions">
       <button id="btn-confirm-ok" class="btn btn-danger" type="button" data-i18n="library.deleteConfirm">Delete</button>
       <button id="btn-confirm-cancel" class="btn btn-quiet" type="button" data-i18n="library.deleteCancel">Keep</button>
+    </div>
+  </div>
+</div>
+
+<div id="promotion" class="overlay">
+  <div class="overlay-card">
+    <p class="end-eyebrow" data-i18n="chess.promotion">Promotion</p>
+    <h2 data-i18n="chess.choosePromotion">Choose a piece</h2>
+    <div class="choice-row promotion-choices">
+      <button class="choice" data-promotion="q" type="button" data-i18n="chess.queen">Queen</button>
+      <button class="choice" data-promotion="r" type="button" data-i18n="chess.rook">Rook</button>
+      <button class="choice" data-promotion="b" type="button" data-i18n="chess.bishop">Bishop</button>
+      <button class="choice" data-promotion="n" type="button" data-i18n="chess.knight">Knight</button>
     </div>
   </div>
 </div>

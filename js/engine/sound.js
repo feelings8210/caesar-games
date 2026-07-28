@@ -151,6 +151,14 @@ class SoundEngine {
     this._body(ctx, t, { freq: 95, gain: 0.20, decay: 0.20, detune: -30 });
   }
 
+  /** Restrained higher wood cue — the board is in check. */
+  check() {
+    const ctx = this._ready(); if (!ctx) return;
+    const t = ctx.currentTime + 0.045;
+    this._transient(ctx, t, { freq: 2400, q: 1.3, gain: 0.16, decay: 0.025 });
+    this._body(ctx, t, { freq: 698.46, gain: 0.12, decay: 0.13, detune: -80 });
+  }
+
   /** Heavier paired impact — both pieces removed. */
   mutualLoss() {
     const ctx = this._ready(); if (!ctx) return;

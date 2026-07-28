@@ -248,3 +248,154 @@
 
 .replay-board .bv-board { box-shadow: inset 0 0 0 1px rgba(255,255,255,.6), var(--lift-1); }
 .replay-board .bv-node { cursor: default; }
+
+/* ---------------------------------------------------------------- *
+ * Open-information boards — Xiangqi and Chess
+ * ---------------------------------------------------------------- */
+
+.open-board {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.72), 0 0 0 1px var(--board-edge), var(--lift-3);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.open-node {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.open-piece {
+  display: grid;
+  place-items: center;
+  position: relative;
+  z-index: 2;
+  transition: transform var(--ease), box-shadow var(--ease);
+}
+.open-node.is-selected .open-piece {
+  transform: translateY(-7%) scale(1.08);
+  filter: drop-shadow(0 8px 5px rgba(18,36,63,.2));
+}
+.open-node.is-legal::after {
+  content: '';
+  position: absolute;
+  z-index: 3;
+  width: 20%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--gold);
+  opacity: .62;
+}
+.open-node.is-legal:has(.open-piece)::after {
+  width: auto;
+  inset: 8%;
+  aspect-ratio: auto;
+  border: 2.5px solid var(--gold);
+  background: transparent;
+  opacity: .9;
+}
+.open-piece.is-check {
+  box-shadow: 0 0 0 3px rgba(142,66,56,.62), 0 7px 16px rgba(92,31,26,.18);
+}
+.open-motion-layer { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+.open-flyer { position: absolute; z-index: 21; }
+
+/* Chess */
+.chess-board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  background: #F1EBDD;
+}
+.chess-square { position: relative; width: 100%; height: 100%; }
+.chess-square.is-light { background: #EEE9DA; }
+.chess-square.is-dark { background: #586678; }
+.chess-piece {
+  width: 100%;
+  height: 100%;
+  font-family: "Apple Symbols", "Arial Unicode MS", serif;
+  font-size: clamp(34px, min(5.5vw, 7vh), 64px);
+  line-height: 1;
+  color: #F9F7EF;
+  -webkit-text-stroke: .55px rgba(21,37,59,.72);
+  text-shadow: 0 1px 0 rgba(255,255,255,.7), 0 3px 4px rgba(16,26,39,.28);
+}
+.chess-piece.side-b {
+  color: #15253B;
+  -webkit-text-stroke: 0 transparent;
+  text-shadow: 0 1px 0 rgba(255,255,255,.22), 0 2px 3px rgba(8,15,25,.25);
+}
+.chess-board .open-flyer { width: 12.5%; height: 12.5%; }
+
+/* Xiangqi */
+.xiangqi-board {
+  background:
+    linear-gradient(rgba(123,91,55,.04), rgba(123,91,55,.04)),
+    #E9D8B9;
+}
+.xq-geometry {
+  position: absolute;
+  left: 6%; right: 6%; top: 5%; bottom: 5%;
+  background:
+    repeating-linear-gradient(to right, rgba(48,45,42,.72) 0 1px, transparent 1px 12.5%),
+    repeating-linear-gradient(to bottom, rgba(48,45,42,.72) 0 1px, transparent 1px 11.111%);
+  box-shadow: inset 0 0 0 1px rgba(48,45,42,.72);
+}
+.xq-geometry::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 44.45%; height: 11.15%;
+  background: #E9D8B9;
+  border-top: 1px solid rgba(48,45,42,.72);
+  border-bottom: 1px solid rgba(48,45,42,.72);
+}
+.xq-river {
+  position: absolute;
+  z-index: 2;
+  left: 50%; top: 50%;
+  transform: translate(-50%,-50%);
+  white-space: nowrap;
+  font: 500 clamp(12px, 1.7vw, 20px)/1 var(--font-cn);
+  letter-spacing: .14em;
+  color: rgba(48,45,42,.52);
+}
+.xq-palace {
+  position: absolute;
+  left: 37.5%;
+  width: 25%;
+  height: 22.222%;
+  background:
+    linear-gradient(26.6deg, transparent calc(50% - .6px), rgba(48,45,42,.72) 50%, transparent calc(50% + .6px)),
+    linear-gradient(-26.6deg, transparent calc(50% - .6px), rgba(48,45,42,.72) 50%, transparent calc(50% + .6px));
+}
+.xq-palace-top { top: 0; }
+.xq-palace-bottom { bottom: 0; }
+.xiangqi-board .open-node {
+  position: absolute;
+  width: 11.2%;
+  height: 10.2%;
+  transform: translate(-50%,-50%);
+  border-radius: 50%;
+}
+.xq-piece {
+  width: 82%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  font: 650 clamp(20px, min(3.2vw, 4.6vh), 42px)/1 var(--font-cn);
+  background: linear-gradient(145deg, #FFF9E9, #E8D9BD);
+  border: 1.5px solid currentColor;
+  color: #16243A;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.9), inset 0 -2px 3px rgba(91,67,40,.15), 0 4px 8px rgba(73,54,35,.24);
+}
+.xq-piece.side-r { color: #9A4137; }
+.xq-piece.faces-top { transform: rotate(180deg); }
+.open-node.is-selected .xq-piece.faces-top { transform: translateY(-7%) scale(1.08) rotate(180deg); }
+.xiangqi-board .open-flyer { width: 9.2%; height: auto; }
+
+.replay-board .open-board { box-shadow: inset 0 0 0 1px rgba(255,255,255,.6), var(--lift-1); }

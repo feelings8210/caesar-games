@@ -20,7 +20,10 @@ import {
 } from './engine/persistence.js';
 import { COMBAT, FLAG, PIECE_TYPES } from './engine/rules.js';
 import { BUILD } from './build.js';
-import { t, plural, localizeDom } from './i18n/strings.js';
+import { t, plural, localizeDom, getLocale, setLocale } from './i18n/strings.js';
+import { GAME_TYPES, gameMeta } from './games/registry.js';
+import { OpenGameController, replayOpenRecord } from './games/open/controller.js';
+import { OpenBoardView } from './games/open/board_view.js';
 
 export const S = {
   HOME: 'HOME',
@@ -37,12 +40,15 @@ export const S = {
   GAME_LIBRARY: 'GAME_LIBRARY',
   RECORD: 'RECORD',
   REPLAY: 'REPLAY',
-  LEARN: 'LEARN'
+  LEARN: 'LEARN',
+  OPEN_PLAY: 'OPEN_PLAY',
+  OPEN_END: 'OPEN_END'
 };
 
 const BOARD_STATES = new Set([
   S.CLASSIC_P1_SETUP, S.CLASSIC_P2_SETUP, S.CLASSIC_PLAY,
   S.VS_AI_SETUP, S.VS_AI_PLAY, S.FLIP_PLAY, S.GAME_END
+  , S.OPEN_PLAY, S.OPEN_END
 ]);
 
 const SETUP_STATES = new Set([S.CLASSIC_P1_SETUP, S.CLASSIC_P2_SETUP, S.VS_AI_SETUP]);
@@ -50,9 +56,11 @@ const SETUP_STATES = new Set([S.CLASSIC_P1_SETUP, S.CLASSIC_P2_SETUP, S.VS_AI_SE
 const MODE_LABEL = () => ({
   [MODES.VS_AI]: t('mode.vsComputer'),
   [MODES.CLASSIC]: t('mode.classic'),
-  [MODES.FLIP]: t('mode.flip')
+  [MODES.FLIP]: t('mode.flip'),
+  two_player: t('mode.twoPlayers')
 });
 const modeLabel = (m) => MODE_LABEL()[m] || m;
+const gameLabel = gameType => t(gameMeta(gameType).titleKey);
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -69,10 +77,12 @@ export class App {
     this._busy = false;           // guards against double taps mid-transition
 
     this.replay = null;
+    this.selectedGameType = GAME_TYPES.JUNQI;
 
     this.board = new BoardView($('#board-mount'), {
       onNodeTap: (k) => this.onNodeTap(k)
     });
+    this.openGame = new OpenGameController(this, $('#board-mount'));
 
     this.bindChrome();
     this.go(S.HOME);
@@ -91,6 +101,7 @@ export class App {
       this.board.cancelAnimations();
     }
     if (prev !== next) this.cancelAi();
+    if (prev !== next && (prev === S.OPEN_PLAY || prev === S.OPEN_END)) this.openGame.aiToken++;
 
     this.state = next;
     this.pending = payload;
@@ -121,6 +132,7 @@ export class App {
 
   startGame(mode, options) {
     this.leaveSession();                       // saves + disposes anything open
+    this.selectedGameType = GAME_TYPES.JUNQI;
     const session = new GameSession(mode, options);
     session.openingBoard = JSON.parse(JSON.stringify(session.boardState));
     this.session = session;
@@ -132,6 +144,14 @@ export class App {
   resumeGame(gameId) {
     const rec = gameId ? loadGame(gameId) : mostRecentResumable();
     if (!rec) return false;
+    if ((rec.gameType || GAME_TYPES.JUNQI) !== GAME_TYPES.JUNQI) {
+      this.leaveSession();
+      this.board.destroy();
+      this.selectedGameType = rec.gameType;
+      this.openGame.resume(rec);
+      this.go(rec.status === 'finished' ? S.OPEN_END : S.OPEN_PLAY);
+      return true;
+    }
     this.leaveSession();
     const session = GameSession.fromRecord(rec);
     session.openingBoard = rec.openingBoard || null;
@@ -156,6 +176,25 @@ export class App {
       this.session.dispose();
       this.session = null;
     }
+    if (this.openGame?.session) {
+      this.openGame.persist();
+      this.openGame.dispose();
+    }
+  }
+
+  startOpenGame(gameType, options) {
+    this.leaveSession();
+    this.board.destroy();
+    this.selectedGameType = gameType;
+    this.openGame.create(gameType, options);
+    this.go(S.OPEN_PLAY);
+  }
+
+  persistOpenRecord(record) { saveGame(record); }
+
+  onOpenGameEnd() {
+    if (this.openGame.session) this.openGame.persist();
+    this.go(S.OPEN_END);
   }
 
   persist() {
@@ -459,6 +498,7 @@ export class App {
   render() {
     const st = this.state;
     const session = this.session;
+    if (st !== S.GAME_END && st !== S.OPEN_END) $('#game-end').classList.remove('is-open');
 
     // Screens
     $$('.screen').forEach(el => el.classList.toggle('is-active', el.dataset.screen === this.screenFor(st)));
@@ -475,13 +515,15 @@ export class App {
     this.renderChrome();
 
     if (BOARD_STATES.has(st) && session) this.renderBoard();
+    if ((st === S.OPEN_PLAY || st === S.OPEN_END) && this.openGame.session) this.openGame.render();
     if (st === S.HOME) this.renderHome();
     if (st === S.MODE_SELECT) this.renderModeSelect();
     if (st === S.PLAYER_SETUP) this.renderPlayerSetup();
     if (st === S.CLASSIC_HANDOFF) this.renderHandoff();
-    if (st === S.GAME_END) this.renderGameEnd();
+    if (st === S.GAME_END || st === S.OPEN_END) this.renderGameEnd();
     if (st === S.GAME_LIBRARY) this.renderLibrary();
     if (st === S.RECORD || st === S.REPLAY) this.renderRecord();
+    if (st === S.LEARN) this.renderLearn();
   }
 
   screenFor(st) {
@@ -507,6 +549,8 @@ export class App {
     const muteBtn = $('#btn-sound');
     muteBtn.setAttribute('aria-pressed', String(!sounds.isMuted));
     muteBtn.querySelector('.btn-label').textContent = t(sounds.isMuted ? 'bar.soundOff' : 'bar.soundOn');
+    $('#btn-language').textContent = getLocale() === 'en' ? '中文' : 'EN';
+    $('#btn-language').setAttribute('aria-label', t('bar.language'));
   }
 
   /* ---------------- home ---------------- */
@@ -519,7 +563,7 @@ export class App {
     cont.classList.toggle('is-hidden', !resumable);
     if (resumable) {
       $('#continue-detail').textContent =
-        `${resumable.player1Name} ${t('misc.vsSeparator')} ${resumable.player2Name} · ${modeLabel(resumable.mode)}`;
+        `${gameLabel(resumable.gameType || GAME_TYPES.JUNQI)} · ${resumable.player1Name} ${t('misc.vsSeparator')} ${resumable.player2Name}`;
     }
 
     const memory = $('#home-memory');
@@ -531,24 +575,46 @@ export class App {
     }
   }
 
-  renderModeSelect() { /* static markup; nothing dynamic */ }
+  renderModeSelect() {
+    const isJunqi = this.selectedGameType === GAME_TYPES.JUNQI;
+    $('#mode-title').textContent = t('mode.for', { game: gameLabel(this.selectedGameType) });
+    const two = $('#mode-two-player');
+    two.dataset.mode = isJunqi ? MODES.CLASSIC : 'two_player';
+    two.querySelector('h3').textContent = t(isJunqi ? 'mode.classic' : 'mode.twoPlayers');
+    two.querySelector('p').textContent = t(isJunqi ? 'mode.classic.desc' : 'mode.twoPlayers.desc');
+    $('#mode-flip').classList.toggle('is-hidden', !isJunqi);
+  }
 
   renderPlayerSetup() {
     const mode = this.pending.mode;
+    const gameType = this.pending.gameType || this.selectedGameType;
     const prefs = getPrefs();
     const isAi = mode === MODES.VS_AI;
+    const isOpen = gameType !== GAME_TYPES.JUNQI;
 
-    $('#names-title').textContent = modeLabel(mode);
-    $('#names-sub').textContent = t(isAi ? 'players.sub.ai' : 'players.sub.two');
+    $('#names-title').textContent = `${gameLabel(gameType)} · ${modeLabel(mode)}`;
+    $('#names-sub').textContent = t(isOpen
+      ? (isAi ? 'players.sub.openAi' : 'players.sub.openTwo')
+      : (isAi ? 'players.sub.ai' : 'players.sub.two'));
 
     $('#field-p2').classList.toggle('is-hidden', isAi);
     $('#field-difficulty').classList.toggle('is-hidden', !isAi);
+    $('#field-side').classList.toggle('is-hidden', !isOpen || !isAi);
 
     $('#input-p1').value = prefs.p1 || '';
     $('#input-p2').value = prefs.p2 || '';
     $('#input-p1').placeholder = t(isAi ? 'players.you' : 'players.p1');
     $$('#field-difficulty .choice').forEach(b =>
       b.classList.toggle('is-selected', b.dataset.value === (prefs.aiDifficulty || 'standard')));
+    if (isOpen) {
+      const first = gameType === GAME_TYPES.XIANGQI ? t('players.red') : t('players.white');
+      const second = t('players.black');
+      const remembered = gameType === GAME_TYPES.XIANGQI ? prefs.xiangqiSide : prefs.chessSide;
+      $('[data-side="first"]').textContent = first;
+      $('[data-side="second"]').textContent = second;
+      $$('#field-side .choice').forEach((b, i) =>
+        b.classList.toggle('is-selected', i === (remembered === 'b' ? 1 : 0)));
+    }
   }
 
   renderHandoff() {
@@ -567,6 +633,7 @@ export class App {
   renderBoard() {
     const session = this.session;
     const st = this.state;
+    delete $('#board-mount').dataset.openGame;
     const orientation = boardOrientationOf(session);
     const viewerSeat = viewerSeatOf(session);
     const isSetup = SETUP_STATES.has(st);
@@ -628,6 +695,22 @@ export class App {
     $('#mode-tag').textContent = modeLabel(session.mode);
   }
 
+  renderOpenChrome({ gameType, turnName, turnSide, thinking, check, moveCount }) {
+    const mount = $('#board-mount');
+    mount.dataset.openGame = gameType;
+    $('#setup-controls').classList.add('is-hidden');
+    $('#play-controls').classList.remove('is-hidden');
+    $('#btn-replay-move').classList.add('is-hidden');
+    $('#move-counter').textContent = moveCount ? t('record.moveCount', { n: moveCount }) : '';
+    $('#turn-status').textContent = thinking
+      ? t('play.thinking', { name: turnName })
+      : `${t('play.turn', { name: turnName })}${check ? ` · ${t('play.check')}` : ''}`;
+    const visualSide = turnSide === 'r' || turnSide === 'w' ? 'red' : 'navy';
+    $('#turn-dot').className = `turn-dot side-${visualSide}`;
+    $('#board-hint').textContent = thinking ? '' : t('play.hint.select');
+    $('#mode-tag').textContent = `${gameLabel(gameType)} · ${modeLabel(this.openGame.session.mode)}`;
+  }
+
   hintFor(session, st) {
     if (SETUP_STATES.has(st)) return t('setup.hint');
     if (session.isGameOver) return '';
@@ -638,6 +721,27 @@ export class App {
   }
 
   renderGameEnd() {
+    if (this.state === S.OPEN_END) {
+      this.openGame.render();
+      const s = this.openGame.session;
+      const engine = s.engine;
+      const winnerName = engine.winner ? this.openGame.playerForSide(engine.winner) : null;
+      $('#end-winner').textContent = winnerName
+        ? t('end.wins', { name: winnerName })
+        : t('end.draws');
+      $('#end-detail').textContent = t('end.detail', {
+        p1: s.player1Name, p2: s.player2Name, n: engine.history.length
+      });
+      const reasonKeys = {
+        checkmate: 'end.byCheckmate', stalemate: 'end.byStalemate',
+        repetition: 'end.byRepetition', insufficient: 'end.byInsufficient',
+        fifty_move: 'end.byFifty', no_legal_move: 'end.byNoLegal',
+        general: 'end.byGeneral', draw: 'end.draws'
+      };
+      $('#end-reason').textContent = t(reasonKeys[engine.result] || 'end.byNoLegal');
+      $('#game-end').classList.add('is-open');
+      return;
+    }
     this.renderBoard();
     const session = this.session;
     $('#end-winner').textContent = t('end.wins', { name: session.winnerName });
@@ -645,6 +749,23 @@ export class App {
       p1: session.player1Name, p2: session.player2Name, n: session.history.length });
     $('#end-reason').textContent = t(session.winReason === 'flag' ? 'end.byFlag' : 'end.byImmobile');
     $('#game-end').classList.add('is-open');
+  }
+
+  renderLearn() {
+    const type = this.selectedGameType || GAME_TYPES.JUNQI;
+    $('#learn-title').textContent = t(`learn.${type}.title`);
+    const grid = $('#learn-grid');
+    grid.innerHTML = '';
+    for (let i = 1; i <= 5; i++) {
+      const card = document.createElement('section');
+      card.className = 'learn-card';
+      const title = document.createElement('h3');
+      const body = document.createElement('p');
+      title.textContent = t(`learn.${type}.${i}.title`);
+      body.textContent = t(`learn.${type}.${i}.body`);
+      card.append(title, body);
+      grid.appendChild(card);
+    }
   }
 
   /* ---------------- library / record ---------------- */
@@ -663,30 +784,38 @@ export class App {
       const item = document.createElement('article');
       item.className = 'game-row';
       const finished = g.status === 'finished';
-      const winner = finished
-        ? (g.winner === 'navy' ? g.player1Name : g.player2Name)
+      const gameType = g.gameType || GAME_TYPES.JUNQI;
+      const firstSide = gameType === GAME_TYPES.JUNQI ? 'navy'
+        : gameType === GAME_TYPES.XIANGQI ? 'r' : 'w';
+      const winner = finished && g.winner
+        ? (g.winner === firstSide ? g.player1Name : g.player2Name)
         : null;
 
       const meta = [
         formatFriendlyDate(g.updatedAt),
         plural('library.moves', g.moveCount),
-        finished ? t('library.won', { name: winner }) : t('library.inProgress')
+        finished
+          ? (winner ? t('library.won', { name: winner }) : t('library.draw'))
+          : t('library.inProgress')
       ].join(' · ');
 
       item.innerHTML = `
         <div class="game-row-main">
           <p class="game-row-players">${escapeHtml(g.player1Name)} <span>${t('misc.vsSeparator')}</span> ${escapeHtml(g.player2Name)}</p>
-          <p class="game-row-meta">${escapeHtml(modeLabel(g.mode))} · ${escapeHtml(meta)}</p>
+          <p class="game-row-meta">${escapeHtml(modeLabel(g.mode))} · ${escapeHtml(gameLabel(gameType))} · ${escapeHtml(meta)}</p>
         </div>
         <div class="game-row-actions"></div>`;
 
       const actions = item.querySelector('.game-row-actions');
       if (!finished) actions.appendChild(this.rowButton(t('library.resume'), 'primary', () => this.resumeGame(g.gameId)));
-      if (finished) actions.appendChild(this.rowButton(t('library.record'), 'quiet', () => this.openRecord(g.gameId)));
+      if (g.moveCount > 0) actions.appendChild(this.rowButton(t('library.record'), 'quiet', () => this.openRecord(g.gameId)));
       actions.appendChild(this.rowButton(t('library.again'), 'quiet', () => {
-        this.startGame(g.mode, {
-          player1Name: g.player1Name, player2Name: g.player2Name, aiDifficulty: g.aiDifficulty
-        });
+        const options = {
+          mode: g.mode, player1Name: g.player1Name, player2Name: g.player2Name,
+          aiDifficulty: g.aiDifficulty, humanSide: g.humanSide
+        };
+        if (gameType === GAME_TYPES.JUNQI) this.startGame(g.mode, options);
+        else this.startOpenGame(gameType, options);
       }));
       actions.appendChild(this.rowButton(t('library.delete'), 'danger', () => {
         this.confirmDelete(g);
@@ -720,6 +849,10 @@ export class App {
 
   renderRecord() {
     const { rec } = this.replay;
+    if ((rec.gameType || GAME_TYPES.JUNQI) !== GAME_TYPES.JUNQI) {
+      this.renderOpenRecord();
+      return;
+    }
     $('#record-title').textContent = `${rec.player1Name} ${t('misc.vsSeparator')} ${rec.player2Name}`;
     $('#record-meta').textContent = [
       modeLabel(rec.mode),
@@ -754,6 +887,43 @@ export class App {
     this.renderReplayBoard();
   }
 
+  renderOpenRecord() {
+    const { rec, step } = this.replay;
+    const firstSide = rec.gameType === GAME_TYPES.XIANGQI ? 'r' : 'w';
+    const winnerName = rec.winner
+      ? (rec.winner === firstSide ? rec.player1Name : rec.player2Name)
+      : null;
+    $('#record-title').textContent = `${rec.player1Name} ${t('misc.vsSeparator')} ${rec.player2Name}`;
+    $('#record-meta').textContent = [
+      gameLabel(rec.gameType), modeLabel(rec.mode), formatFriendlyDate(rec.startedAt),
+      plural('library.moves', rec.moveCount),
+      rec.status === 'finished'
+        ? (winnerName ? t('library.won', { name: winnerName }) : t('library.draw'))
+        : t('record.unfinished')
+    ].join(' · ');
+
+    const list = $('#record-moves');
+    list.innerHTML = '';
+    const moves = rec.history || [];
+    if (!moves.length) list.innerHTML = `<p class="empty-note">${t('record.noMoves')}</p>`;
+    moves.forEach((m, i) => {
+      const row = document.createElement('div');
+      row.className = 'record-move';
+      row.classList.toggle('is-current', i + 1 === step);
+      const who = m.side === firstSide ? rec.player1Name : rec.player2Name;
+      row.innerHTML = `<span class="rm-n">${i + 1}</span>` +
+        `<span class="rm-who">${escapeHtml(who)}</span>` +
+        `<span class="rm-text">${escapeHtml(m.san || t('record.moveOpen', {
+          piece: m.piece, from: m.from, to: m.to
+        }))}</span>`;
+      row.addEventListener('click', () => this.replaySeek(i + 1));
+      list.appendChild(row);
+    });
+    $('#replay-step').textContent = t('record.step', { n: step, total: moves.length });
+    $('#btn-replay-play').textContent = t(this.replay.timer ? 'record.pause' : 'record.play');
+    this.renderReplayBoard();
+  }
+
   /** Rebuild the position at `step` from the opening board plus history. */
   replayPositionAt(step) {
     const { rec } = this.replay;
@@ -778,6 +948,18 @@ export class App {
   renderReplayBoard() {
     const mount = $('#replay-board');
     const { rec, step } = this.replay;
+    if ((rec.gameType || GAME_TYPES.JUNQI) !== GAME_TYPES.JUNQI) {
+      const game = replayOpenRecord(rec, step);
+      if (!this.replay.openView) this.replay.openView = new OpenBoardView(mount);
+      this.replay.openView.render({
+        gameType: rec.gameType, board: game.board, selected: null, legalTargets: [],
+        bottomSide: rec.mode === 'vs_computer'
+          ? (rec.humanSide || (rec.gameType === GAME_TYPES.XIANGQI ? 'r' : 'w'))
+          : (rec.gameType === GAME_TYPES.XIANGQI ? 'r' : 'w'),
+        inCheck: game.inCheck() ? game.turn : null, interactive: false
+      });
+      return;
+    }
     const board = this.replayPositionAt(step);
 
     if (!board) {
@@ -837,6 +1019,7 @@ export class App {
   closeRecord() {
     if (this.replay?.timer) clearInterval(this.replay.timer);
     if (this.replay?.view) this.replay.view.destroy();
+    if (this.replay?.openView) this.replay.openView = null;
     this.replay = null;
     this.go(S.GAME_LIBRARY);
   }
@@ -873,10 +1056,24 @@ export class App {
       this.renderChrome();
     }, { silent: true });
 
+    on('#btn-language', () => {
+      const next = getLocale() === 'en' ? 'zh' : 'en';
+      setLocale(next);
+      savePrefs({ language: next });
+      localizeDom();
+      this.render();
+    });
+
     on('#brand', () => this.goHome());
     on('#btn-home', () => this.goHome());
 
-    on('#btn-play', () => this.go(S.MODE_SELECT));
+    $$('[data-game-type]').forEach(card => {
+      card.addEventListener('click', () => {
+        sounds.tap();
+        this.selectedGameType = card.dataset.gameType;
+        this.go(S.MODE_SELECT);
+      });
+    });
     on('#btn-continue', () => { if (!this.resumeGame(null)) this.flash(t('misc.noContinue')); });
     on('#btn-games', () => this.go(S.GAME_LIBRARY));
     on('#btn-learn', () => this.go(S.LEARN));
@@ -885,7 +1082,10 @@ export class App {
     $$('[data-mode]').forEach(card => {
       card.addEventListener('click', () => {
         sounds.tap();
-        this.go(S.PLAYER_SETUP, { mode: card.dataset.mode });
+        this.go(S.PLAYER_SETUP, {
+          mode: card.dataset.mode,
+          gameType: this.selectedGameType
+        });
       });
     });
 
@@ -901,6 +1101,13 @@ export class App {
         b.classList.add('is-selected');
       });
     });
+    $$('#field-side .choice').forEach(b => {
+      b.addEventListener('click', () => {
+        sounds.tap();
+        $$('#field-side .choice').forEach(x => x.classList.remove('is-selected'));
+        b.classList.add('is-selected');
+      });
+    });
 
     on('#btn-start-match', () => this.confirmPlayers());
 
@@ -912,6 +1119,14 @@ export class App {
     on('#btn-replay-move', () => this.replayLastMove(), { silent: true });
 
     on('#btn-end-again', () => {
+      if (this.state === S.OPEN_END) {
+        const s = this.openGame.session;
+        this.startOpenGame(s.gameType, {
+          mode: s.mode, player1Name: s.player1Name, player2Name: s.player2Name,
+          aiDifficulty: s.aiDifficulty, humanSide: s.humanSide
+        });
+        return;
+      }
       const s = this.session;
       this.startGame(s.mode, {
         player1Name: s.player1Name, player2Name: s.player2Name, aiDifficulty: s.aiDifficulty
@@ -919,7 +1134,9 @@ export class App {
     });
     on('#btn-end-record', () => {
       $('#game-end').classList.remove('is-open');
-      this.openRecord(this.session.gameId);
+      this.openRecord(this.state === S.OPEN_END
+        ? this.openGame.session.gameId
+        : this.session.gameId);
     });
     on('#btn-end-home', () => this.goHome());
 
@@ -935,6 +1152,15 @@ export class App {
       this.renderLibrary();
     });
 
+    $$('[data-promotion]').forEach(button => {
+      button.addEventListener('click', () => {
+        sounds.tap();
+        $('#promotion').classList.remove('is-open');
+        if (this._promotionResolve) this._promotionResolve(button.dataset.promotion);
+        this._promotionResolve = null;
+      });
+    });
+
     // Backdrop dismissal for dialogs that are safe to close.
     $$('.dialog').forEach(d => {
       d.addEventListener('click', (e) => {
@@ -946,6 +1172,7 @@ export class App {
       });
     });
 
+    setLocale(getPrefs().language || 'en');
     localizeDom();
     $('#build-tag').textContent = BUILD.version;
     $('#learn-build').textContent = `${BUILD.version} · ${BUILD.date}`;
@@ -953,13 +1180,30 @@ export class App {
 
   confirmPlayers() {
     const mode = this.pending.mode;
+    const gameType = this.pending.gameType || GAME_TYPES.JUNQI;
     const isAi = mode === MODES.VS_AI;
     const p1 = ($('#input-p1').value || '').trim() || t(isAi ? 'players.you' : 'players.p1');
     const p2 = isAi ? t('players.computer') : (($('#input-p2').value || '').trim() || t('players.p2'));
     const difficulty = $('#field-difficulty .choice.is-selected')?.dataset.value || 'standard';
 
     savePrefs({ p1, p2: isAi ? getPrefs().p2 : p2, aiDifficulty: difficulty });
-    this.startGame(mode, { player1Name: p1, player2Name: p2, aiDifficulty: difficulty });
+    if (gameType === GAME_TYPES.JUNQI) {
+      this.startGame(mode, { player1Name: p1, player2Name: p2, aiDifficulty: difficulty });
+      return;
+    }
+    const firstSide = gameType === GAME_TYPES.XIANGQI ? 'r' : 'w';
+    const humanSide = $('[data-side].is-selected')?.dataset.side === 'second' ? 'b' : firstSide;
+    savePrefs(gameType === GAME_TYPES.XIANGQI
+      ? { xiangqiSide: humanSide }
+      : { chessSide: humanSide });
+    this.startOpenGame(gameType, {
+      mode, player1Name: p1, player2Name: p2, aiDifficulty: difficulty, humanSide
+    });
+  }
+
+  choosePromotion() {
+    $('#promotion').classList.add('is-open');
+    return new Promise(resolve => { this._promotionResolve = resolve; });
   }
 
   goHome() {
@@ -968,6 +1212,7 @@ export class App {
     if (this.replay?.view) this.replay.view.destroy();
     this.replay = null;
     this.leaveSession();
+    delete $('#board-mount').dataset.openGame;
     this.go(S.HOME);
   }
 }
