@@ -1,7 +1,7 @@
 /* Caesar Games — Deterministic Automated Unit Test Suite */
 import { generateLegalSetup, resolveCombat, canPieceMove, createStandardArmy, validatePiecePlacementInSetup, validateSwapInSetup } from './rules.js';
 import { LocalJunqiAI, createAiObservation } from './ai.js';
-import { saveGameState, loadGameState, clearGameState } from './persistence.js';
+import { saveGameState, loadGameState, clearGameState, getLibrary, saveActiveGame, deleteGameById, formatFriendlyDate } from './persistence.js';
 
 // Polyfill localStorage for Node execution
 if (typeof localStorage === 'undefined') {
@@ -98,8 +98,12 @@ export function runAutomatedTests() {
     clearGameState();
     const mockBoard = generateLegalSetup('navy');
     const mockSaveState = {
+      gameId: 'test_game_1',
       gameMode: 'classic',
       privacyMode: 'standard',
+      player1Name: 'Caesar',
+      player2Name: 'Daddy',
+      humanName: 'Caesar',
       activeTurn: 'navy',
       boardState: mockBoard,
       assignedColors: { p1: 'navy', p2: 'red' },
@@ -154,31 +158,25 @@ export function runAutomatedTests() {
 
   // TEST GROUP 5: SCENARIOS (COMBAT, DISCLOSURE, PERSPECTIVE)
   try {
-    // Scenario A: Higher rank combat & concealment
     const attacker = { side: 'navy', name: '司令', rank: 1, revealed: false };
     const defender = { side: 'red', name: '旅长', rank: 4, revealed: false };
     const resA = resolveCombat(attacker, defender);
     assert(resA.winner === attacker, 'Scenario A: Commander defeats Brigade Commander');
 
-    // Scenario B: Commander elimination & Flag disclosure signal
     const resB = resolveCombat(attacker, { side: 'red', name: '炸弹', rank: 99, revealed: false });
     assert(resB.loser === 'both', 'Scenario B: Commander vs Bomb is mutual destruction');
     assert(resB.fieldMarshalDefeatedSide === 'navy', 'Scenario B: Field Marshal defeat triggers flag disclosure signal for Navy');
 
-    // Scenario C: Equal rank
     const resC = resolveCombat({ side: 'navy', name: '师长', rank: 3 }, { side: 'red', name: '师长', rank: 3 });
     assert(resC.loser === 'both', 'Scenario C: Equal rank leads to mutual destruction');
 
-    // Scenario D: Engineer vs Mine
     const resD = resolveCombat({ side: 'navy', name: '工兵', rank: 9 }, { side: 'red', name: '地雷', rank: 10 });
     assert(resD.winner.name === '工兵', 'Scenario D: Engineer disarms Mine');
 
-    // Scenario E: Non-Engineer vs Mine
     const resE = resolveCombat({ side: 'navy', name: '团长', rank: 5 }, { side: 'red', name: '地雷', rank: 10 });
     assert(resE.winner.name === '地雷', 'Scenario E: Mine defeats non-Engineer');
 
-    // Scenario F: Perspective Coordinate Mapping
-    const rKey = '0-0'; // Canonical top-left
+    const rKey = '0-0';
     const displayR = 11 - 0;
     const displayC = 4 - 0;
     assert(displayR === 11 && displayC === 4, 'Scenario F: Canonical 0-0 maps to 11-4 in Red bottom perspective');
@@ -187,6 +185,35 @@ export function runAutomatedTests() {
 
   } catch (e) {
     assert(false, `Scenario tests threw exception: ${e.message}`);
+  }
+
+  // TEST GROUP 6: MULTI-GAME LIBRARY, NAMES & SCHEMA V2
+  try {
+    clearGameState();
+    
+    // Save 3 test games
+    saveActiveGame({ gameId: 'g1', gameMode: 'classic', player1Name: 'Caesar', player2Name: 'Daddy', boardState: {} });
+    saveActiveGame({ gameId: 'g2', gameMode: 'flip', player1Name: 'Caesar', player2Name: 'Mommy', boardState: {} });
+    saveActiveGame({ gameId: 'g3', gameMode: 'vs_computer', humanName: 'Caesar', player2Name: 'Computer', boardState: {} });
+
+    const lib = getLibrary();
+    assert(lib.schemaVersion === 2, 'Library Schema: version 2 initialized');
+    assert(lib.games.length === 3, 'Library: 3 games recorded');
+    assert(lib.lastUsedNames.human === 'Caesar', 'Library: player names saved');
+
+    // Test friendly date formatting
+    const dateStr = formatFriendlyDate(Date.now());
+    assert(dateStr.startsWith('Today ·'), 'Friendly date: formats today correctly');
+
+    // Test game deletion
+    deleteGameById('g2');
+    const lib2 = getLibrary();
+    assert(lib2.games.length === 2, 'Library: game deletion prunes correctly');
+    assert(!lib2.games.some(g => g.gameId === 'g2'), 'Library: deleted game is gone');
+
+    clearGameState();
+  } catch (e) {
+    assert(false, `Library & Schema V2 test threw exception: ${e.message}`);
   }
 
   console.log(`--- TEST SUITE COMPLETE: ${passedCount}/${results.length} PASSED ---`);

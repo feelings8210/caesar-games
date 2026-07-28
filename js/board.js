@@ -3,23 +3,28 @@ import { canPieceMove, resolveCombat, generateLegalSetup, createStandardArmy, va
 import { LocalJunqiAI } from './engine/ai.js';
 import { sounds } from './engine/sound.js';
 import { showHint } from './hint.js';
-import { saveGameState } from './engine/persistence.js';
+import { saveActiveGame, getLastUsedNames } from './engine/persistence.js';
 
 export class JunqiBoard {
   constructor(containerId, appController) {
     this.container = document.getElementById(containerId);
     this.app = appController;
 
+    this.gameId = `game_${Date.now()}`;
     this.gameMode = 'vs_computer'; // 'vs_computer', 'classic', 'flip'
-    this.privacyMode = 'standard'; // 'standard', 'extra_privacy'
-    this.aiDifficulty = 'standard'; // 'relaxed', 'standard'
+    this.privacyMode = 'standard';
+    this.aiDifficulty = 'standard';
 
-    this.activeTurn = 'navy'; // 'navy' or 'red'
-    this.assignedColors = { p1: 'navy', p2: 'red' }; // In Flip mode, set on first reveal
+    this.player1Name = 'Caesar';
+    this.player2Name = 'Computer';
+    this.humanName = 'Caesar';
+
+    this.activeTurn = 'navy';
+    this.assignedColors = { p1: 'navy', p2: 'red' };
     this.isExtraPrivacyRevealed = false;
 
     this.phase = 'setup'; // 'setup' or 'gameplay'
-    this.setupStep = 'navy'; // 'navy' or 'red'
+    this.setupStep = 'navy';
     this.initialSetupSessionState = null;
     this.selectedSetupCell = null;
 
@@ -31,17 +36,25 @@ export class JunqiBoard {
     this.lastMoveRecap = null;
     this.flagDisclosed = { navy: false, red: false };
     this.isGameOver = false;
+    this.winner = null;
 
     this.ai = new LocalJunqiAI(this.aiDifficulty);
 
-    // Always initialize default active board state
     this.startNewGame('vs_computer');
   }
 
   startNewGame(mode = 'vs_computer', options = {}) {
+    const lastNames = getLastUsedNames();
+
+    this.gameId = options.gameId || `game_${Date.now()}`;
     this.gameMode = mode;
     this.privacyMode = options.privacy || 'standard';
     this.aiDifficulty = options.aiDifficulty || 'standard';
+
+    this.player1Name = options.player1Name || lastNames.p1 || 'Caesar';
+    this.player2Name = options.player2Name || (mode === 'vs_computer' ? 'Computer' : (lastNames.p2 || 'Daddy'));
+    this.humanName = options.humanName || lastNames.human || 'Caesar';
+
     this.ai = new LocalJunqiAI(this.aiDifficulty);
 
     this.activeTurn = 'navy';
@@ -53,6 +66,7 @@ export class JunqiBoard {
     this.lastMoveRecap = null;
     this.flagDisclosed = { navy: false, red: false };
     this.isGameOver = false;
+    this.winner = null;
     this.isExtraPrivacyRevealed = false;
 
     if (this.gameMode === 'flip') {
@@ -82,12 +96,11 @@ export class JunqiBoard {
   }
 
   initFlipModeBoard() {
-    this.assignedColors = { p1: null, p2: null }; // Determined on 1st reveal
+    this.assignedColors = { p1: null, p2: null };
     const navyArmy = createStandardArmy('navy');
     const redArmy = createStandardArmy('red');
     const total50 = [...navyArmy, ...redArmy];
 
-    // Fisher-Yates Shuffle
     for (let i = total50.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [total50[i], total50[j]] = [total50[j], total50[i]];
@@ -115,13 +128,11 @@ export class JunqiBoard {
     this.phase = 'gameplay';
     this.initClassicBoard();
     
-    // Execute 1 legal human move (Navy 4-0 to 5-0)
     if (this.boardState['4-0']) {
       this.boardState['5-0'] = this.boardState['4-0'];
       delete this.boardState['4-0'];
     }
 
-    // Execute 1 legal AI move response (Red 7-0 to 6-0)
     if (this.boardState['7-0']) {
       this.boardState['6-0'] = this.boardState['7-0'];
       delete this.boardState['7-0'];
@@ -138,7 +149,6 @@ export class JunqiBoard {
     this.initFlipModeBoard();
     this.assignedColors = { p1: 'navy', p2: 'red' };
 
-    // Reveal 6 pieces (3 Navy, 3 Red) across valid keys
     const keys = Object.keys(this.boardState);
     let navyCount = 0, redCount = 0;
 
@@ -153,7 +163,6 @@ export class JunqiBoard {
       }
     }
 
-    // Move 1 revealed Navy piece to demonstrate movement in Flip mode
     const revealedNavyKey = Object.keys(this.boardState).find(k => this.boardState[k].side === 'navy' && this.boardState[k].revealed && k.startsWith('4-'));
     if (revealedNavyKey) {
       const targetKey = '5-2';
@@ -166,15 +175,21 @@ export class JunqiBoard {
   }
 
   loadState(saved) {
+    if (!saved) return;
+    this.gameId = saved.gameId || `game_${Date.now()}`;
     this.gameMode = saved.mode || 'vs_computer';
-    this.privacyMode = saved.privacy || 'standard';
+    this.privacyMode = saved.privacyMode || 'standard';
+    this.player1Name = saved.player1Name || 'Caesar';
+    this.player2Name = saved.player2Name || (this.gameMode === 'vs_computer' ? 'Computer' : 'Daddy');
+    this.humanName = saved.humanName || 'Caesar';
     this.activeTurn = saved.activeTurn || 'navy';
-    this.boardState = saved.board || {};
+    this.boardState = saved.boardState || {};
     this.assignedColors = saved.assignedColors || { p1: 'navy', p2: 'red' };
-    this.capturedPieces = saved.captured || [];
-    this.turnHistory = saved.history || [];
+    this.capturedPieces = saved.capturedPieces || [];
+    this.turnHistory = saved.turnHistory || [];
     this.aiDifficulty = saved.aiDifficulty || 'standard';
-    this.isGameOver = !!saved.isGameOver;
+    this.isGameOver = saved.status === 'Finished';
+    this.winner = saved.winner || null;
     this.lastBattle = saved.lastBattle || null;
     this.lastMoveRecap = saved.lastMoveRecap || null;
     this.flagDisclosed = saved.flagDisclosed || { navy: false, red: false };
@@ -188,24 +203,33 @@ export class JunqiBoard {
     this.render();
   }
 
-  saveState() {
-    saveGameState({
+  getSerializableState() {
+    return {
+      gameId: this.gameId,
       gameMode: this.gameMode,
       privacyMode: this.privacyMode,
+      player1Name: this.player1Name,
+      player2Name: this.player2Name,
+      humanName: this.humanName,
+      aiDifficulty: this.aiDifficulty,
       activeTurn: this.activeTurn,
       boardState: this.boardState,
       assignedColors: this.assignedColors,
       capturedPieces: this.capturedPieces,
       turnHistory: this.turnHistory,
-      aiDifficulty: this.aiDifficulty,
       isGameOver: this.isGameOver,
+      winner: this.winner,
       lastBattle: this.lastBattle,
       lastMoveRecap: this.lastMoveRecap,
       flagDisclosed: this.flagDisclosed,
       phase: this.phase,
       setupStep: this.setupStep,
       initialSetupSessionState: this.initialSetupSessionState
-    });
+    };
+  }
+
+  saveState() {
+    saveActiveGame(this.getSerializableState());
   }
 
   quickSetup() {
@@ -247,9 +271,9 @@ export class JunqiBoard {
 
   lockSetup() {
     this.selectedSetupCell = null;
+    sounds.playReady();
 
     if (this.gameMode === 'vs_computer') {
-      // Computer formation is generated independently and remains hidden
       const redArmy = generateLegalSetup('red');
       Object.keys(this.boardState).forEach(k => {
         if (this.boardState[k].side === 'red') delete this.boardState[k];
@@ -258,7 +282,6 @@ export class JunqiBoard {
 
       this.phase = 'gameplay';
       this.activeTurn = 'navy';
-      sounds.playMoveTok();
       this.saveState();
       this.render();
       showHint('GAME_STARTED', 'Setup locked! Make your first move.');
@@ -268,7 +291,7 @@ export class JunqiBoard {
     if (this.gameMode === 'classic') {
       if (this.setupStep === 'navy') {
         sounds.playPassCue();
-        this.app.passManager.triggerTransition('Player 2 (Setup)', () => {
+        this.app.passManager.triggerTransition(`${this.player2Name} (Setup)`, () => {
           this.setupStep = 'red';
           this.initialSetupSessionState = JSON.parse(JSON.stringify(this.boardState));
           this.saveState();
@@ -276,12 +299,12 @@ export class JunqiBoard {
         });
       } else if (this.setupStep === 'red') {
         sounds.playPassCue();
-        this.app.passManager.triggerTransition('Player 1 (Start Game)', () => {
+        this.app.passManager.triggerTransition(`${this.player1Name} (Start Game)`, () => {
           this.phase = 'gameplay';
           this.activeTurn = 'navy';
           this.saveState();
           this.render();
-          showHint('GAME_STARTED', 'Both setups locked! Player 1 (Navy) turn to move.');
+          showHint('GAME_STARTED', `Both setups locked! ${this.player1Name}'s turn to move.`);
         });
       }
     }
@@ -304,9 +327,9 @@ export class JunqiBoard {
       if (this.phase === 'setup') {
         if (this.gameMode === 'vs_computer') {
           statusDot.className = 'status-dot navy';
-          turnLabel.textContent = 'Your Setup — Tap 2 pieces to swap';
+          turnLabel.textContent = `${this.humanName}'s Setup — Tap 2 pieces to swap`;
         } else {
-          const pName = this.setupStep === 'navy' ? 'Player 1 (Navy)' : 'Player 2 (Red)';
+          const pName = this.setupStep === 'navy' ? this.player1Name : this.player2Name;
           statusDot.className = `status-dot ${this.setupStep}`;
           turnLabel.textContent = `${pName} Setup — Tap 2 pieces to swap`;
         }
@@ -314,30 +337,30 @@ export class JunqiBoard {
         if (this.gameMode === 'vs_computer') {
           if (this.activeTurn === 'navy') {
             statusDot.className = 'status-dot navy';
-            turnLabel.textContent = 'Your Turn (Navy)';
+            turnLabel.textContent = `${this.humanName}'s Turn (Navy)`;
           } else {
             statusDot.className = 'status-dot red';
-            turnLabel.textContent = 'Computer Thinking...';
+            turnLabel.textContent = `${this.player2Name} Thinking...`;
           }
         } else if (this.gameMode === 'classic') {
           if (this.activeTurn === 'navy') {
             statusDot.className = 'status-dot navy';
-            turnLabel.textContent = 'Player 1 Turn (Navy)';
+            turnLabel.textContent = `${this.player1Name}'s Turn`;
           } else {
             statusDot.className = 'status-dot red';
-            turnLabel.textContent = 'Player 2 Turn (Red)';
+            turnLabel.textContent = `${this.player2Name}'s Turn`;
           }
         } else if (this.gameMode === 'flip') {
           if (!this.assignedColors.p1) {
             statusDot.className = 'status-dot navy';
-            turnLabel.textContent = 'Player 1 Turn — Reveal any piece';
+            turnLabel.textContent = `${this.player1Name}'s Turn — Reveal any piece`;
           } else {
             if (this.activeTurn === 'navy') {
               statusDot.className = 'status-dot navy';
-              turnLabel.textContent = `Player 1 (${(this.assignedColors.p1||'navy').toUpperCase()})`;
+              turnLabel.textContent = `${this.player1Name} (${(this.assignedColors.p1||'navy').toUpperCase()})`;
             } else {
               statusDot.className = 'status-dot red';
-              turnLabel.textContent = `Player 2 (${(this.assignedColors.p2||'red').toUpperCase()})`;
+              turnLabel.textContent = `${this.player2Name} (${(this.assignedColors.p2||'red').toUpperCase()})`;
             }
           }
         }
@@ -362,18 +385,17 @@ export class JunqiBoard {
     if (!this.container) return;
     this.container.innerHTML = '';
 
-    // If in setup phase, prepend the touch-first Setup Control Bar
     if (this.phase === 'setup') {
       const setupBar = document.createElement('div');
       setupBar.className = 'setup-controls-bar';
 
       let titleText = 'Arrange Your Army';
       if (this.gameMode === 'vs_computer') {
-        titleText = 'Your Setup — Tap 2 pieces to swap';
+        titleText = `${this.humanName}'s Setup — Tap 2 pieces to swap`;
       } else if (this.setupStep === 'navy') {
-        titleText = 'Player 1 Setup — Tap 2 pieces to swap';
+        titleText = `${this.player1Name} Setup — Tap 2 pieces to swap`;
       } else {
-        titleText = 'Player 2 Setup — Tap 2 pieces to swap';
+        titleText = `${this.player2Name} Setup — Tap 2 pieces to swap`;
       }
 
       setupBar.innerHTML = `
@@ -417,11 +439,9 @@ export class JunqiBoard {
     const boardWrapper = document.createElement('div');
     boardWrapper.className = 'junqi-board-topology';
 
-    // Render SVG lines network
     const svgLayer = this.createSvgNetwork();
     boardWrapper.appendChild(svgLayer);
 
-    // Render Node Stations & Pieces
     const nodeLayer = document.createElement('div');
     nodeLayer.className = 'board-nodes-layer';
 
@@ -435,7 +455,6 @@ export class JunqiBoard {
 
     boardWrapper.appendChild(nodeLayer);
 
-    // Extra Privacy Reveal Control
     if (this.phase === 'gameplay' && this.gameMode === 'classic' && this.privacyMode === 'extra_privacy' && !this.isGameOver) {
       const privacyControl = document.createElement('button');
       privacyControl.className = 'btn-extra-privacy-reveal';
@@ -455,7 +474,6 @@ export class JunqiBoard {
       boardWrapper.appendChild(privacyControl);
     }
 
-    // Last Move / Battle Recap Overlay
     if (this.phase === 'gameplay' && (this.showRecapHighlights || this.lastBattle || this.lastMoveRecap)) {
       const recapData = this.lastMoveRecap;
       if (recapData) {
@@ -467,6 +485,38 @@ export class JunqiBoard {
         `;
         boardWrapper.appendChild(battleBanner);
       }
+    }
+
+    // Rematch / Game Over Card Overlay
+    if (this.isGameOver) {
+      const winnerName = this.winner === 'navy' ? (this.gameMode === 'vs_computer' ? this.humanName : this.player1Name) : (this.gameMode === 'vs_computer' ? this.player2Name : this.player2Name);
+      
+      const gameOverBanner = document.createElement('div');
+      gameOverBanner.className = 'mode-modal-backdrop active';
+      gameOverBanner.style.zIndex = '150';
+      gameOverBanner.innerHTML = `
+        <div class="mode-modal-card" style="width: 440px; text-align: center; gap: 16px;">
+          <div class="mode-icon">🏆</div>
+          <h2 style="font-size: 24px; color: var(--color-navy-primary);">${winnerName} Victory!</h2>
+          <p style="font-size: 14px; color: var(--color-text-muted);">Match completed in ${this.turnHistory.length} moves.</p>
+          <div style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
+            <button id="btn-rematch-again" class="btn btn-gold">Play Again</button>
+            <button id="btn-rematch-record" class="btn btn-secondary">View Record</button>
+            <button id="btn-rematch-home" class="btn btn-primary">Home</button>
+          </div>
+        </div>
+      `;
+
+      this.container.appendChild(gameOverBanner);
+
+      setTimeout(() => {
+        const pBtn = document.getElementById('btn-rematch-again');
+        const rBtn = document.getElementById('btn-rematch-record');
+        const hBtn = document.getElementById('btn-rematch-home');
+        if (pBtn) pBtn.onclick = () => this.startNewGame(this.gameMode, { player1Name: this.player1Name, player2Name: this.player2Name, humanName: this.humanName, aiDifficulty: this.aiDifficulty });
+        if (rBtn) rBtn.onclick = () => this.app.showGameRecord(this.gameId);
+        if (hBtn) hBtn.onclick = () => this.app.showSurface('home');
+      }, 0);
     }
 
     this.container.appendChild(boardWrapper);
@@ -523,7 +573,6 @@ export class JunqiBoard {
     node.className = 'board-node-station';
     node.dataset.key = canonicalKey;
 
-    // ONE-IPAD PERSPECTIVE: Determine display grid coordinates based on active player
     const isRedActiveInClassic = (this.gameMode === 'classic') && (this.phase === 'setup' ? this.setupStep === 'red' : this.activeTurn === 'red');
     
     const displayRow = isRedActiveInClassic ? (11 - row) : row;
@@ -561,20 +610,18 @@ export class JunqiBoard {
         isVisible = !!piece.revealed;
       } else if (this.gameMode === 'vs_computer') {
         isVisible = (piece.side === 'navy') || !!piece.revealed;
-      } else { // Classic 2-Player Gameplay
+      } else {
         if (piece.side === this.activeTurn) {
           isVisible = (this.privacyMode !== 'extra_privacy' || this.isExtraPrivacyRevealed);
         } else {
-          // Concealed opponent pieces stay face-down backs unless flag is disclosed
           isVisible = !!piece.revealed;
         }
       }
 
-      // Check if Flag disclosed due to Field Marshal elimination
       if (piece.name === '军旗' && this.flagDisclosed[piece.side]) {
         pieceEl.classList.add('flag-disclosed');
         if (piece.side !== this.activeTurn) {
-          isVisible = true; // Expose Flag position to opponent!
+          isVisible = true;
         }
       }
 
@@ -584,10 +631,9 @@ export class JunqiBoard {
         pieceEl.textContent = piece.name;
       }
 
-      // FLIP MODE ARMY FACE ORIENTATION
       if (this.gameMode === 'flip' && piece.revealed && this.assignedColors.p2) {
         if (piece.side === this.assignedColors.p2) {
-          pieceEl.classList.add('face-top-player'); // Rotate 180° for top player army
+          pieceEl.classList.add('face-top-player');
         }
       }
 
@@ -663,7 +709,7 @@ export class JunqiBoard {
         this.render();
       } else {
         sounds.playInvalid();
-        showHint('ILLEGAL_SETUP', `Tap a piece in your own territory (${currentSide === 'navy' ? 'Navy / Bottom' : 'Red / Top'}) to select it.`);
+        showHint('ILLEGAL_SETUP', `Tap a piece in your own territory to select it.`);
       }
       return;
     }
@@ -686,7 +732,7 @@ export class JunqiBoard {
 
     if (!inTerritory) {
       sounds.playInvalid();
-      showHint('ILLEGAL_SETUP', `Setup moves must stay inside your own ${currentSide === 'navy' ? 'Navy (bottom)' : 'Red (top)'} territory.`);
+      showHint('ILLEGAL_SETUP', `Setup moves must stay inside your own territory.`);
       return;
     }
 
@@ -735,6 +781,16 @@ export class JunqiBoard {
         this.assignedColors.p2 = piece.side === 'navy' ? 'red' : 'navy';
       }
 
+      this.turnHistory.push({
+        moveNumber: this.turnHistory.length + 1,
+        side: this.activeTurn,
+        playerName: this.activeTurn === 'navy' ? this.player1Name : this.player2Name,
+        from: key,
+        to: key,
+        type: 'reveal',
+        summaryText: `${this.activeTurn === 'navy' ? this.player1Name : this.player2Name} revealed ${piece.name}`
+      });
+
       this.selectedCell = null;
       this.endTurn();
       return;
@@ -763,15 +819,16 @@ export class JunqiBoard {
   executeMove(fromKey, toKey) {
     const attacker = this.boardState[fromKey];
     const defender = this.boardState[toKey];
+    const actingName = attacker.side === 'navy' ? (this.gameMode === 'vs_computer' ? this.humanName : this.player1Name) : this.player2Name;
 
-    let summaryText = `Opponent moved ${fromKey} → ${toKey}`;
+    let summaryText = `${actingName} moved ${fromKey} → ${toKey}`;
 
     if (!defender) {
       this.boardState[toKey] = attacker;
       delete this.boardState[fromKey];
       sounds.playMoveTok();
       this.lastBattle = null;
-      summaryText = `${attacker.side.toUpperCase()} moved ${fromKey} → ${toKey}`;
+      summaryText = `${actingName} moved ${fromKey} → ${toKey}`;
     } else {
       sounds.playCombat();
       const outcome = resolveCombat(attacker, defender);
@@ -784,34 +841,41 @@ export class JunqiBoard {
       if (outcome.winner === attacker) {
         this.boardState[toKey] = attacker;
         delete this.boardState[fromKey];
-        // In Classic (暗棋), attacker does NOT become revealed to opponent!
         if (this.gameMode === 'flip') attacker.revealed = true;
         this.capturedPieces.push(defender);
         this.lastBattle = { attackerSide: attacker.side, attackerName: attacker.name, defenderName: defender.name, result: `${attacker.name} Victory` };
-        summaryText = `Battle at ${toKey}: ${attacker.side.toUpperCase()} captured opponent piece!`;
+        summaryText = `${actingName} captured opponent piece at ${toKey}`;
       } else if (outcome.winner === defender) {
         delete this.boardState[fromKey];
         if (this.gameMode === 'flip') defender.revealed = true;
         this.capturedPieces.push(attacker);
         this.lastBattle = { attackerSide: attacker.side, attackerName: attacker.name, defenderName: defender.name, result: `${defender.name} Defended` };
-        summaryText = `Battle at ${toKey}: ${defender.side.toUpperCase()} defended successfully!`;
+        summaryText = `${actingName} piece defeated at ${toKey}`;
       } else {
+        sounds.playBothRemoved();
         delete this.boardState[fromKey];
         delete this.boardState[toKey];
         this.capturedPieces.push(attacker, defender);
         this.lastBattle = { attackerSide: attacker.side, attackerName: attacker.name, defenderName: defender.name, result: `Mutual Destruction` };
-        summaryText = `Battle at ${toKey}: Mutual Destruction! Both pieces removed.`;
+        summaryText = `Mutual Destruction at ${toKey}!`;
       }
 
       if (outcome.gameOver) {
         this.isGameOver = true;
         this.winner = attacker.side;
         sounds.playVictory();
-        this.saveState();
-        this.render();
-        return;
       }
     }
+
+    this.turnHistory.push({
+      moveNumber: this.turnHistory.length + 1,
+      side: attacker.side,
+      playerName: actingName,
+      from: fromKey,
+      to: toKey,
+      combatOccurred: !!defender,
+      summaryText: summaryText
+    });
 
     this.lastMoveRecap = {
       from: fromKey,
@@ -828,6 +892,11 @@ export class JunqiBoard {
   endTurn() {
     this.saveState();
 
+    if (this.isGameOver) {
+      this.render();
+      return;
+    }
+
     if (this.gameMode === 'vs_computer' && this.activeTurn === 'navy') {
       this.activeTurn = 'red';
       this.render();
@@ -840,7 +909,7 @@ export class JunqiBoard {
           if (!aiDefender) {
             this.boardState[aiMove.to] = aiAttacker;
             delete this.boardState[aiMove.from];
-            this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `Computer moved piece`, timestamp: Date.now() };
+            this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `${this.player2Name} moved piece`, timestamp: Date.now() };
           } else {
             const outcome = resolveCombat(aiAttacker, aiDefender);
             if (outcome.fieldMarshalDefeatedSide) {
@@ -850,16 +919,23 @@ export class JunqiBoard {
               this.boardState[aiMove.to] = aiAttacker;
               delete this.boardState[aiMove.from];
               this.capturedPieces.push(aiDefender);
-              this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `Computer attacked ${aiMove.to}: Your piece was captured`, timestamp: Date.now() };
+              this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `${this.player2Name} attacked ${aiMove.to}: Your piece was captured`, timestamp: Date.now() };
             } else if (outcome.winner === aiDefender) {
               delete this.boardState[aiMove.from];
               this.capturedPieces.push(aiAttacker);
-              this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `Computer attacked ${aiMove.to}: Your piece defended successfully`, timestamp: Date.now() };
+              this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `${this.player2Name} attacked ${aiMove.to}: Your piece defended`, timestamp: Date.now() };
             } else {
+              sounds.playBothRemoved();
               delete this.boardState[aiMove.from];
               delete this.boardState[aiMove.to];
               this.capturedPieces.push(aiAttacker, aiDefender);
-              this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `Computer attacked ${aiMove.to}: Mutual Destruction`, timestamp: Date.now() };
+              this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `${this.player2Name} attacked ${aiMove.to}: Mutual Destruction`, timestamp: Date.now() };
+            }
+
+            if (outcome.gameOver) {
+              this.isGameOver = true;
+              this.winner = 'red';
+              sounds.playVictory();
             }
           }
         }
@@ -873,8 +949,9 @@ export class JunqiBoard {
     const nextTurn = this.activeTurn === 'navy' ? 'red' : 'navy';
 
     if (this.gameMode === 'classic') {
+      const nextPlayerName = nextTurn === 'navy' ? this.player1Name : this.player2Name;
       sounds.playPassCue();
-      this.app.passManager.triggerTransition(`Player ${nextTurn === 'navy' ? '1' : '2'}`, () => {
+      this.app.passManager.triggerTransition(nextPlayerName, () => {
         this.activeTurn = nextTurn;
         this.saveState();
         this.render();

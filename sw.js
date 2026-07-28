@@ -1,5 +1,5 @@
 /* Caesar Games — PWA Service Worker for Offline iPad Play */
-const CACHE_NAME = 'caesar-games-v2-pretravel';
+const CACHE_NAME = 'caesar-games-v3-memory';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -59,7 +59,6 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       }).catch(() => {
-        // Fallback to index.html if navigation request fails offline
         if (event.request.mode === 'navigate') {
           return caches.match('./index.html');
         }

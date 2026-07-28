@@ -1,5 +1,56 @@
-/* Caesar Games — Main Styles (Complete V1 Product) */
-@import url('variables.css');
+/* Caesar Games — Product Design Tokens & Global Style System */
+
+:root {
+  /* Color Palette — Tailored Architectural & Tactile Palette */
+  --color-navy-primary: #1E365D;      /* Dominant P1 Navy */
+  --color-navy-dark: #122442;
+  --color-navy-border: #3A5B8C;
+  --color-navy-glow: rgba(30, 54, 93, 0.4);
+
+  --color-red-primary: #9E4B42;       /* Muted Brick Red P2 */
+  --color-red-dark: #7A352D;
+  --color-red-border: #BD695F;
+  --color-red-glow: rgba(158, 75, 66, 0.4);
+
+  --color-gold-primary: #B88A3B;      /* Warm Architectural Accent Gold */
+  --color-gold-dark: #916825;
+  --color-gold-glow: rgba(184, 138, 59, 0.35);
+
+  --color-bg-base: #F4F7FB;          /* Light Matte Surface */
+  --color-bg-surface: #FFFFFF;
+  --color-bg-surface-elevated: #FFFFFF;
+  --color-bg-board: #EAF0F6;
+
+  --color-bg-camp: #E2E9F2;
+  --color-bg-hq: #D8E2EE;
+
+  --color-text-main: #1E2530;
+  --color-text-muted: #5A6678;
+
+  --color-border-subtle: #E2E8F0;
+  --color-border-medium: #CBD5E1;
+  --color-road: #94A3B8;
+  --color-railway: #334155;
+  --color-slate-light: #94A3B8;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  --shadow-subtle: 0 2px 8px rgba(30, 37, 48, 0.04);
+  --shadow-elevated: 0 12px 32px rgba(30, 37, 48, 0.08);
+  --shadow-piece: 0 3px 6px rgba(30, 54, 93, 0.22);
+  --shadow-piece-red: 0 3px 6px rgba(158, 75, 66, 0.22);
+
+  --font-family-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --font-family-chinese: "Kaiti SC", "STKaiti", "KaiTi", "SF Pro Text", serif;
+
+  --touch-min-size: 48px;
+  --transition-fast: 120ms ease;
+  --transition-medium: 220ms ease;
+}
 
 * {
   box-sizing: border-box;
@@ -7,58 +58,50 @@
   padding: 0;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  -webkit-user-select: none;
 }
 
-body, html {
+html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
   background-color: var(--color-bg-base);
-  color: var(--color-text-main);
   font-family: var(--font-family-sans);
+  color: var(--color-text-main);
   -webkit-font-smoothing: antialiased;
 }
 
 #app {
-  display: flex;
-  flex-direction: column;
   width: 100vw;
   height: 100vh;
+  display: flex;
+  flex-direction: column;
   position: relative;
-  background: radial-gradient(circle at 50% 30%, #FFFFFF 0%, #F4F7FB 100%);
 }
 
-/* App Header & Brand Area */
+/* App Header & Brand Bar */
 .app-header {
-  height: 64px;
-  padding: 0 28px;
+  height: 56px;
+  padding: 0 24px;
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--color-border-subtle);
-  background-color: rgba(251, 252, 254, 0.95);
-  backdrop-filter: blur(8px);
-  z-index: 20;
+  z-index: 100;
 }
 
 .brand-container {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   cursor: pointer;
 }
 
-/* Official CD Brand Mark Logo */
 .cd-brand-logo {
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
-  filter: drop-shadow(0 2px 5px rgba(30, 54, 93, 0.12));
-  transition: transform var(--transition-fast);
-}
-
-.brand-container:hover .cd-brand-logo {
-  transform: scale(1.05);
 }
 
 .brand-text {
@@ -67,19 +110,18 @@ body, html {
 }
 
 .brand-title {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
   color: var(--color-navy-primary);
 }
 
 .brand-subtitle {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--color-gold-primary);
   letter-spacing: 0.5px;
-  text-transform: uppercase;
-  margin-top: -1px;
+  margin-top: -2px;
 }
 
 .header-controls-right {
@@ -89,92 +131,95 @@ body, html {
 }
 
 .btn-sound {
-  min-height: 38px;
+  background: var(--color-bg-base);
+  border: 1px solid var(--color-border-subtle);
   padding: 6px 14px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   font-size: 13px;
   font-weight: 600;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-medium);
-  color: var(--color-text-main);
+  color: var(--color-text-muted);
   cursor: pointer;
+
 }
 
-/* Navigation / Surface Containers */
+/* Main Surface View Container */
 .surface-view {
   flex: 1;
-  display: none;
   width: 100%;
-  height: calc(100vh - 64px);
+  height: calc(100vh - 56px);
+  display: none;
   position: relative;
-  overflow: hidden;
 }
 
 .surface-view.active {
   display: flex;
 }
 
-/* Home Surface Layout — Clean Single Game Focus */
+/* Home Surface Layout */
 .home-surface {
-  padding: 48px;
   flex-direction: column;
-  gap: 28px;
-  overflow-y: auto;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 32px 24px 20px 24px;
+  background: radial-gradient(circle at 50% 30%, #FFFFFF 0%, #F4F7FB 100%);
+  overflow-y: auto;
 }
 
 .home-hero {
   text-align: center;
-  max-width: 520px;
+  margin-bottom: 24px;
 }
 
 .brand-presence-tag {
-  font-size: 11px;
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: rgba(184, 138, 59, 0.1);
+  color: var(--color-gold-dark);
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 1.5px;
+  letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--color-gold-primary);
-  margin-bottom: 6px;
+  margin-bottom: 12px;
 }
 
 .home-hero h1 {
-  font-size: 34px;
-  font-weight: 700;
+  font-size: 32px;
+  font-weight: 800;
   color: var(--color-navy-primary);
   letter-spacing: -0.5px;
 }
 
-/* V1 Single Playable Game Container */
-.game-library.single-game {
+/* Featured V1 Game Card */
+.game-library {
   width: 100%;
-  max-width: 520px;
+  max-width: 640px;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.game-card.featured-v1 {
-  width: 100%;
+.game-card {
   background: var(--color-bg-surface-elevated);
   border: 1.5px solid var(--color-border-subtle);
   border-radius: var(--radius-xl);
-  padding: 32px;
+  padding: 28px;
+  box-shadow: var(--shadow-elevated);
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  box-shadow: var(--shadow-card);
+  align-items: center;
+  gap: 20px;
 }
 
 .game-card-preview {
-  height: 150px;
-  background: linear-gradient(135deg, var(--color-bg-board), #DFE7F0);
+  width: 100%;
+  height: 120px;
+  background: var(--color-bg-board);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border-medium);
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
 }
 
 .card-preview-art {
@@ -231,13 +276,34 @@ body, html {
   line-height: 1.45;
 }
 
+.home-memory-line {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-gold-dark);
+  margin-top: 8px;
+  padding: 4px 12px;
+  background: rgba(184, 138, 59, 0.1);
+  border-radius: var(--radius-full);
+  display: inline-block;
+}
+
 .game-card-actions {
   display: flex;
   gap: 12px;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
-/* Mode Selection Modal Dialog */
+.home-personal-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-slate-light);
+  letter-spacing: 0.5px;
+}
+
+/* Modals System */
 .mode-modal-backdrop {
   position: fixed;
   top: 0;
@@ -262,15 +328,17 @@ body, html {
 
 .mode-modal-card {
   width: 640px;
-  max-width: 90%;
+  max-width: 92%;
+  max-height: 90vh;
   background: var(--color-bg-surface-elevated);
   border: 1.5px solid var(--color-border-medium);
   border-radius: var(--radius-xl);
-  padding: 32px;
+  padding: 28px;
   box-shadow: var(--shadow-elevated);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
+  overflow-y: auto;
 }
 
 .mode-modal-header {
@@ -282,7 +350,7 @@ body, html {
 }
 
 .mode-modal-header h2 {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--color-navy-primary);
 }
@@ -336,47 +404,205 @@ body, html {
   line-height: 1.35;
 }
 
-/* Extra Privacy Reveal Button Overlay */
-.btn-extra-privacy-reveal {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 10px 24px;
-  border-radius: var(--radius-full);
-  background: var(--color-gold-primary);
-  color: #FFFFFF;
-  font-size: 13.5px;
-  font-weight: 700;
-  border: none;
-  box-shadow: 0 4px 12px rgba(184, 138, 59, 0.35);
-  cursor: pointer;
-  z-index: 20;
+/* Name Setup Modal Form */
+.name-setup-card {
+  width: 480px;
 }
 
-/* Last Battle Outcome Banner Overlay */
-.last-battle-banner {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 6px 18px;
-  border-radius: var(--radius-full);
-  background: var(--color-bg-surface-elevated);
-  border: 1px solid var(--color-border-medium);
-  box-shadow: var(--shadow-subtle);
+.name-inputs-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.input-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.input-field-group label {
   font-size: 13px;
+  font-weight: 700;
+  color: var(--color-navy-primary);
+}
+
+.name-text-input, .name-select-input {
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-border-medium);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-main);
+  background: var(--color-bg-surface);
+  outline: none;
+}
+
+.name-text-input:focus, .name-select-input:focus {
+  border-color: var(--color-gold-primary);
+  box-shadow: 0 0 0 3px rgba(184, 138, 59, 0.15);
+}
+
+.name-setup-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+/* Library Modal List */
+.library-card {
+  width: 720px;
+}
+
+.games-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.game-item-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  transition: background var(--transition-fast);
+}
+
+.game-item-card:hover {
+  background: #F8FAFC;
+}
+
+.game-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.game-item-title-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  z-index: 20;
 }
 
-.battle-title {
+.game-item-players {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-navy-primary);
+}
+
+.game-item-mode-badge {
   font-size: 11px;
   font-weight: 800;
-  color: var(--color-gold-primary);
-  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-camp);
+  color: var(--color-navy-primary);
+  text-transform: uppercase;
+}
+
+.game-item-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.game-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-item-action {
+  min-height: 34px;
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid var(--color-border-medium);
+  background: var(--color-bg-surface);
+  color: var(--color-text-main);
+  cursor: pointer;
+}
+
+.btn-item-action.primary {
+  background: var(--color-navy-primary);
+  color: #FFFFFF;
+  border: none;
+}
+
+.btn-item-action.danger {
+  color: var(--color-red-primary);
+  border-color: rgba(158, 75, 66, 0.3);
+}
+
+/* Record / Replay Modal */
+.record-card {
+  width: 760px;
+}
+
+.record-meta-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--color-bg-camp);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-navy-primary);
+}
+
+.replay-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.replay-step-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-navy-primary);
+  min-width: 100px;
+  text-align: center;
+}
+
+.record-history-list {
+  max-height: 40vh;
+  overflow-y: auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.history-table th {
+  background: var(--color-bg-camp);
+  color: var(--color-navy-primary);
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 700;
+}
+
+.history-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--color-text-main);
 }
 
 /* UI Buttons */

@@ -41,7 +41,7 @@
         <h1>陆战棋 · Junqi</h1>
       </div>
 
-      <!-- V1 Playable Game Surface Card -->
+      <!-- Playable Game Surface Card -->
       <div class="game-library single-game">
         <div class="game-card featured-v1">
           <div class="game-card-preview">
@@ -54,14 +54,21 @@
           <div class="game-card-info">
             <h2>Chinese Junqi</h2>
             <p>Tactical tabletop strategy for iPad. Secrecy, railway blitzes, and campsite maneuvers.</p>
+            <div id="home-memory-status" class="home-memory-line" style="display: none;"></div>
           </div>
           <div class="game-card-actions">
             <button id="btn-play-junqi" class="btn btn-primary">Play</button>
-            <button id="btn-resume-junqi" class="btn btn-gold" style="display: none;">Resume</button>
+            <button id="btn-resume-junqi" class="btn btn-gold" style="display: none;">Continue</button>
+            <button id="btn-games-library" class="btn btn-secondary">Games</button>
             <button id="btn-learn-rules" class="btn btn-secondary">Learn</button>
           </div>
         </div>
       </div>
+
+      <!-- Restrained First Game Personal Touch Footer -->
+      <footer class="home-personal-footer">
+        <span>Caesar Games · Love & Play · Since 2026</span>
+      </footer>
     </main>
 
     <!-- Surface 2: JUNQI GAME BOARD -->
@@ -101,7 +108,6 @@
         <div id="practice-board-mount" class="practice-section"></div>
 
         <div class="learn-grid">
-          <!-- Rank Hierarchy Module -->
           <div class="learn-card">
             <h3>🎖 Rank Hierarchy (大官吃小官)</h3>
             <p>Higher ranking pieces capture lower ranking opponent pieces upon collision.</p>
@@ -114,7 +120,6 @@
             </div>
           </div>
 
-          <!-- Movement Rules Module -->
           <div class="learn-card">
             <h3>🚂 Roads vs Railways (公路与铁路)</h3>
             <p>公路 (Roads): 1 step in any connected direction.<br>铁路 (Railways): Move straight along clear tracks. Only 工兵 (Engineer) can turn corners along connected tracks!</p>
@@ -124,17 +129,19 @@
             </div>
           </div>
 
-          <!-- Special Pieces Module -->
           <div class="learn-card">
             <h3>💣 Mines, Bombs & Camps (地雷、炸弹与行营)</h3>
             <p><strong>地雷 (Mine):</strong> Static defense. Defeats all attackers except 工兵 or 炸弹.<br><strong>炸弹 (Bomb):</strong> Mutual destruction with any piece.<br><strong>行营 (Campsite):</strong> Safe haven! Pieces inside cannot be attacked.</p>
           </div>
 
-          <!-- Flip Mode Rules Module -->
           <div class="learn-card">
             <h3>🔄 Flip Mode Rules (翻棋模式)</h3>
             <p>Travel-friendly shared screen mode. 50 pieces shuffled face down. First reveal locks your army color. Per turn: Reveal 1 piece OR move 1 revealed piece.</p>
           </div>
+        </div>
+
+        <div class="learn-footer-touch">
+          <span>Made for Caesar · 2026</span>
         </div>
       </div>
     </main>
@@ -151,11 +158,11 @@
       </div>
     </div>
 
-    <!-- Mode Selection Modal Dialog -->
+    <!-- Modal 1: Mode Selection Modal Dialog -->
     <div id="mode-selection-modal" class="mode-modal-backdrop">
       <div class="mode-modal-card">
         <div class="mode-modal-header">
-          <h2>How do you want to play?</h2>
+          <h2>Select Game Mode</h2>
           <button id="btn-close-mode-modal" class="btn-close-x">✕</button>
         </div>
         <div class="mode-options-grid">
@@ -174,6 +181,71 @@
             <h3>2 Players · Flip</h3>
             <p>Travel-friendly face-down reveal mode. Instant shared screen play with no pass screens.</p>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 2: Player Names & Options Setup Modal -->
+    <div id="player-names-modal" class="mode-modal-backdrop" style="display: none;">
+      <div class="mode-modal-card name-setup-card">
+        <div class="mode-modal-header">
+          <h2 id="name-modal-title">Game Players</h2>
+          <button id="btn-close-name-modal" class="btn-close-x">✕</button>
+        </div>
+        <div class="name-inputs-body">
+          <div class="input-field-group" id="group-p1-name">
+            <label for="input-p1-name" id="label-p1-name">Player 1 (Navy / Bottom)</label>
+            <input type="text" id="input-p1-name" class="name-text-input" placeholder="Caesar" maxLength="16">
+          </div>
+          <div class="input-field-group" id="group-p2-name">
+            <label for="input-p2-name" id="label-p2-name">Player 2 (Red / Top)</label>
+            <input type="text" id="input-p2-name" class="name-text-input" placeholder="Daddy" maxLength="16">
+          </div>
+          <div class="input-field-group" id="group-ai-difficulty" style="display: none;">
+            <label for="select-ai-difficulty">Computer Difficulty</label>
+            <select id="select-ai-difficulty" class="name-select-input">
+              <option value="relaxed">Relaxed — Casual play & learning</option>
+              <option value="standard" selected>Standard — Real strategic match</option>
+            </select>
+          </div>
+        </div>
+        <div class="name-setup-actions">
+          <button id="btn-start-game-confirm" class="btn btn-gold" style="padding: 12px 32px; font-size: 16px;">Start Match</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 3: Multi-Game Local Library Modal -->
+    <div id="games-library-modal" class="mode-modal-backdrop" style="display: none;">
+      <div class="mode-modal-card library-card">
+        <div class="mode-modal-header">
+          <h2>Recent Games & Records</h2>
+          <button id="btn-close-library-modal" class="btn-close-x">✕</button>
+        </div>
+        <div id="games-list-container" class="games-list-container">
+          <!-- Populated dynamically via js/app.js -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 4: Finished Game Record & Replay Viewer Modal -->
+    <div id="game-record-modal" class="mode-modal-backdrop" style="display: none;">
+      <div class="mode-modal-card record-card">
+        <div class="mode-modal-header">
+          <h2 id="record-modal-title">Match Record</h2>
+          <button id="btn-close-record-modal" class="btn-close-x">✕</button>
+        </div>
+        <div class="record-meta-bar" id="record-meta-bar">
+          <!-- Populated dynamically -->
+        </div>
+        <div class="replay-controls-bar" id="replay-controls-bar">
+          <button id="btn-replay-prev" class="btn-ctrl">◀ Step Back</button>
+          <button id="btn-replay-play" class="btn-ctrl">▶ Play</button>
+          <button id="btn-replay-next" class="btn-ctrl">Step Forward ▶</button>
+          <span id="replay-step-label" class="replay-step-label">Move 0 / 0</span>
+        </div>
+        <div id="record-history-list" class="record-history-list">
+          <!-- Move history table -->
         </div>
       </div>
     </div>
