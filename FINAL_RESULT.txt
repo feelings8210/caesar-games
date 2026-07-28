@@ -1,137 +1,23 @@
-CAESAR GAMES v2.0.3 — FAST PRE-TRAVEL UPGRADE
-2026-07-28
-
-BASELINE_VERIFIED:
-  PASS — main was clean and synchronized with origin/main at 21544ad before
-  work began. Production independently reported v2.0.2 at
-  https://feelings8210.github.io/caesar-games/.
-
-MOTION_READABILITY:
-  PASS — Junqi, Xiangqi and Chess now show a legible lift, screen-space travel,
-  contact and settle sequence. Gomoku stones visibly lower onto the board.
-  Canonical state remains committed before presentation.
-
-MOTION_PACING:
-  PASS — Junqi travel is 250–380 ms by distance; Xiangqi 330 ms; Chess 300 ms;
-  Gomoku placement 310 ms. Non-capture settle is 110 ms. Reduced-motion remains
-  effectively immediate.
-
-LAST_MOVE_READABILITY:
-  PASS — origin and destination use restrained warm memory marks that persist
-  until the next move. Gomoku marks the last stone without covering its face.
-
-CAPTURE_READABILITY:
-  PASS — captured pieces remain physically present through contact, then use a
-  restrained 225 ms compression/fade. No midpoint removal, snap or stale ghost
-  remained in Chromium, WebKit, replay or reload gates.
-
-SOUND_QUALITY:
-  PASS — all cues remain repo-local and synthesized offline. Select, place,
-  capture, invalid, check, win, reveal and replay-adjacent UI feedback use a
-  calmer physical-tabletop vocabulary. Victory is a quiet settling cadence.
-
-SOUND_SYNC:
-  PASS — placement/capture cues fire once at contact; invalid fires once at
-  resistance; stale AI work emits no delayed cue. Audio recreates a closed
-  context and worked in the fresh-process offline WebKit gate.
-
-SOUND_DEFERRED_ITEMS:
-  NONE — subtle safe material profiles ship for Junqi block, Xiangqi disc,
-  Chess piece and Gomoku stone.
-
-VISUAL_UPLIFT:
-  PASS — Home tiles, boards and pieces received restrained depth, grain, bevel,
-  shadow and warm highlight improvements without new heavy assets or layout
-  redesign.
-
-BOARD_MATERIAL_DIRECTION:
-  Warm felt/painted Junqi, softly grained Xiangqi wood, quiet two-tone Chess,
-  and a honey-toned 15×15 Gomoku board with aligned star points.
-
-PIECE_MATERIAL_DIRECTION:
-  Junqi blocks retain their compact physical form; Xiangqi discs have warmer
-  carved depth; Chess remains crisp and readable; Gomoku uses shaded black and
-  ivory stone bowls.
-
-JUNQI_REGRESSION:
-  PASS — rules/session/AI 68/68; Chromium 70/70; WebKit 70/70. Classic privacy,
-  Flip orientation/direction, AI, Last Move, sound, replay, interruption and
-  offline behavior remain green.
-
-XIANGQI_REGRESSION:
-  PASS — shared rules/AI suite 37/37; rendered move/capture/check/AI/Continue/
-  replay/interruption/offline paths pass in Chromium and WebKit.
-
-CHESS_REGRESSION:
-  PASS — shared rules/AI suite 37/37; capture, promotion, castling, checkmate,
-  AI, Continue, replay, interruption and offline paths pass in both engines.
-
-GOMOKU_STATUS:
-  SHIPPED — documented Freestyle Gomoku on 15×15: Black first; place on empty
-  intersections; first horizontal, vertical or diagonal line of five or more
-  wins; no captures, forbidden moves or opening restrictions; full board draw.
-  Includes 2 Players, Vs Computer, EN/ZH, Continue, Library, Record/Replay,
-  persistence, sound, motion and PWA integration.
-
-GOMOKU_AI:
-  PASS — Relaxed uses varied high-value local plans. Standard takes immediate
-  wins, blocks immediate losses, and evaluates attack, defense, open ends and
-  center influence. Both remained legal and bounded in unit and browser gates.
-
-GOMOKU_OFFLINE:
-  PASS — the complete engine and AI are precached. A fully closed WebKit process
-  reopened v2.0.3 with the origin unreachable, resumed Gomoku and placed another
-  legal stone from cache.
-
-MANCALA_STATUS:
-  DEFERRED_NOT_BLOCKING — deliberately omitted after all requested priorities
-  passed; adding a fifth game would exceed the safe pre-travel scope.
-
-CHROMIUM:
-  PASS — Junqi/shared 70/70; Xiangqi/Chess/Gomoku/shared 26/26; interruption
-  7/7; focused polish coverage included; zero runtime errors.
-
-WEBKIT:
-  PASS — Junqi/shared 70/70; Xiangqi/Chess/Gomoku/shared 26/26; interruption
-  7/7; focused polish coverage included; zero runtime errors.
-
-OFFLINE_COLD_START:
-  PASS — cache caesar-games-v2.0.3 installed completely; browser process fully
-  terminated; origin confirmed unreachable; fresh WebKit process reopened Home,
-  four Library rows, Continue, sound, local AI and all four playable boards.
-
-TOTAL_TESTS:
-  361 — 118 unit assertions, 192 rendered browser tests, 36 focused motion/
-  sound/reduced-motion assertions, 14 interruption scenarios and 1 true
-  fresh-process offline gate.
-
-FAILED_TESTS:
-  0
-
-BUILD_VERSION:
-  v2.0.3
-
-COMMIT:
-  908bb27 — Ship Caesar Games v2.0.3 with Gomoku and tabletop polish
-
-WORKTREE:
-  CLEAN after this release report commit.
-
-PUBLISH_STATUS:
-  BLOCKED_BY_OWNER_BOUNDARY — no external push was attempted. Exact owner
-  command:
-  git push origin main
-
-EVIDENCE:
-  review/v2.0.3-pre-travel/QA_SUMMARY.md
-  review/v2.0.3-pre-travel/BROWSER_E2E.json
-  review/v2.0.3-pre-travel/INTERRUPTION_RESUME.json
-  review/v2.0.3-pre-travel/COLD_START_OFFLINE.json
-  review/kid-friendly-polish/POLISH_QA.json
-
-KNOWN_LIMIT:
-  Automated tablet-landscape and WebKit evidence is complete. No physical-iPad,
-  Home-Screen install, speaker-quality or real-airplane acceptance is claimed;
-  the owner should still perform the short physical travel smoke test.
-
+BASELINE: PASS — main started clean at 02947a943df4889d16e0f2cf81a642426ef6d6ae, synchronized with origin/main, on the v2.0.3 release baseline with 361 prior checks.
+ROOT_CAUSE: Xiangqi filtered move legality already rejected self-check, but terminal adjudication was only performed after a newly committed move, used a generic no_legal_move result outside check, and the resume UI trusted the stale record status. A legacy in-progress save whose side to move had zero legal replies could therefore reopen as an inert board instead of mate or 困毙.
+XIANGQI_CHECK_LEGALITY: PASS — every candidate reply is applied to a cloned board and rejected when it leaves the moving side in check; legal General escape, checker capture, and line-blocking cases are covered.
+CHECKMATE: PASS — in check plus zero filtered legal replies immediately finishes the game, awards the opponent, persists checkmate, and opens the current winner/result UI without requiring General capture.
+STALEMATE: PASS — not in check plus zero filtered legal replies immediately finishes the game, awards the opponent under Xiangqi 困毙 rules, persists stalemate, and shows bilingual Stalemate / 困毙 copy.
+FLYING_GENERAL: PASS — flying-General exposure remains part of self-check filtering and has a focused regression test.
+DOUBLE_CANNON_REGRESSION: PASS — the double-cannon mate fixture reaches canonical checkmate with the correct winner in rules and rendered UI coverage.
+LAST_MOVE_XIANGQI: PASS — restrained gold From and To markers survive human moves, AI replies, persistence, and resume.
+LAST_MOVE_CHESS: PASS — restrained gold From and To markers survive human moves, AI replies, persistence, and resume.
+LAST_MOVE_GOMOKU: PASS — the most recent stone remains marked after human play, AI reply, persistence, and resume.
+RESIGN: PASS — Xiangqi, Chess, Gomoku, and Junqi expose English Resign / Chinese 认输 only during active play, require confirmation, support cancellation, award the opponent, persist, and replay as a terminal history event.
+AI_TERMINAL_HANDLING: PASS — resignation cancels pending AI timers/workers before terminal persistence; AI selectors return no move for finished games; mate, stalemate, and resignation cannot schedule a later AI move.
+PERSISTENCE: PASS — terminal result, winner, history, Last Move, resignation, and completion time survive reload/resume; legacy zero-reply Xiangqi saves normalize, persist, and route directly to the end screen.
+TEST_TOTAL: PASS — 384/384 distinct automated checks: 129 unit/rules + 202 rendered browser + 36 motion/sound + 16 interruption/resume + 1 true cold-start offline gate.
+CHROMIUM: PASS — 101/101 rendered E2E, 18/18 focused motion/sound, and 8/8 interruption/resume scenarios; zero runtime errors.
+WEBKIT: PASS — 101/101 rendered E2E, 18/18 focused motion/sound, and 8/8 interruption/resume scenarios; zero runtime errors.
+OFFLINE_COLD_START: PASS — a fully closed WebKit process relaunched in a fresh process after the origin was stopped and unreachable; home, all four saved games, AI play, sound, build v2.0.4, and cache caesar-games-v2.0.4 worked offline with same-origin resources only.
+REGRESSIONS: PASS — 0 failures and 0 runtime errors across the final retained gates; in-app visual verification confirmed Last Move and bilingual resignation presentation.
+CODE_COMMIT: ebae41e42c92589b3188e7de3211cb20b1870c27 — Hotfix Xiangqi terminal rules and shared resignation v2.0.4
+REPORT_COMMIT: THIS COMMIT — Record v2.0.4 hotfix final result (resolve with git HEAD after commit)
+WORKTREE: CLEAN — main is expected to be two local commits ahead of origin/main after this report commit; nothing was pushed.
+OWNER_NEXT_ACTION: Review the retained evidence, then push main when ready to publish v2.0.4; no production push was performed.
 TERMINAL_TAB: CLOSE
