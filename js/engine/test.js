@@ -1,5 +1,5 @@
 /* Caesar Games — Deterministic Automated Unit Test Suite */
-import { generateLegalSetup, resolveCombat, canPieceMove, createStandardArmy } from './rules.js';
+import { generateLegalSetup, resolveCombat, canPieceMove, createStandardArmy, validatePiecePlacementInSetup, validateSwapInSetup } from './rules.js';
 import { LocalJunqiAI } from './ai.js';
 import { saveGameState, loadGameState, clearGameState } from './persistence.js';
 
@@ -109,7 +109,9 @@ export function runAutomatedTests() {
       activeTurn: 'navy',
       boardState: mockBoard,
       assignedColors: { p1: 'navy', p2: 'red' },
-      isGameOver: false
+      isGameOver: false,
+      phase: 'setup',
+      setupStep: 'navy'
     };
 
     saveGameState(mockSaveState);
@@ -117,10 +119,57 @@ export function runAutomatedTests() {
     assert(loaded !== null, 'Persistence: state successfully saved');
     assert(loaded.mode === 'classic', 'Persistence: gameMode restored correctly');
     assert(loaded.activeTurn === 'navy', 'Persistence: activeTurn restored correctly');
+    assert(loaded.phase === 'setup', 'Persistence: setup phase restored correctly');
     assert(loaded.board && Object.keys(loaded.board).length > 0, 'Persistence: board state intact');
     clearGameState();
   } catch (e) {
     assert(false, `Persistence test threw exception: ${e.message}`);
+  }
+
+  // TEST GROUP 4: PRE-GAME SETUP PHASE MECHANICS
+  try {
+    const navyArmy = generateLegalSetup('navy');
+    
+    // 1. Flag placement restriction check
+    const flagKey = Object.keys(navyArmy).find(k => navyArmy[k].name === '军旗');
+    const flagPiece = navyArmy[flagKey];
+    const invalidFlagCheck = validatePiecePlacementInSetup(flagPiece, '11-2'); // 11-2 is not HQ
+    assert(!invalidFlagCheck.valid, 'Setup: Flag in non-HQ slot is correctly identified as illegal');
+    
+    const validFlagCheck = validatePiecePlacementInSetup(flagPiece, '11-1');
+    assert(validFlagCheck.valid, 'Setup: Flag in HQ slot (11-1) is valid');
+
+    // 2. Mine placement restriction check
+    const mineKey = Object.keys(navyArmy).find(k => navyArmy[k].name === '地雷');
+    const minePiece = navyArmy[mineKey];
+    const invalidMineCheck = validatePiecePlacementInSetup(minePiece, '6-0'); // row 6 is front row
+    assert(!invalidMineCheck.valid, 'Setup: Mine in front row (6-0) is correctly identified as illegal');
+
+    const validMineCheck = validatePiecePlacementInSetup(minePiece, '10-0'); // row 10 is back 2 rows
+    assert(validMineCheck.valid, 'Setup: Mine in back 2 rows (10-0) is valid');
+
+    // 3. Bomb placement restriction check
+    const bombKey = Object.keys(navyArmy).find(k => navyArmy[k].name === '炸弹');
+    const bombPiece = navyArmy[bombKey];
+    const invalidBombCheck = validatePiecePlacementInSetup(bombPiece, '6-0'); // front row
+    assert(!invalidBombCheck.valid, 'Setup: Bomb in front row (6-0) is correctly identified as illegal');
+
+    const validBombCheck = validatePiecePlacementInSetup(bombPiece, '9-0');
+    assert(validBombCheck.valid, 'Setup: Bomb in non-front row (9-0) is valid');
+
+    // 4. Camp placement restriction check
+    const engineerPiece = { name: '工兵', side: 'navy' };
+    const campCheck = validatePiecePlacementInSetup(engineerPiece, '7-1'); // 7-1 is Camp
+    assert(!campCheck.valid, 'Setup: Placing any piece in a Camp (行营) is illegal');
+
+    // 5. Swap validation check
+    const pieceA = navyArmy[flagKey];
+    const pieceB = navyArmy[mineKey];
+    const swapCheck = validateSwapInSetup(pieceA, flagKey, pieceB, mineKey);
+    assert(!swapCheck.valid, 'Setup: Swapping Flag out of HQ into Mine slot is blocked');
+
+  } catch (e) {
+    assert(false, `Setup Phase test threw exception: ${e.message}`);
   }
 
   console.log(`--- TEST SUITE COMPLETE: ${passedCount}/${results.length} PASSED ---`);

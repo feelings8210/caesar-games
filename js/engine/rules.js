@@ -112,6 +112,63 @@ export function generateLegalSetup(side) {
   return positions;
 }
 
+export function validatePiecePlacementInSetup(piece, targetKey) {
+  if (!piece) return { valid: true };
+  const [r] = targetKey.split('-').map(Number);
+  const side = piece.side;
+
+  // 1. Cannot place in Camp (行营)
+  if (CAMPS.has(targetKey)) {
+    return { valid: false, reason: 'Camp nodes (行营) cannot hold pieces during setup.' };
+  }
+
+  // 2. Territory bounds
+  if (side === 'navy' && (r < 6 || r > 11)) {
+    return { valid: false, reason: 'Navy pieces must remain inside Navy territory (Rows 6–11).' };
+  }
+  if (side === 'red' && (r < 0 || r > 5)) {
+    return { valid: false, reason: 'Red pieces must remain inside Red territory (Rows 0–5).' };
+  }
+
+  // 3. Flag (军旗) must be in HQ (大本营)
+  const hqKeys = side === 'navy' ? ['11-1', '11-3'] : ['0-1', '0-3'];
+  if (piece.name === '军旗') {
+    if (!hqKeys.includes(targetKey)) {
+      return { valid: false, reason: 'Flag (军旗) must be placed in a Headquarters (大本营) slot.' };
+    }
+  }
+
+  // 4. Mines (地雷) must be in back 2 rows
+  const mineRows = side === 'navy' ? [10, 11] : [0, 1];
+  if (piece.name === '地雷') {
+    if (!mineRows.includes(r)) {
+      return { valid: false, reason: 'Mines (地雷) must be placed in the back two rows.' };
+    }
+  }
+
+  // 5. Bombs (炸弹) cannot be in front row
+  const frontRow = side === 'navy' ? 6 : 5;
+  if (piece.name === '炸弹') {
+    if (r === frontRow) {
+      return { valid: false, reason: 'Bombs (炸弹) cannot be placed on the front line.' };
+    }
+  }
+
+  return { valid: true };
+}
+
+export function validateSwapInSetup(pieceA, posA, pieceB, posB) {
+  const checkA = validatePiecePlacementInSetup(pieceA, posB);
+  if (!checkA.valid) return checkA;
+
+  if (pieceB) {
+    const checkB = validatePiecePlacementInSetup(pieceB, posA);
+    if (!checkB.valid) return checkB;
+  }
+
+  return { valid: true };
+}
+
 export function resolveCombat(attacker, defender) {
   // Bomb mutual destruction
   if (attacker.name === '炸弹' || defender.name === '炸弹') {

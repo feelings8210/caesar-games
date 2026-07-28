@@ -17,6 +17,9 @@ export function saveGameState(state) {
       isGameOver: !!state.isGameOver,
       winner: state.winner || null,
       lastBattle: state.lastBattle || null,
+      phase: state.phase || 'gameplay',
+      setupStep: state.setupStep || 'navy',
+      initialSetupSessionState: state.initialSetupSessionState || null,
       timestamp: Date.now()
     });
     

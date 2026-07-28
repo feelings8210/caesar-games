@@ -1,5 +1,5 @@
 /* Caesar Games — Complete Interactive Junqi Board Controller */
-import { canPieceMove, resolveCombat, generateLegalSetup, createStandardArmy, CAMPS, HEADQUARTERS, RAILWAYS } from './engine/rules.js';
+import { canPieceMove, resolveCombat, generateLegalSetup, createStandardArmy, validateSwapInSetup, CAMPS, HEADQUARTERS, RAILWAYS } from './engine/rules.js';
 import { LocalJunqiAI } from './engine/ai.js';
 import { sounds } from './engine/sound.js';
 import { showHint } from './hint.js';
@@ -18,6 +18,11 @@ export class JunqiBoard {
     this.activeTurn = 'navy'; // 'navy' or 'red'
     this.assignedColors = { p1: 'navy', p2: 'red' }; // In Flip mode, set on first reveal
     this.isExtraPrivacyRevealed = false;
+
+    this.phase = 'setup'; // 'setup' or 'gameplay'
+    this.setupStep = 'navy'; // 'navy' or 'red'
+    this.initialSetupSessionState = null;
+    this.selectedSetupCell = null;
 
     this.selectedCell = null;
     this.boardState = {};
@@ -41,6 +46,7 @@ export class JunqiBoard {
 
     this.activeTurn = 'navy';
     this.selectedCell = null;
+    this.selectedSetupCell = null;
     this.capturedPieces = [];
     this.turnHistory = [];
     this.lastBattle = null;
@@ -48,20 +54,29 @@ export class JunqiBoard {
     this.isExtraPrivacyRevealed = false;
 
     if (this.gameMode === 'flip') {
+      this.phase = 'gameplay';
+      this.setupStep = null;
       this.initFlipModeBoard();
     } else {
-      this.initClassicBoard();
+      this.phase = 'setup';
+      this.setupStep = 'navy';
+      this.initClassicBoardWithSetup();
     }
 
     this.saveState();
     this.render();
   }
 
-  initClassicBoard() {
+  initClassicBoardWithSetup() {
     this.assignedColors = { p1: 'navy', p2: 'red' };
     const navyArmy = generateLegalSetup('navy');
     const redArmy = generateLegalSetup('red');
     this.boardState = { ...navyArmy, ...redArmy };
+    this.initialSetupSessionState = JSON.parse(JSON.stringify(this.boardState));
+  }
+
+  initClassicBoard() {
+    this.initClassicBoardWithSetup();
   }
 
   initFlipModeBoard() {
@@ -95,6 +110,7 @@ export class JunqiBoard {
 
   initVsComputerPostAiMove() {
     this.gameMode = 'vs_computer';
+    this.phase = 'gameplay';
     this.initClassicBoard();
     
     // Execute 1 legal human move (Navy 4-0 to 5-0)
@@ -116,6 +132,7 @@ export class JunqiBoard {
 
   initFlipMidGame() {
     this.gameMode = 'flip';
+    this.phase = 'gameplay';
     this.initFlipModeBoard();
     this.assignedColors = { p1: 'navy', p2: 'red' };
 
@@ -158,8 +175,13 @@ export class JunqiBoard {
     this.aiDifficulty = saved.aiDifficulty || 'normal';
     this.isGameOver = !!saved.isGameOver;
     this.lastBattle = saved.lastBattle || null;
-    this.ai = new LocalJunqiAI(this.aiDifficulty);
 
+    this.phase = saved.phase || 'gameplay';
+    this.setupStep = saved.setupStep || 'navy';
+    this.initialSetupSessionState = saved.initialSetupSessionState || null;
+    this.selectedSetupCell = null;
+
+    this.ai = new LocalJunqiAI(this.aiDifficulty);
     this.render();
   }
 
@@ -175,15 +197,97 @@ export class JunqiBoard {
       turnHistory: this.turnHistory,
       aiDifficulty: this.aiDifficulty,
       isGameOver: this.isGameOver,
-      lastBattle: this.lastBattle
+      lastBattle: this.lastBattle,
+      phase: this.phase,
+      setupStep: this.setupStep,
+      initialSetupSessionState: this.initialSetupSessionState
     });
+  }
+
+  quickSetup() {
+    const currentSide = this.setupStep || 'navy';
+    const newArmy = generateLegalSetup(currentSide);
+
+    Object.keys(this.boardState).forEach(k => {
+      if (this.boardState[k].side === currentSide) {
+        delete this.boardState[k];
+      }
+    });
+
+    Object.assign(this.boardState, newArmy);
+    this.selectedSetupCell = null;
+    sounds.playMoveTok();
+    this.saveState();
+    this.render();
+  }
+
+  resetSetup() {
+    const currentSide = this.setupStep || 'navy';
+    if (this.initialSetupSessionState) {
+      Object.keys(this.boardState).forEach(k => {
+        if (this.boardState[k].side === currentSide) {
+          delete this.boardState[k];
+        }
+      });
+      Object.keys(this.initialSetupSessionState).forEach(k => {
+        if (this.initialSetupSessionState[k].side === currentSide) {
+          this.boardState[k] = JSON.parse(JSON.stringify(this.initialSetupSessionState[k]));
+        }
+      });
+    }
+    this.selectedSetupCell = null;
+    sounds.playTap();
+    this.saveState();
+    this.render();
+  }
+
+  lockSetup() {
+    this.selectedSetupCell = null;
+
+    if (this.gameMode === 'vs_computer') {
+      // Computer formation is generated independently and remains hidden
+      const redArmy = generateLegalSetup('red');
+      Object.keys(this.boardState).forEach(k => {
+        if (this.boardState[k].side === 'red') delete this.boardState[k];
+      });
+      Object.assign(this.boardState, redArmy);
+
+      this.phase = 'gameplay';
+      this.activeTurn = 'navy';
+      sounds.playMoveTok();
+      this.saveState();
+      this.render();
+      showHint('GAME_STARTED', 'Setup locked! Make your first move.');
+      return;
+    }
+
+    if (this.gameMode === 'classic') {
+      if (this.setupStep === 'navy') {
+        sounds.playPassCue();
+        this.app.passManager.triggerTransition('Player 2 (Setup)', () => {
+          this.setupStep = 'red';
+          this.initialSetupSessionState = JSON.parse(JSON.stringify(this.boardState));
+          this.saveState();
+          this.render();
+        });
+      } else if (this.setupStep === 'red') {
+        sounds.playPassCue();
+        this.app.passManager.triggerTransition('Player 1 (Start Game)', () => {
+          this.phase = 'gameplay';
+          this.activeTurn = 'navy';
+          this.saveState();
+          this.render();
+          showHint('GAME_STARTED', 'Both setups locked! Player 1 (Navy) turn to move.');
+        });
+      }
+    }
   }
 
   renderHeaderControls() {
     const passBtn = document.getElementById('btn-trigger-pass');
     if (passBtn) {
-      // ONLY show Pass iPad in Classic mode
-      if (this.gameMode === 'classic') {
+      // ONLY show Pass iPad in Classic mode during gameplay
+      if (this.gameMode === 'classic' && this.phase === 'gameplay') {
         passBtn.style.display = 'inline-flex';
       } else {
         passBtn.style.display = 'none';
@@ -194,33 +298,44 @@ export class JunqiBoard {
     const turnLabel = document.getElementById('player-turn-label');
 
     if (statusDot && turnLabel) {
-      if (this.gameMode === 'vs_computer') {
-        if (this.activeTurn === 'navy') {
+      if (this.phase === 'setup') {
+        if (this.gameMode === 'vs_computer') {
           statusDot.className = 'status-dot navy';
-          turnLabel.textContent = 'Your Turn (Navy)';
+          turnLabel.textContent = 'Your Setup — Tap any 2 pieces to swap';
         } else {
-          statusDot.className = 'status-dot red';
-          turnLabel.textContent = 'Computer Thinking...';
+          const pName = this.setupStep === 'navy' ? 'Player 1 (Navy)' : 'Player 2 (Red)';
+          statusDot.className = `status-dot ${this.setupStep}`;
+          turnLabel.textContent = `${pName} Setup — Tap 2 pieces to swap`;
         }
-      } else if (this.gameMode === 'classic') {
-        if (this.activeTurn === 'navy') {
-          statusDot.className = 'status-dot navy';
-          turnLabel.textContent = 'Player 1 Turn (Navy)';
-        } else {
-          statusDot.className = 'status-dot red';
-          turnLabel.textContent = 'Player 2 Turn (Red)';
-        }
-      } else if (this.gameMode === 'flip') {
-        if (!this.assignedColors.p1) {
-          statusDot.className = 'status-dot navy';
-          turnLabel.textContent = 'Player 1 Turn — Reveal any piece';
-        } else {
+      } else {
+        if (this.gameMode === 'vs_computer') {
           if (this.activeTurn === 'navy') {
             statusDot.className = 'status-dot navy';
-            turnLabel.textContent = `Player 1 (${(this.assignedColors.p1||'navy').toUpperCase()})`;
+            turnLabel.textContent = 'Your Turn (Navy)';
           } else {
             statusDot.className = 'status-dot red';
-            turnLabel.textContent = `Player 2 (${(this.assignedColors.p2||'red').toUpperCase()})`;
+            turnLabel.textContent = 'Computer Thinking...';
+          }
+        } else if (this.gameMode === 'classic') {
+          if (this.activeTurn === 'navy') {
+            statusDot.className = 'status-dot navy';
+            turnLabel.textContent = 'Player 1 Turn (Navy)';
+          } else {
+            statusDot.className = 'status-dot red';
+            turnLabel.textContent = 'Player 2 Turn (Red)';
+          }
+        } else if (this.gameMode === 'flip') {
+          if (!this.assignedColors.p1) {
+            statusDot.className = 'status-dot navy';
+            turnLabel.textContent = 'Player 1 Turn — Reveal any piece';
+          } else {
+            if (this.activeTurn === 'navy') {
+              statusDot.className = 'status-dot navy';
+              turnLabel.textContent = `Player 1 (${(this.assignedColors.p1||'navy').toUpperCase()})`;
+            } else {
+              statusDot.className = 'status-dot red';
+              turnLabel.textContent = `Player 2 (${(this.assignedColors.p2||'red').toUpperCase()})`;
+            }
           }
         }
       }
@@ -232,11 +347,51 @@ export class JunqiBoard {
 
     if (!this.container) return;
     this.container.innerHTML = '';
+
+    // If in setup phase, prepend the touch-first Setup Control Bar
+    if (this.phase === 'setup') {
+      const setupBar = document.createElement('div');
+      setupBar.className = 'setup-controls-bar';
+
+      let titleText = 'Arrange Your Army';
+      if (this.gameMode === 'vs_computer') {
+        titleText = 'Your Setup — Tap 2 pieces to swap';
+      } else if (this.setupStep === 'navy') {
+        titleText = 'Player 1 Setup — Tap 2 pieces to swap';
+      } else {
+        titleText = 'Player 2 Setup — Tap 2 pieces to swap';
+      }
+
+      setupBar.innerHTML = `
+        <div class="setup-title-badge">
+          <span class="setup-icon">🛡️</span>
+          <span class="setup-title-text">${titleText}</span>
+        </div>
+        <div class="setup-btn-group">
+          <button id="btn-setup-quick" class="btn-setup-action">⚡ Quick Setup</button>
+          <button id="btn-setup-reset" class="btn-setup-action">↺ Reset</button>
+          <button id="btn-setup-lock" class="btn-setup-lock">✓ Ready</button>
+        </div>
+      `;
+
+      this.container.appendChild(setupBar);
+
+      // Attach button listeners after DOM insertion
+      setTimeout(() => {
+        const qBtn = document.getElementById('btn-setup-quick');
+        const rBtn = document.getElementById('btn-setup-reset');
+        const lBtn = document.getElementById('btn-setup-lock');
+        if (qBtn) qBtn.onclick = () => this.quickSetup();
+        if (rBtn) rBtn.onclick = () => this.resetSetup();
+        if (lBtn) lBtn.onclick = () => this.lockSetup();
+      }, 0);
+    }
+
     const boardWrapper = document.createElement('div');
     boardWrapper.className = 'junqi-board-topology';
 
     // Face-to-Face seating rotation
-    if (this.seatingMode === 'face_to_face' && this.activeTurn === 'red') {
+    if (this.seatingMode === 'face_to_face' && (this.phase === 'setup' ? this.setupStep === 'red' : this.activeTurn === 'red')) {
       boardWrapper.classList.add('rotate-180');
     } else {
       boardWrapper.classList.remove('rotate-180');
@@ -261,7 +416,7 @@ export class JunqiBoard {
     boardWrapper.appendChild(nodeLayer);
 
     // Extra Privacy Reveal Control
-    if (this.gameMode === 'classic' && this.privacyMode === 'extra_privacy' && !this.isGameOver) {
+    if (this.phase === 'gameplay' && this.gameMode === 'classic' && this.privacyMode === 'extra_privacy' && !this.isGameOver) {
       const privacyControl = document.createElement('button');
       privacyControl.className = 'btn-extra-privacy-reveal';
       privacyControl.textContent = '👁 Hold to Reveal My Pieces';
@@ -281,7 +436,7 @@ export class JunqiBoard {
     }
 
     // Last Battle Indicator Overlay
-    if (this.lastBattle) {
+    if (this.phase === 'gameplay' && this.lastBattle) {
       const battleBanner = document.createElement('div');
       battleBanner.className = 'last-battle-banner';
       battleBanner.innerHTML = `
@@ -355,7 +510,7 @@ export class JunqiBoard {
     else if (HEADQUARTERS.has(key)) node.classList.add('station-hq');
     else node.classList.add('station-post');
 
-    if (this.selectedCell && this.isLegalTarget(key)) {
+    if (this.phase === 'gameplay' && this.selectedCell && this.isLegalTarget(key)) {
       node.classList.add('legal-target');
     }
 
@@ -365,11 +520,14 @@ export class JunqiBoard {
       pieceEl.className = `junqi-piece ${piece.side}`;
 
       let isVisible = false;
-      if (this.gameMode === 'flip') {
+      if (this.phase === 'setup') {
+        const currentSetupSide = this.setupStep || 'navy';
+        isVisible = (piece.side === currentSetupSide);
+      } else if (this.gameMode === 'flip') {
         isVisible = !!piece.revealed;
       } else if (this.gameMode === 'vs_computer') {
         isVisible = (piece.side === 'navy') || !!piece.revealed;
-      } else { // Classic 2-Player
+      } else { // Classic 2-Player Gameplay
         if (piece.side === this.activeTurn) {
           isVisible = (this.privacyMode !== 'extra_privacy' || this.isExtraPrivacyRevealed);
         } else {
@@ -383,8 +541,14 @@ export class JunqiBoard {
         pieceEl.textContent = piece.name;
       }
 
-      if (this.selectedCell === key) {
-        pieceEl.classList.add('selected');
+      if (this.phase === 'setup') {
+        if (this.selectedSetupCell === key) {
+          pieceEl.classList.add('selected');
+        }
+      } else {
+        if (this.selectedCell === key) {
+          pieceEl.classList.add('selected');
+        }
       }
 
       node.appendChild(pieceEl);
@@ -396,6 +560,11 @@ export class JunqiBoard {
 
   handleNodeClick(key, piece) {
     if (this.isGameOver) return;
+
+    if (this.phase === 'setup') {
+      this.handleSetupClick(key, piece);
+      return;
+    }
 
     if (this.selectedCell === key) {
       this.selectedCell = null;
@@ -432,6 +601,70 @@ export class JunqiBoard {
 
       this.executeMove(this.selectedCell, key);
     }
+  }
+
+  handleSetupClick(key, piece) {
+    const currentSide = this.setupStep || 'navy';
+
+    // If no piece selected yet
+    if (!this.selectedSetupCell) {
+      if (piece && piece.side === currentSide) {
+        this.selectedSetupCell = key;
+        sounds.playSelect();
+        this.render();
+      } else {
+        sounds.playInvalid();
+        showHint('ILLEGAL_SETUP', `Tap a piece in your own territory (${currentSide === 'navy' ? 'Navy / Bottom' : 'Red / Top'}) to select it for swapping.`);
+      }
+      return;
+    }
+
+    // A piece is already selected at posA
+    const posA = this.selectedSetupCell;
+    const pieceA = this.boardState[posA];
+
+    // Tap same piece -> unselect
+    if (posA === key) {
+      this.selectedSetupCell = null;
+      sounds.playTap();
+      this.render();
+      return;
+    }
+
+    const posB = key;
+    const pieceB = this.boardState[posB];
+
+    // Validate target is in current player territory
+    const [targetR] = posB.split('-').map(Number);
+    const inTerritory = currentSide === 'navy' ? (targetR >= 6 && targetR <= 11) : (targetR >= 0 && targetR <= 5);
+
+    if (!inTerritory) {
+      sounds.playInvalid();
+      showHint('ILLEGAL_SETUP', `Setup moves must stay inside your own ${currentSide === 'navy' ? 'Navy (bottom)' : 'Red (top)'} territory.`);
+      return;
+    }
+
+    // Validate swap
+    const check = validateSwapInSetup(pieceA, posA, pieceB, posB);
+    if (!check.valid) {
+      sounds.playInvalid();
+      showHint('ILLEGAL_SETUP', check.reason);
+      return;
+    }
+
+    // Execute swap
+    if (pieceB) {
+      this.boardState[posA] = pieceB;
+      this.boardState[posB] = pieceA;
+    } else {
+      this.boardState[posB] = pieceA;
+      delete this.boardState[posA];
+    }
+
+    this.selectedSetupCell = null;
+    sounds.playMoveTok();
+    this.saveState();
+    this.render();
   }
 
   handleFlipModeClick(key, piece) {

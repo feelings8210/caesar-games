@@ -530,6 +530,83 @@ body, html {
   box-shadow: var(--shadow-subtle);
 }
 
+/* Setup Phase Control Bar */
+.setup-controls-bar {
+  width: 100%;
+  max-width: 920px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #1E365D 0%, #2D4C7F 100%);
+  border: 1.5px solid rgba(212, 163, 89, 0.45);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+  color: #FFFFFF;
+}
+
+.setup-title-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.setup-title-badge .setup-icon {
+  font-size: 18px;
+}
+
+.setup-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-setup-action {
+  min-height: 38px;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #FFFFFF;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all var(--transition-fast);
+}
+
+.btn-setup-action:active {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.btn-setup-lock {
+  min-height: 38px;
+  padding: 6px 18px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #D4A359, #B8863B);
+  border: 1.5px solid #F3E5AB;
+  color: #1E365D;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(212, 163, 89, 0.4);
+  transition: all var(--transition-fast);
+}
+
+.btn-setup-lock:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(212, 163, 89, 0.3);
+}
+
 .player-status-badge {
   display: flex;
   align-items: center;
@@ -1321,6 +1398,63 @@ function generateLegalSetup(side) {
   return positions;
 }
 
+function validatePiecePlacementInSetup(piece, targetKey) {
+  if (!piece) return { valid: true };
+  const [r] = targetKey.split('-').map(Number);
+  const side = piece.side;
+
+  // 1. Cannot place in Camp (行营)
+  if (CAMPS.has(targetKey)) {
+    return { valid: false, reason: 'Camp nodes (行营) cannot hold pieces during setup.' };
+  }
+
+  // 2. Territory bounds
+  if (side === 'navy' && (r < 6 || r > 11)) {
+    return { valid: false, reason: 'Navy pieces must remain inside Navy territory (Rows 6–11).' };
+  }
+  if (side === 'red' && (r < 0 || r > 5)) {
+    return { valid: false, reason: 'Red pieces must remain inside Red territory (Rows 0–5).' };
+  }
+
+  // 3. Flag (军旗) must be in HQ (大本营)
+  const hqKeys = side === 'navy' ? ['11-1', '11-3'] : ['0-1', '0-3'];
+  if (piece.name === '军旗') {
+    if (!hqKeys.includes(targetKey)) {
+      return { valid: false, reason: 'Flag (军旗) must be placed in a Headquarters (大本营) slot.' };
+    }
+  }
+
+  // 4. Mines (地雷) must be in back 2 rows
+  const mineRows = side === 'navy' ? [10, 11] : [0, 1];
+  if (piece.name === '地雷') {
+    if (!mineRows.includes(r)) {
+      return { valid: false, reason: 'Mines (地雷) must be placed in the back two rows.' };
+    }
+  }
+
+  // 5. Bombs (炸弹) cannot be in front row
+  const frontRow = side === 'navy' ? 6 : 5;
+  if (piece.name === '炸弹') {
+    if (r === frontRow) {
+      return { valid: false, reason: 'Bombs (炸弹) cannot be placed on the front line.' };
+    }
+  }
+
+  return { valid: true };
+}
+
+function validateSwapInSetup(pieceA, posA, pieceB, posB) {
+  const checkA = validatePiecePlacementInSetup(pieceA, posB);
+  if (!checkA.valid) return checkA;
+
+  if (pieceB) {
+    const checkB = validatePiecePlacementInSetup(pieceB, posA);
+    if (!checkB.valid) return checkB;
+  }
+
+  return { valid: true };
+}
+
 function resolveCombat(attacker, defender) {
   // Bomb mutual destruction
   if (attacker.name === '炸弹' || defender.name === '炸弹') {
@@ -1710,7 +1844,7 @@ class SoundSystem {
 
 const sounds = new SoundSystem();
 
-  /* Caesar Games — State Persistence Manager */
+  /* Caesar Games — State Persistence Manager (Dual LocalStorage + Native App Bridge) */
 
 const SAVE_KEY = 'caesar_games_state';
 
@@ -1729,9 +1863,24 @@ function saveGameState(state) {
       isGameOver: !!state.isGameOver,
       winner: state.winner || null,
       lastBattle: state.lastBattle || null,
+      phase: state.phase || 'gameplay',
+      setupStep: state.setupStep || 'navy',
+      initialSetupSessionState: state.initialSetupSessionState || null,
       timestamp: Date.now()
     });
-    localStorage.setItem(SAVE_KEY, serialized);
+    
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(SAVE_KEY, serialized);
+    }
+
+    // Sync to Native App-Owned UserDefaults Bridge if running inside iOS Native Container
+    if (typeof window !== 'undefined' && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.caesarNativeStore) {
+      window.webkit.messageHandlers.caesarNativeStore.postMessage({
+        action: 'saveState',
+        data: serialized
+      });
+    }
+
     return true;
   } catch (e) {
     console.error('Failed to save game state:', e);
@@ -1741,6 +1890,7 @@ function saveGameState(state) {
 
 function loadGameState() {
   try {
+    if (typeof localStorage === 'undefined') return null;
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     return JSON.parse(raw);
@@ -1751,7 +1901,9 @@ function loadGameState() {
 }
 
 function clearGameState() {
-  localStorage.removeItem(SAVE_KEY);
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem(SAVE_KEY);
+  }
 }
 
 function hasSavedGame() {
@@ -1870,7 +2022,9 @@ function runAutomatedTests() {
       activeTurn: 'navy',
       boardState: mockBoard,
       assignedColors: { p1: 'navy', p2: 'red' },
-      isGameOver: false
+      isGameOver: false,
+      phase: 'setup',
+      setupStep: 'navy'
     };
 
     saveGameState(mockSaveState);
@@ -1878,10 +2032,57 @@ function runAutomatedTests() {
     assert(loaded !== null, 'Persistence: state successfully saved');
     assert(loaded.mode === 'classic', 'Persistence: gameMode restored correctly');
     assert(loaded.activeTurn === 'navy', 'Persistence: activeTurn restored correctly');
+    assert(loaded.phase === 'setup', 'Persistence: setup phase restored correctly');
     assert(loaded.board && Object.keys(loaded.board).length > 0, 'Persistence: board state intact');
     clearGameState();
   } catch (e) {
     assert(false, `Persistence test threw exception: ${e.message}`);
+  }
+
+  // TEST GROUP 4: PRE-GAME SETUP PHASE MECHANICS
+  try {
+    const navyArmy = generateLegalSetup('navy');
+    
+    // 1. Flag placement restriction check
+    const flagKey = Object.keys(navyArmy).find(k => navyArmy[k].name === '军旗');
+    const flagPiece = navyArmy[flagKey];
+    const invalidFlagCheck = validatePiecePlacementInSetup(flagPiece, '11-2'); // 11-2 is not HQ
+    assert(!invalidFlagCheck.valid, 'Setup: Flag in non-HQ slot is correctly identified as illegal');
+    
+    const validFlagCheck = validatePiecePlacementInSetup(flagPiece, '11-1');
+    assert(validFlagCheck.valid, 'Setup: Flag in HQ slot (11-1) is valid');
+
+    // 2. Mine placement restriction check
+    const mineKey = Object.keys(navyArmy).find(k => navyArmy[k].name === '地雷');
+    const minePiece = navyArmy[mineKey];
+    const invalidMineCheck = validatePiecePlacementInSetup(minePiece, '6-0'); // row 6 is front row
+    assert(!invalidMineCheck.valid, 'Setup: Mine in front row (6-0) is correctly identified as illegal');
+
+    const validMineCheck = validatePiecePlacementInSetup(minePiece, '10-0'); // row 10 is back 2 rows
+    assert(validMineCheck.valid, 'Setup: Mine in back 2 rows (10-0) is valid');
+
+    // 3. Bomb placement restriction check
+    const bombKey = Object.keys(navyArmy).find(k => navyArmy[k].name === '炸弹');
+    const bombPiece = navyArmy[bombKey];
+    const invalidBombCheck = validatePiecePlacementInSetup(bombPiece, '6-0'); // front row
+    assert(!invalidBombCheck.valid, 'Setup: Bomb in front row (6-0) is correctly identified as illegal');
+
+    const validBombCheck = validatePiecePlacementInSetup(bombPiece, '9-0');
+    assert(validBombCheck.valid, 'Setup: Bomb in non-front row (9-0) is valid');
+
+    // 4. Camp placement restriction check
+    const engineerPiece = { name: '工兵', side: 'navy' };
+    const campCheck = validatePiecePlacementInSetup(engineerPiece, '7-1'); // 7-1 is Camp
+    assert(!campCheck.valid, 'Setup: Placing any piece in a Camp (行营) is illegal');
+
+    // 5. Swap validation check
+    const pieceA = navyArmy[flagKey];
+    const pieceB = navyArmy[mineKey];
+    const swapCheck = validateSwapInSetup(pieceA, flagKey, pieceB, mineKey);
+    assert(!swapCheck.valid, 'Setup: Swapping Flag out of HQ into Mine slot is blocked');
+
+  } catch (e) {
+    assert(false, `Setup Phase test threw exception: ${e.message}`);
   }
 
   console.log(`--- TEST SUITE COMPLETE: ${passedCount}/${results.length} PASSED ---`);
@@ -2056,6 +2257,11 @@ class JunqiBoard {
     this.assignedColors = { p1: 'navy', p2: 'red' }; // In Flip mode, set on first reveal
     this.isExtraPrivacyRevealed = false;
 
+    this.phase = 'setup'; // 'setup' or 'gameplay'
+    this.setupStep = 'navy'; // 'navy' or 'red'
+    this.initialSetupSessionState = null;
+    this.selectedSetupCell = null;
+
     this.selectedCell = null;
     this.boardState = {};
     this.capturedPieces = [];
@@ -2078,6 +2284,7 @@ class JunqiBoard {
 
     this.activeTurn = 'navy';
     this.selectedCell = null;
+    this.selectedSetupCell = null;
     this.capturedPieces = [];
     this.turnHistory = [];
     this.lastBattle = null;
@@ -2085,20 +2292,29 @@ class JunqiBoard {
     this.isExtraPrivacyRevealed = false;
 
     if (this.gameMode === 'flip') {
+      this.phase = 'gameplay';
+      this.setupStep = null;
       this.initFlipModeBoard();
     } else {
-      this.initClassicBoard();
+      this.phase = 'setup';
+      this.setupStep = 'navy';
+      this.initClassicBoardWithSetup();
     }
 
     this.saveState();
     this.render();
   }
 
-  initClassicBoard() {
+  initClassicBoardWithSetup() {
     this.assignedColors = { p1: 'navy', p2: 'red' };
     const navyArmy = generateLegalSetup('navy');
     const redArmy = generateLegalSetup('red');
     this.boardState = { ...navyArmy, ...redArmy };
+    this.initialSetupSessionState = JSON.parse(JSON.stringify(this.boardState));
+  }
+
+  initClassicBoard() {
+    this.initClassicBoardWithSetup();
   }
 
   initFlipModeBoard() {
@@ -2132,6 +2348,7 @@ class JunqiBoard {
 
   initVsComputerPostAiMove() {
     this.gameMode = 'vs_computer';
+    this.phase = 'gameplay';
     this.initClassicBoard();
     
     // Execute 1 legal human move (Navy 4-0 to 5-0)
@@ -2153,6 +2370,7 @@ class JunqiBoard {
 
   initFlipMidGame() {
     this.gameMode = 'flip';
+    this.phase = 'gameplay';
     this.initFlipModeBoard();
     this.assignedColors = { p1: 'navy', p2: 'red' };
 
@@ -2195,8 +2413,13 @@ class JunqiBoard {
     this.aiDifficulty = saved.aiDifficulty || 'normal';
     this.isGameOver = !!saved.isGameOver;
     this.lastBattle = saved.lastBattle || null;
-    this.ai = new LocalJunqiAI(this.aiDifficulty);
 
+    this.phase = saved.phase || 'gameplay';
+    this.setupStep = saved.setupStep || 'navy';
+    this.initialSetupSessionState = saved.initialSetupSessionState || null;
+    this.selectedSetupCell = null;
+
+    this.ai = new LocalJunqiAI(this.aiDifficulty);
     this.render();
   }
 
@@ -2212,15 +2435,97 @@ class JunqiBoard {
       turnHistory: this.turnHistory,
       aiDifficulty: this.aiDifficulty,
       isGameOver: this.isGameOver,
-      lastBattle: this.lastBattle
+      lastBattle: this.lastBattle,
+      phase: this.phase,
+      setupStep: this.setupStep,
+      initialSetupSessionState: this.initialSetupSessionState
     });
+  }
+
+  quickSetup() {
+    const currentSide = this.setupStep || 'navy';
+    const newArmy = generateLegalSetup(currentSide);
+
+    Object.keys(this.boardState).forEach(k => {
+      if (this.boardState[k].side === currentSide) {
+        delete this.boardState[k];
+      }
+    });
+
+    Object.assign(this.boardState, newArmy);
+    this.selectedSetupCell = null;
+    sounds.playMoveTok();
+    this.saveState();
+    this.render();
+  }
+
+  resetSetup() {
+    const currentSide = this.setupStep || 'navy';
+    if (this.initialSetupSessionState) {
+      Object.keys(this.boardState).forEach(k => {
+        if (this.boardState[k].side === currentSide) {
+          delete this.boardState[k];
+        }
+      });
+      Object.keys(this.initialSetupSessionState).forEach(k => {
+        if (this.initialSetupSessionState[k].side === currentSide) {
+          this.boardState[k] = JSON.parse(JSON.stringify(this.initialSetupSessionState[k]));
+        }
+      });
+    }
+    this.selectedSetupCell = null;
+    sounds.playTap();
+    this.saveState();
+    this.render();
+  }
+
+  lockSetup() {
+    this.selectedSetupCell = null;
+
+    if (this.gameMode === 'vs_computer') {
+      // Computer formation is generated independently and remains hidden
+      const redArmy = generateLegalSetup('red');
+      Object.keys(this.boardState).forEach(k => {
+        if (this.boardState[k].side === 'red') delete this.boardState[k];
+      });
+      Object.assign(this.boardState, redArmy);
+
+      this.phase = 'gameplay';
+      this.activeTurn = 'navy';
+      sounds.playMoveTok();
+      this.saveState();
+      this.render();
+      showHint('GAME_STARTED', 'Setup locked! Make your first move.');
+      return;
+    }
+
+    if (this.gameMode === 'classic') {
+      if (this.setupStep === 'navy') {
+        sounds.playPassCue();
+        this.app.passManager.triggerTransition('Player 2 (Setup)', () => {
+          this.setupStep = 'red';
+          this.initialSetupSessionState = JSON.parse(JSON.stringify(this.boardState));
+          this.saveState();
+          this.render();
+        });
+      } else if (this.setupStep === 'red') {
+        sounds.playPassCue();
+        this.app.passManager.triggerTransition('Player 1 (Start Game)', () => {
+          this.phase = 'gameplay';
+          this.activeTurn = 'navy';
+          this.saveState();
+          this.render();
+          showHint('GAME_STARTED', 'Both setups locked! Player 1 (Navy) turn to move.');
+        });
+      }
+    }
   }
 
   renderHeaderControls() {
     const passBtn = document.getElementById('btn-trigger-pass');
     if (passBtn) {
-      // ONLY show Pass iPad in Classic mode
-      if (this.gameMode === 'classic') {
+      // ONLY show Pass iPad in Classic mode during gameplay
+      if (this.gameMode === 'classic' && this.phase === 'gameplay') {
         passBtn.style.display = 'inline-flex';
       } else {
         passBtn.style.display = 'none';
@@ -2231,33 +2536,44 @@ class JunqiBoard {
     const turnLabel = document.getElementById('player-turn-label');
 
     if (statusDot && turnLabel) {
-      if (this.gameMode === 'vs_computer') {
-        if (this.activeTurn === 'navy') {
+      if (this.phase === 'setup') {
+        if (this.gameMode === 'vs_computer') {
           statusDot.className = 'status-dot navy';
-          turnLabel.textContent = 'Your Turn (Navy)';
+          turnLabel.textContent = 'Your Setup — Tap any 2 pieces to swap';
         } else {
-          statusDot.className = 'status-dot red';
-          turnLabel.textContent = 'Computer Thinking...';
+          const pName = this.setupStep === 'navy' ? 'Player 1 (Navy)' : 'Player 2 (Red)';
+          statusDot.className = `status-dot ${this.setupStep}`;
+          turnLabel.textContent = `${pName} Setup — Tap 2 pieces to swap`;
         }
-      } else if (this.gameMode === 'classic') {
-        if (this.activeTurn === 'navy') {
-          statusDot.className = 'status-dot navy';
-          turnLabel.textContent = 'Player 1 Turn (Navy)';
-        } else {
-          statusDot.className = 'status-dot red';
-          turnLabel.textContent = 'Player 2 Turn (Red)';
-        }
-      } else if (this.gameMode === 'flip') {
-        if (!this.assignedColors.p1) {
-          statusDot.className = 'status-dot navy';
-          turnLabel.textContent = 'Player 1 Turn — Reveal any piece';
-        } else {
+      } else {
+        if (this.gameMode === 'vs_computer') {
           if (this.activeTurn === 'navy') {
             statusDot.className = 'status-dot navy';
-            turnLabel.textContent = `Player 1 (${(this.assignedColors.p1||'navy').toUpperCase()})`;
+            turnLabel.textContent = 'Your Turn (Navy)';
           } else {
             statusDot.className = 'status-dot red';
-            turnLabel.textContent = `Player 2 (${(this.assignedColors.p2||'red').toUpperCase()})`;
+            turnLabel.textContent = 'Computer Thinking...';
+          }
+        } else if (this.gameMode === 'classic') {
+          if (this.activeTurn === 'navy') {
+            statusDot.className = 'status-dot navy';
+            turnLabel.textContent = 'Player 1 Turn (Navy)';
+          } else {
+            statusDot.className = 'status-dot red';
+            turnLabel.textContent = 'Player 2 Turn (Red)';
+          }
+        } else if (this.gameMode === 'flip') {
+          if (!this.assignedColors.p1) {
+            statusDot.className = 'status-dot navy';
+            turnLabel.textContent = 'Player 1 Turn — Reveal any piece';
+          } else {
+            if (this.activeTurn === 'navy') {
+              statusDot.className = 'status-dot navy';
+              turnLabel.textContent = `Player 1 (${(this.assignedColors.p1||'navy').toUpperCase()})`;
+            } else {
+              statusDot.className = 'status-dot red';
+              turnLabel.textContent = `Player 2 (${(this.assignedColors.p2||'red').toUpperCase()})`;
+            }
           }
         }
       }
@@ -2269,11 +2585,51 @@ class JunqiBoard {
 
     if (!this.container) return;
     this.container.innerHTML = '';
+
+    // If in setup phase, prepend the touch-first Setup Control Bar
+    if (this.phase === 'setup') {
+      const setupBar = document.createElement('div');
+      setupBar.className = 'setup-controls-bar';
+
+      let titleText = 'Arrange Your Army';
+      if (this.gameMode === 'vs_computer') {
+        titleText = 'Your Setup — Tap 2 pieces to swap';
+      } else if (this.setupStep === 'navy') {
+        titleText = 'Player 1 Setup — Tap 2 pieces to swap';
+      } else {
+        titleText = 'Player 2 Setup — Tap 2 pieces to swap';
+      }
+
+      setupBar.innerHTML = `
+        <div class="setup-title-badge">
+          <span class="setup-icon">🛡️</span>
+          <span class="setup-title-text">${titleText}</span>
+        </div>
+        <div class="setup-btn-group">
+          <button id="btn-setup-quick" class="btn-setup-action">⚡ Quick Setup</button>
+          <button id="btn-setup-reset" class="btn-setup-action">↺ Reset</button>
+          <button id="btn-setup-lock" class="btn-setup-lock">✓ Ready</button>
+        </div>
+      `;
+
+      this.container.appendChild(setupBar);
+
+      // Attach button listeners after DOM insertion
+      setTimeout(() => {
+        const qBtn = document.getElementById('btn-setup-quick');
+        const rBtn = document.getElementById('btn-setup-reset');
+        const lBtn = document.getElementById('btn-setup-lock');
+        if (qBtn) qBtn.onclick = () => this.quickSetup();
+        if (rBtn) rBtn.onclick = () => this.resetSetup();
+        if (lBtn) lBtn.onclick = () => this.lockSetup();
+      }, 0);
+    }
+
     const boardWrapper = document.createElement('div');
     boardWrapper.className = 'junqi-board-topology';
 
     // Face-to-Face seating rotation
-    if (this.seatingMode === 'face_to_face' && this.activeTurn === 'red') {
+    if (this.seatingMode === 'face_to_face' && (this.phase === 'setup' ? this.setupStep === 'red' : this.activeTurn === 'red')) {
       boardWrapper.classList.add('rotate-180');
     } else {
       boardWrapper.classList.remove('rotate-180');
@@ -2298,7 +2654,7 @@ class JunqiBoard {
     boardWrapper.appendChild(nodeLayer);
 
     // Extra Privacy Reveal Control
-    if (this.gameMode === 'classic' && this.privacyMode === 'extra_privacy' && !this.isGameOver) {
+    if (this.phase === 'gameplay' && this.gameMode === 'classic' && this.privacyMode === 'extra_privacy' && !this.isGameOver) {
       const privacyControl = document.createElement('button');
       privacyControl.className = 'btn-extra-privacy-reveal';
       privacyControl.textContent = '👁 Hold to Reveal My Pieces';
@@ -2318,7 +2674,7 @@ class JunqiBoard {
     }
 
     // Last Battle Indicator Overlay
-    if (this.lastBattle) {
+    if (this.phase === 'gameplay' && this.lastBattle) {
       const battleBanner = document.createElement('div');
       battleBanner.className = 'last-battle-banner';
       battleBanner.innerHTML = `
@@ -2392,7 +2748,7 @@ class JunqiBoard {
     else if (HEADQUARTERS.has(key)) node.classList.add('station-hq');
     else node.classList.add('station-post');
 
-    if (this.selectedCell && this.isLegalTarget(key)) {
+    if (this.phase === 'gameplay' && this.selectedCell && this.isLegalTarget(key)) {
       node.classList.add('legal-target');
     }
 
@@ -2402,11 +2758,14 @@ class JunqiBoard {
       pieceEl.className = `junqi-piece ${piece.side}`;
 
       let isVisible = false;
-      if (this.gameMode === 'flip') {
+      if (this.phase === 'setup') {
+        const currentSetupSide = this.setupStep || 'navy';
+        isVisible = (piece.side === currentSetupSide);
+      } else if (this.gameMode === 'flip') {
         isVisible = !!piece.revealed;
       } else if (this.gameMode === 'vs_computer') {
         isVisible = (piece.side === 'navy') || !!piece.revealed;
-      } else { // Classic 2-Player
+      } else { // Classic 2-Player Gameplay
         if (piece.side === this.activeTurn) {
           isVisible = (this.privacyMode !== 'extra_privacy' || this.isExtraPrivacyRevealed);
         } else {
@@ -2420,8 +2779,14 @@ class JunqiBoard {
         pieceEl.textContent = piece.name;
       }
 
-      if (this.selectedCell === key) {
-        pieceEl.classList.add('selected');
+      if (this.phase === 'setup') {
+        if (this.selectedSetupCell === key) {
+          pieceEl.classList.add('selected');
+        }
+      } else {
+        if (this.selectedCell === key) {
+          pieceEl.classList.add('selected');
+        }
       }
 
       node.appendChild(pieceEl);
@@ -2433,6 +2798,11 @@ class JunqiBoard {
 
   handleNodeClick(key, piece) {
     if (this.isGameOver) return;
+
+    if (this.phase === 'setup') {
+      this.handleSetupClick(key, piece);
+      return;
+    }
 
     if (this.selectedCell === key) {
       this.selectedCell = null;
@@ -2469,6 +2839,70 @@ class JunqiBoard {
 
       this.executeMove(this.selectedCell, key);
     }
+  }
+
+  handleSetupClick(key, piece) {
+    const currentSide = this.setupStep || 'navy';
+
+    // If no piece selected yet
+    if (!this.selectedSetupCell) {
+      if (piece && piece.side === currentSide) {
+        this.selectedSetupCell = key;
+        sounds.playSelect();
+        this.render();
+      } else {
+        sounds.playInvalid();
+        showHint('ILLEGAL_SETUP', `Tap a piece in your own territory (${currentSide === 'navy' ? 'Navy / Bottom' : 'Red / Top'}) to select it for swapping.`);
+      }
+      return;
+    }
+
+    // A piece is already selected at posA
+    const posA = this.selectedSetupCell;
+    const pieceA = this.boardState[posA];
+
+    // Tap same piece -> unselect
+    if (posA === key) {
+      this.selectedSetupCell = null;
+      sounds.playTap();
+      this.render();
+      return;
+    }
+
+    const posB = key;
+    const pieceB = this.boardState[posB];
+
+    // Validate target is in current player territory
+    const [targetR] = posB.split('-').map(Number);
+    const inTerritory = currentSide === 'navy' ? (targetR >= 6 && targetR <= 11) : (targetR >= 0 && targetR <= 5);
+
+    if (!inTerritory) {
+      sounds.playInvalid();
+      showHint('ILLEGAL_SETUP', `Setup moves must stay inside your own ${currentSide === 'navy' ? 'Navy (bottom)' : 'Red (top)'} territory.`);
+      return;
+    }
+
+    // Validate swap
+    const check = validateSwapInSetup(pieceA, posA, pieceB, posB);
+    if (!check.valid) {
+      sounds.playInvalid();
+      showHint('ILLEGAL_SETUP', check.reason);
+      return;
+    }
+
+    // Execute swap
+    if (pieceB) {
+      this.boardState[posA] = pieceB;
+      this.boardState[posB] = pieceA;
+    } else {
+      this.boardState[posB] = pieceA;
+      delete this.boardState[posA];
+    }
+
+    this.selectedSetupCell = null;
+    sounds.playMoveTok();
+    this.saveState();
+    this.render();
   }
 
   handleFlipModeClick(key, piece) {
