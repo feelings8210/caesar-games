@@ -170,37 +170,51 @@ export function validateSwapInSetup(pieceA, posA, pieceB, posB) {
 }
 
 export function resolveCombat(attacker, defender) {
+  let outcome = null;
+
   // Bomb mutual destruction
   if (attacker.name === '炸弹' || defender.name === '炸弹') {
-    return { winner: null, loser: 'both', reason: 'Bomb mutual destruction' };
+    outcome = { winner: null, loser: 'both', reason: 'Bomb mutual destruction' };
   }
-
   // Engineer disarms Mine
-  if (attacker.name === '工兵' && defender.name === '地雷') {
-    return { winner: attacker, loser: defender, reason: 'Engineer disarmed Mine' };
+  else if (attacker.name === '工兵' && defender.name === '地雷') {
+    outcome = { winner: attacker, loser: defender, reason: 'Engineer disarmed Mine' };
   }
-
   // Mine defeats non-engineer
-  if (defender.name === '地雷') {
-    return { winner: defender, loser: attacker, reason: 'Mine defeated attacker' };
+  else if (defender.name === '地雷') {
+    outcome = { winner: defender, loser: attacker, reason: 'Mine defeated attacker' };
   }
-
   // Flag capture
-  if (defender.name === '军旗') {
-    return { winner: attacker, loser: defender, reason: 'Flag captured', gameOver: true };
+  else if (defender.name === '军旗') {
+    outcome = { winner: attacker, loser: defender, reason: 'Flag captured', gameOver: true };
   }
-
   // Equal rank mutual destruction
-  if (attacker.rank === defender.rank) {
-    return { winner: null, loser: 'both', reason: 'Equal rank mutual destruction' };
+  else if (attacker.rank === defender.rank) {
+    outcome = { winner: null, loser: 'both', reason: 'Equal rank mutual destruction' };
+  }
+  // Higher rank (lower rank number) wins
+  else if (attacker.rank < defender.rank) {
+    outcome = { winner: attacker, loser: defender, reason: `${attacker.name} defeated ${defender.name}` };
+  } else {
+    outcome = { winner: defender, loser: attacker, reason: `${defender.name} defeated ${attacker.name}` };
   }
 
-  // Higher rank (lower rank number) wins
-  if (attacker.rank < defender.rank) {
-    return { winner: attacker, loser: defender, reason: `${attacker.name} defeated ${defender.name}` };
-  } else {
-    return { winner: defender, loser: attacker, reason: `${defender.name} defeated ${attacker.name}` };
+  // Field Marshal (司令) elimination check for Flag disclosure
+  let fieldMarshalDefeatedSide = null;
+  if (outcome.loser === attacker && attacker.name === '司令') {
+    fieldMarshalDefeatedSide = attacker.side;
+  } else if (outcome.loser === defender && defender.name === '司令') {
+    fieldMarshalDefeatedSide = defender.side;
+  } else if (outcome.loser === 'both') {
+    if (attacker.name === '司令') fieldMarshalDefeatedSide = attacker.side;
+    if (defender.name === '司令') fieldMarshalDefeatedSide = defender.side;
   }
+
+  if (fieldMarshalDefeatedSide) {
+    outcome.fieldMarshalDefeatedSide = fieldMarshalDefeatedSide;
+  }
+
+  return outcome;
 }
 
 export function canPieceMove(piece, fromKey, toKey, boardState) {

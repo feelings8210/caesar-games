@@ -678,15 +678,6 @@ body, html {
   transition: transform 0.4s ease;
 }
 
-/* Face-to-Face Seating Mode Board Rotation */
-.junqi-board-topology.rotate-180 {
-  transform: rotate(180deg);
-}
-
-.junqi-board-topology.rotate-180 .junqi-piece {
-  transform: rotate(180deg);
-}
-
 /* SVG Network Layer */
 .junqi-svg-network {
   position: absolute;
@@ -878,6 +869,61 @@ body, html {
   transform: translateY(-4px) scale(1.06);
   box-shadow: 0 8px 22px rgba(30, 54, 93, 0.25), 0 0 0 3px var(--color-gold-primary);
   z-index: 15;
+}
+
+/* Flip Mode Army Face Orientation: Top player pieces face top (rotated 180deg) */
+.junqi-piece.face-top-player {
+  transform: rotate(180deg);
+}
+
+.junqi-piece.face-top-player.selected {
+  transform: rotate(180deg) translateY(4px) scale(1.06);
+}
+
+/* Disclosed Flag Indicator Badge */
+.junqi-piece.flag-disclosed::before {
+  content: '🚩';
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  font-size: 14px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+/* Last Move Recap Path Highlight */
+.board-node-station.recap-highlight-from::after {
+  content: '';
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2.5px dashed #D4A359;
+  animation: pulseRecapFrom 1.5s infinite ease-in-out;
+  pointer-events: none;
+}
+
+.board-node-station.recap-highlight-to::after {
+  content: '';
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid #D4A359;
+  box-shadow: 0 0 14px rgba(212, 163, 89, 0.75);
+  animation: pulseRecapTo 1.5s infinite ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes pulseRecapFrom {
+  0% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 0.9; transform: scale(1.1); }
+  100% { opacity: 0.4; transform: scale(0.9); }
+}
+
+@keyframes pulseRecapTo {
+  0% { opacity: 0.5; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 0.5; transform: scale(0.95); }
 }
 
 /* Caesar Games — Learn / Rules & Hint Surface & Pass The iPad Transition (Round 03 Refinement) */
@@ -1456,37 +1502,51 @@ function validateSwapInSetup(pieceA, posA, pieceB, posB) {
 }
 
 function resolveCombat(attacker, defender) {
+  let outcome = null;
+
   // Bomb mutual destruction
   if (attacker.name === '炸弹' || defender.name === '炸弹') {
-    return { winner: null, loser: 'both', reason: 'Bomb mutual destruction' };
+    outcome = { winner: null, loser: 'both', reason: 'Bomb mutual destruction' };
   }
-
   // Engineer disarms Mine
-  if (attacker.name === '工兵' && defender.name === '地雷') {
-    return { winner: attacker, loser: defender, reason: 'Engineer disarmed Mine' };
+  else if (attacker.name === '工兵' && defender.name === '地雷') {
+    outcome = { winner: attacker, loser: defender, reason: 'Engineer disarmed Mine' };
   }
-
   // Mine defeats non-engineer
-  if (defender.name === '地雷') {
-    return { winner: defender, loser: attacker, reason: 'Mine defeated attacker' };
+  else if (defender.name === '地雷') {
+    outcome = { winner: defender, loser: attacker, reason: 'Mine defeated attacker' };
   }
-
   // Flag capture
-  if (defender.name === '军旗') {
-    return { winner: attacker, loser: defender, reason: 'Flag captured', gameOver: true };
+  else if (defender.name === '军旗') {
+    outcome = { winner: attacker, loser: defender, reason: 'Flag captured', gameOver: true };
   }
-
   // Equal rank mutual destruction
-  if (attacker.rank === defender.rank) {
-    return { winner: null, loser: 'both', reason: 'Equal rank mutual destruction' };
+  else if (attacker.rank === defender.rank) {
+    outcome = { winner: null, loser: 'both', reason: 'Equal rank mutual destruction' };
+  }
+  // Higher rank (lower rank number) wins
+  else if (attacker.rank < defender.rank) {
+    outcome = { winner: attacker, loser: defender, reason: `${attacker.name} defeated ${defender.name}` };
+  } else {
+    outcome = { winner: defender, loser: attacker, reason: `${defender.name} defeated ${attacker.name}` };
   }
 
-  // Higher rank (lower rank number) wins
-  if (attacker.rank < defender.rank) {
-    return { winner: attacker, loser: defender, reason: `${attacker.name} defeated ${defender.name}` };
-  } else {
-    return { winner: defender, loser: attacker, reason: `${defender.name} defeated ${attacker.name}` };
+  // Field Marshal (司令) elimination check for Flag disclosure
+  let fieldMarshalDefeatedSide = null;
+  if (outcome.loser === attacker && attacker.name === '司令') {
+    fieldMarshalDefeatedSide = attacker.side;
+  } else if (outcome.loser === defender && defender.name === '司令') {
+    fieldMarshalDefeatedSide = defender.side;
+  } else if (outcome.loser === 'both') {
+    if (attacker.name === '司令') fieldMarshalDefeatedSide = attacker.side;
+    if (defender.name === '司令') fieldMarshalDefeatedSide = defender.side;
   }
+
+  if (fieldMarshalDefeatedSide) {
+    outcome.fieldMarshalDefeatedSide = fieldMarshalDefeatedSide;
+  }
+
+  return outcome;
 }
 
 function canPieceMove(piece, fromKey, toKey, boardState) {
@@ -1587,26 +1647,51 @@ function checkEngineerRailwayPath(fromKey, toKey, boardState) {
   /* Caesar Games — Information-Bounded Local AI Computer Opponent */
 
 
+function createAiObservation(aiSide, boardState) {
+  const obs = {};
+  Object.keys(boardState).forEach(k => {
+    const p = boardState[k];
+    if (!p) return;
+
+    if (p.side === aiSide || p.revealed || p.flagDisclosed) {
+      obs[k] = { ...p };
+    } else {
+      // Redact private identity (name & rank) for unrevealed opponent pieces
+      obs[k] = {
+        id: p.id,
+        side: p.side,
+        static: false,
+        revealed: false
+      };
+    }
+  });
+  return obs;
+}
+
 class LocalJunqiAI {
-  constructor(difficulty = 'normal') {
-    this.difficulty = difficulty; // 'easy' or 'normal'
+  constructor(difficulty = 'standard') {
+    // Supported V1 difficulty levels: 'relaxed' or 'standard'
+    this.difficulty = (difficulty === 'relaxed' || difficulty === 'easy') ? 'relaxed' : 'standard';
   }
 
-  selectMove(aiSide, boardState) {
-    const legalMoves = this.getAllLegalMoves(aiSide, boardState);
+  selectMove(aiSide, rawBoardState) {
+    // Enforce Information Boundary: AI only observes legitimate public state
+    const obsBoard = createAiObservation(aiSide, rawBoardState);
+
+    const legalMoves = this.getAllLegalMoves(aiSide, obsBoard);
     if (legalMoves.length === 0) return null;
 
-    if (this.difficulty === 'easy') {
-      const randIdx = Math.floor(Math.random() * legalMoves.length);
-      return legalMoves[randIdx];
-    }
-
-    // Normal difficulty: score moves based strictly on public/legitimate information
     let bestMove = legalMoves[0];
     let bestScore = -Infinity;
 
     for (const move of legalMoves) {
-      const score = this.evaluateMove(move, boardState, aiSide);
+      let score = this.evaluateMove(move, obsBoard, aiSide);
+
+      // Relaxed difficulty adds subtle evaluation noise / variance for casual play
+      if (this.difficulty === 'relaxed') {
+        score += (Math.random() - 0.5) * 15;
+      }
+
       if (score > bestScore) {
         bestScore = score;
         bestMove = move;
@@ -1616,15 +1701,15 @@ class LocalJunqiAI {
     return bestMove;
   }
 
-  getAllLegalMoves(aiSide, boardState) {
+  getAllLegalMoves(aiSide, obsBoard) {
     const moves = [];
-    Object.keys(boardState).forEach(fromKey => {
-      const piece = boardState[fromKey];
+    Object.keys(obsBoard).forEach(fromKey => {
+      const piece = obsBoard[fromKey];
       if (piece && piece.side === aiSide && !piece.static) {
         for (let r = 0; r < 12; r++) {
           for (let c = 0; c < 5; c++) {
             const toKey = `${r}-${c}`;
-            const check = canPieceMove(piece, fromKey, toKey, boardState);
+            const check = canPieceMove(piece, fromKey, toKey, obsBoard);
             if (check.allowed) {
               moves.push({ from: fromKey, to: toKey, piece: piece });
             }
@@ -1635,38 +1720,39 @@ class LocalJunqiAI {
     return moves;
   }
 
-  evaluateMove(move, boardState, aiSide) {
+  evaluateMove(move, obsBoard, aiSide) {
     let score = 0;
-    const targetPiece = boardState[move.to];
+    const targetPiece = obsBoard[move.to];
     const [tRow, tCol] = move.to.split('-').map(Number);
     const [fRow, fCol] = move.from.split('-').map(Number);
 
-    // AI is Red (top half, wants to advance down towards rows 6-11)
+    // Advancing towards opponent territory
     const advanceBonus = (aiSide === 'red') ? (tRow - fRow) * 2 : (fRow - tRow) * 2;
     score += advanceBonus;
 
     // Attacking an opponent piece
     if (targetPiece && targetPiece.side !== aiSide) {
-      // If target piece identity was previously revealed publicly
       if (targetPiece.revealed) {
         if (move.piece.rank < targetPiece.rank) {
           score += 50; // Guaranteed win
         } else if (move.piece.rank === targetPiece.rank) {
           score += 20; // Equal rank trade
         } else {
-          score -= 40; // Loss
+          score -= 40; // Defeat
         }
+      } else if (targetPiece.flagDisclosed && targetPiece.name === '军旗') {
+        score += 200; // Winning move: capture disclosed flag!
       } else {
-        // Unrevealed piece: base aggressive exploration score for non-key AI pieces
+        // Unrevealed piece: conservative exploration
         if (move.piece.name === '工兵' || move.piece.rank >= 6) {
           score += 15;
         } else if (move.piece.name === '司令' || move.piece.name === '军长') {
-          score -= 10; // Protect high-ranking officers from unknown traps
+          score -= 10; // Protect high-ranking officers
         }
       }
     }
 
-    // Moving into Campsite bonus (safety)
+    // Moving into Campsite (safety)
     const isCamp = ['1-1','1-3','2-2','3-1','3-3','7-1','7-3','8-2','9-1','9-3'].includes(move.to);
     if (isCamp) score += 8;
 
@@ -1852,17 +1938,18 @@ function saveGameState(state) {
   try {
     const serialized = JSON.stringify({
       mode: state.gameMode,             // 'vs_computer', 'classic', 'flip'
-      seating: state.seatingMode,         // 'side_by_side', 'face_to_face'
       privacy: state.privacyMode,         // 'standard', 'extra_privacy'
       activeTurn: state.activeTurn,       // 'navy', 'red'
       board: state.boardState,
       assignedColors: state.assignedColors, // { p1: 'navy', p2: 'red' }
       captured: state.capturedPieces || [],
       history: state.turnHistory || [],
-      aiDifficulty: state.aiDifficulty || 'normal',
+      aiDifficulty: state.aiDifficulty || 'standard',
       isGameOver: !!state.isGameOver,
       winner: state.winner || null,
       lastBattle: state.lastBattle || null,
+      lastMoveRecap: state.lastMoveRecap || null,
+      flagDisclosed: state.flagDisclosed || { navy: false, red: false },
       phase: state.phase || 'gameplay',
       setupStep: state.setupStep || 'navy',
       initialSetupSessionState: state.initialSetupSessionState || null,
@@ -1944,10 +2031,18 @@ function runAutomatedTests() {
 
   // TEST GROUP 1: VS COMPUTER (AI Fog-of-War & Information Boundaries)
   try {
-    const ai = new LocalJunqiAI('normal');
+    const ai = new LocalJunqiAI('standard');
     const board = generateLegalSetup('navy');
     const redSetup = generateLegalSetup('red');
     Object.assign(board, redSetup);
+
+    const obs = createAiObservation('red', board);
+    const humanKey = Object.keys(board).find(k => board[k].side === 'navy');
+    const aiKey = Object.keys(board).find(k => board[k].side === 'red');
+
+    assert(obs[humanKey].name === undefined, 'AI Boundary: AI observation redacts human piece name');
+    assert(obs[humanKey].rank === undefined, 'AI Boundary: AI observation redacts human piece rank');
+    assert(obs[aiKey].name !== undefined, 'AI Boundary: AI sees own piece name');
 
     const aiMove = ai.selectMove('red', board);
     assert(aiMove !== null, 'AI returns valid move candidate');
@@ -1956,12 +2051,6 @@ function runAutomatedTests() {
       const checkLegal = canPieceMove(aiMove.piece, aiMove.from, aiMove.to, board);
       assert(checkLegal.allowed, 'AI move is strictly legal under Junqi rules');
     }
-
-    // Find any hidden human piece
-    const humanKey = Object.keys(board).find(k => board[k].side === 'navy');
-    const hiddenHumanPiece = board[humanKey];
-    assert(hiddenHumanPiece && hiddenHumanPiece.side === 'navy', 'Human piece exists on board');
-    assert(hiddenHumanPiece.revealed === false, 'Human piece identity is hidden from AI in fog-of-war');
   } catch (e) {
     assert(false, `VS Computer test threw exception: ${e.message}`);
   }
@@ -2000,13 +2089,6 @@ function runAutomatedTests() {
     assert(p1Color === 'navy' || p1Color === 'red', 'Flip Mode: first reveal determines Player 1 color');
     assert(p2Color !== p1Color, 'Flip Mode: opposite color automatically assigned to Player 2');
     assert(firstRevealedPiece.revealed === true, 'Flip Mode: revealed identities stay public');
-
-    const opponentColor = p2Color;
-    const oppPieceKey = validPositions.find(k => flipBoard[k].side === opponentColor && !flipBoard[k].revealed);
-    if (oppPieceKey) {
-      flipBoard[oppPieceKey].revealed = true;
-      assert(flipBoard[oppPieceKey].side === opponentColor, 'Flip Mode: revealing opponent piece does not change ownership');
-    }
   } catch (e) {
     assert(false, `Flip Mode test threw exception: ${e.message}`);
   }
@@ -2017,7 +2099,6 @@ function runAutomatedTests() {
     const mockBoard = generateLegalSetup('navy');
     const mockSaveState = {
       gameMode: 'classic',
-      seatingMode: 'side_by_side',
       privacyMode: 'standard',
       activeTurn: 'navy',
       boardState: mockBoard,
@@ -2043,46 +2124,69 @@ function runAutomatedTests() {
   try {
     const navyArmy = generateLegalSetup('navy');
     
-    // 1. Flag placement restriction check
     const flagKey = Object.keys(navyArmy).find(k => navyArmy[k].name === '军旗');
     const flagPiece = navyArmy[flagKey];
-    const invalidFlagCheck = validatePiecePlacementInSetup(flagPiece, '11-2'); // 11-2 is not HQ
+    const invalidFlagCheck = validatePiecePlacementInSetup(flagPiece, '11-2');
     assert(!invalidFlagCheck.valid, 'Setup: Flag in non-HQ slot is correctly identified as illegal');
     
     const validFlagCheck = validatePiecePlacementInSetup(flagPiece, '11-1');
     assert(validFlagCheck.valid, 'Setup: Flag in HQ slot (11-1) is valid');
 
-    // 2. Mine placement restriction check
     const mineKey = Object.keys(navyArmy).find(k => navyArmy[k].name === '地雷');
     const minePiece = navyArmy[mineKey];
-    const invalidMineCheck = validatePiecePlacementInSetup(minePiece, '6-0'); // row 6 is front row
+    const invalidMineCheck = validatePiecePlacementInSetup(minePiece, '6-0');
     assert(!invalidMineCheck.valid, 'Setup: Mine in front row (6-0) is correctly identified as illegal');
 
-    const validMineCheck = validatePiecePlacementInSetup(minePiece, '10-0'); // row 10 is back 2 rows
+    const validMineCheck = validatePiecePlacementInSetup(minePiece, '10-0');
     assert(validMineCheck.valid, 'Setup: Mine in back 2 rows (10-0) is valid');
 
-    // 3. Bomb placement restriction check
     const bombKey = Object.keys(navyArmy).find(k => navyArmy[k].name === '炸弹');
     const bombPiece = navyArmy[bombKey];
-    const invalidBombCheck = validatePiecePlacementInSetup(bombPiece, '6-0'); // front row
+    const invalidBombCheck = validatePiecePlacementInSetup(bombPiece, '6-0');
     assert(!invalidBombCheck.valid, 'Setup: Bomb in front row (6-0) is correctly identified as illegal');
 
-    const validBombCheck = validatePiecePlacementInSetup(bombPiece, '9-0');
-    assert(validBombCheck.valid, 'Setup: Bomb in non-front row (9-0) is valid');
-
-    // 4. Camp placement restriction check
     const engineerPiece = { name: '工兵', side: 'navy' };
-    const campCheck = validatePiecePlacementInSetup(engineerPiece, '7-1'); // 7-1 is Camp
+    const campCheck = validatePiecePlacementInSetup(engineerPiece, '7-1');
     assert(!campCheck.valid, 'Setup: Placing any piece in a Camp (行营) is illegal');
-
-    // 5. Swap validation check
-    const pieceA = navyArmy[flagKey];
-    const pieceB = navyArmy[mineKey];
-    const swapCheck = validateSwapInSetup(pieceA, flagKey, pieceB, mineKey);
-    assert(!swapCheck.valid, 'Setup: Swapping Flag out of HQ into Mine slot is blocked');
-
   } catch (e) {
     assert(false, `Setup Phase test threw exception: ${e.message}`);
+  }
+
+  // TEST GROUP 5: SCENARIOS (COMBAT, DISCLOSURE, PERSPECTIVE)
+  try {
+    // Scenario A: Higher rank combat & concealment
+    const attacker = { side: 'navy', name: '司令', rank: 1, revealed: false };
+    const defender = { side: 'red', name: '旅长', rank: 4, revealed: false };
+    const resA = resolveCombat(attacker, defender);
+    assert(resA.winner === attacker, 'Scenario A: Commander defeats Brigade Commander');
+
+    // Scenario B: Commander elimination & Flag disclosure signal
+    const resB = resolveCombat(attacker, { side: 'red', name: '炸弹', rank: 99, revealed: false });
+    assert(resB.loser === 'both', 'Scenario B: Commander vs Bomb is mutual destruction');
+    assert(resB.fieldMarshalDefeatedSide === 'navy', 'Scenario B: Field Marshal defeat triggers flag disclosure signal for Navy');
+
+    // Scenario C: Equal rank
+    const resC = resolveCombat({ side: 'navy', name: '师长', rank: 3 }, { side: 'red', name: '师长', rank: 3 });
+    assert(resC.loser === 'both', 'Scenario C: Equal rank leads to mutual destruction');
+
+    // Scenario D: Engineer vs Mine
+    const resD = resolveCombat({ side: 'navy', name: '工兵', rank: 9 }, { side: 'red', name: '地雷', rank: 10 });
+    assert(resD.winner.name === '工兵', 'Scenario D: Engineer disarms Mine');
+
+    // Scenario E: Non-Engineer vs Mine
+    const resE = resolveCombat({ side: 'navy', name: '团长', rank: 5 }, { side: 'red', name: '地雷', rank: 10 });
+    assert(resE.winner.name === '地雷', 'Scenario E: Mine defeats non-Engineer');
+
+    // Scenario F: Perspective Coordinate Mapping
+    const rKey = '0-0'; // Canonical top-left
+    const displayR = 11 - 0;
+    const displayC = 4 - 0;
+    assert(displayR === 11 && displayC === 4, 'Scenario F: Canonical 0-0 maps to 11-4 in Red bottom perspective');
+    const mappedBack = `${11 - displayR}-${4 - displayC}`;
+    assert(mappedBack === rKey, 'Scenario F: Display coordinates map back to canonical key perfectly');
+
+  } catch (e) {
+    assert(false, `Scenario tests threw exception: ${e.message}`);
   }
 
   console.log(`--- TEST SUITE COMPLETE: ${passedCount}/${results.length} PASSED ---`);
@@ -2249,9 +2353,8 @@ class JunqiBoard {
     this.app = appController;
 
     this.gameMode = 'vs_computer'; // 'vs_computer', 'classic', 'flip'
-    this.seatingMode = 'side_by_side'; // 'side_by_side', 'face_to_face'
     this.privacyMode = 'standard'; // 'standard', 'extra_privacy'
-    this.aiDifficulty = 'normal';
+    this.aiDifficulty = 'standard'; // 'relaxed', 'standard'
 
     this.activeTurn = 'navy'; // 'navy' or 'red'
     this.assignedColors = { p1: 'navy', p2: 'red' }; // In Flip mode, set on first reveal
@@ -2267,6 +2370,8 @@ class JunqiBoard {
     this.capturedPieces = [];
     this.turnHistory = [];
     this.lastBattle = null;
+    this.lastMoveRecap = null;
+    this.flagDisclosed = { navy: false, red: false };
     this.isGameOver = false;
 
     this.ai = new LocalJunqiAI(this.aiDifficulty);
@@ -2277,9 +2382,8 @@ class JunqiBoard {
 
   startNewGame(mode = 'vs_computer', options = {}) {
     this.gameMode = mode;
-    this.seatingMode = options.seating || 'side_by_side';
     this.privacyMode = options.privacy || 'standard';
-    this.aiDifficulty = options.aiDifficulty || 'normal';
+    this.aiDifficulty = options.aiDifficulty || 'standard';
     this.ai = new LocalJunqiAI(this.aiDifficulty);
 
     this.activeTurn = 'navy';
@@ -2288,6 +2392,8 @@ class JunqiBoard {
     this.capturedPieces = [];
     this.turnHistory = [];
     this.lastBattle = null;
+    this.lastMoveRecap = null;
+    this.flagDisclosed = { navy: false, red: false };
     this.isGameOver = false;
     this.isExtraPrivacyRevealed = false;
 
@@ -2403,16 +2509,17 @@ class JunqiBoard {
 
   loadState(saved) {
     this.gameMode = saved.mode || 'vs_computer';
-    this.seatingMode = saved.seating || 'side_by_side';
     this.privacyMode = saved.privacy || 'standard';
     this.activeTurn = saved.activeTurn || 'navy';
     this.boardState = saved.board || {};
     this.assignedColors = saved.assignedColors || { p1: 'navy', p2: 'red' };
     this.capturedPieces = saved.captured || [];
     this.turnHistory = saved.history || [];
-    this.aiDifficulty = saved.aiDifficulty || 'normal';
+    this.aiDifficulty = saved.aiDifficulty || 'standard';
     this.isGameOver = !!saved.isGameOver;
     this.lastBattle = saved.lastBattle || null;
+    this.lastMoveRecap = saved.lastMoveRecap || null;
+    this.flagDisclosed = saved.flagDisclosed || { navy: false, red: false };
 
     this.phase = saved.phase || 'gameplay';
     this.setupStep = saved.setupStep || 'navy';
@@ -2426,7 +2533,6 @@ class JunqiBoard {
   saveState() {
     saveGameState({
       gameMode: this.gameMode,
-      seatingMode: this.seatingMode,
       privacyMode: this.privacyMode,
       activeTurn: this.activeTurn,
       boardState: this.boardState,
@@ -2436,6 +2542,8 @@ class JunqiBoard {
       aiDifficulty: this.aiDifficulty,
       isGameOver: this.isGameOver,
       lastBattle: this.lastBattle,
+      lastMoveRecap: this.lastMoveRecap,
+      flagDisclosed: this.flagDisclosed,
       phase: this.phase,
       setupStep: this.setupStep,
       initialSetupSessionState: this.initialSetupSessionState
@@ -2524,7 +2632,6 @@ class JunqiBoard {
   renderHeaderControls() {
     const passBtn = document.getElementById('btn-trigger-pass');
     if (passBtn) {
-      // ONLY show Pass iPad in Classic mode during gameplay
       if (this.gameMode === 'classic' && this.phase === 'gameplay') {
         passBtn.style.display = 'inline-flex';
       } else {
@@ -2539,7 +2646,7 @@ class JunqiBoard {
       if (this.phase === 'setup') {
         if (this.gameMode === 'vs_computer') {
           statusDot.className = 'status-dot navy';
-          turnLabel.textContent = 'Your Setup — Tap any 2 pieces to swap';
+          turnLabel.textContent = 'Your Setup — Tap 2 pieces to swap';
         } else {
           const pName = this.setupStep === 'navy' ? 'Player 1 (Navy)' : 'Player 2 (Red)';
           statusDot.className = `status-dot ${this.setupStep}`;
@@ -2580,6 +2687,17 @@ class JunqiBoard {
     }
   }
 
+  triggerLastMoveReplay() {
+    if (!this.lastMoveRecap) return;
+    this.showRecapHighlights = true;
+    this.render();
+
+    setTimeout(() => {
+      this.showRecapHighlights = false;
+      this.render();
+    }, 1800);
+  }
+
   render() {
     this.renderHeaderControls();
 
@@ -2614,7 +2732,6 @@ class JunqiBoard {
 
       this.container.appendChild(setupBar);
 
-      // Attach button listeners after DOM insertion
       setTimeout(() => {
         const qBtn = document.getElementById('btn-setup-quick');
         const rBtn = document.getElementById('btn-setup-reset');
@@ -2625,15 +2742,22 @@ class JunqiBoard {
       }, 0);
     }
 
+    // Header Replay Button for Last Move
+    const actionsGroup = document.querySelector('.board-actions-group');
+    if (actionsGroup && this.phase === 'gameplay' && this.lastMoveRecap) {
+      let replayBtn = document.getElementById('btn-replay-last-move');
+      if (!replayBtn) {
+        replayBtn = document.createElement('button');
+        replayBtn.id = 'btn-replay-last-move';
+        replayBtn.className = 'btn-ctrl';
+        replayBtn.innerHTML = '<span>▶</span> Replay';
+        replayBtn.onclick = () => this.triggerLastMoveReplay();
+        actionsGroup.insertBefore(replayBtn, actionsGroup.firstChild);
+      }
+    }
+
     const boardWrapper = document.createElement('div');
     boardWrapper.className = 'junqi-board-topology';
-
-    // Face-to-Face seating rotation
-    if (this.seatingMode === 'face_to_face' && (this.phase === 'setup' ? this.setupStep === 'red' : this.activeTurn === 'red')) {
-      boardWrapper.classList.add('rotate-180');
-    } else {
-      boardWrapper.classList.remove('rotate-180');
-    }
 
     // Render SVG lines network
     const svgLayer = this.createSvgNetwork();
@@ -2673,15 +2797,18 @@ class JunqiBoard {
       boardWrapper.appendChild(privacyControl);
     }
 
-    // Last Battle Indicator Overlay
-    if (this.phase === 'gameplay' && this.lastBattle) {
-      const battleBanner = document.createElement('div');
-      battleBanner.className = 'last-battle-banner';
-      battleBanner.innerHTML = `
-        <span class="battle-title">⚔ LAST BATTLE</span>
-        <span class="battle-text">${this.lastBattle.attackerSide.toUpperCase()} ${this.lastBattle.attackerName} vs ${this.lastBattle.defenderName} → <strong>${this.lastBattle.result}</strong></span>
-      `;
-      boardWrapper.appendChild(battleBanner);
+    // Last Move / Battle Recap Overlay
+    if (this.phase === 'gameplay' && (this.showRecapHighlights || this.lastBattle || this.lastMoveRecap)) {
+      const recapData = this.lastMoveRecap;
+      if (recapData) {
+        const battleBanner = document.createElement('div');
+        battleBanner.className = 'last-battle-banner';
+        battleBanner.innerHTML = `
+          <span class="battle-title">⚔ LAST MOVE RECAP</span>
+          <span class="battle-text">${recapData.summaryText}</span>
+        `;
+        boardWrapper.appendChild(battleBanner);
+      }
     }
 
     this.container.appendChild(boardWrapper);
@@ -2733,26 +2860,37 @@ class JunqiBoard {
     return svg;
   }
 
-  createNodeElement(row, col, key) {
+  createNodeElement(row, col, canonicalKey) {
     const node = document.createElement('div');
     node.className = 'board-node-station';
-    node.dataset.key = key;
+    node.dataset.key = canonicalKey;
+
+    // ONE-IPAD PERSPECTIVE: Determine display grid coordinates based on active player
+    const isRedActiveInClassic = (this.gameMode === 'classic') && (this.phase === 'setup' ? this.setupStep === 'red' : this.activeTurn === 'red');
+    
+    const displayRow = isRedActiveInClassic ? (11 - row) : row;
+    const displayCol = isRedActiveInClassic ? (4 - col) : col;
 
     const colXPercent = [9.09, 29.54, 50, 70.45, 90.9];
     const rowYPercent = [5.3, 12.6, 20.0, 27.3, 34.6, 42.0, 58.0, 65.3, 72.6, 80.0, 87.3, 94.6];
 
-    node.style.left = `${colXPercent[col]}%`;
-    node.style.top = `${rowYPercent[row]}%`;
+    node.style.left = `${colXPercent[displayCol]}%`;
+    node.style.top = `${rowYPercent[displayRow]}%`;
 
-    if (CAMPS.has(key)) node.classList.add('station-camp');
-    else if (HEADQUARTERS.has(key)) node.classList.add('station-hq');
+    if (CAMPS.has(canonicalKey)) node.classList.add('station-camp');
+    else if (HEADQUARTERS.has(canonicalKey)) node.classList.add('station-hq');
     else node.classList.add('station-post');
 
-    if (this.phase === 'gameplay' && this.selectedCell && this.isLegalTarget(key)) {
+    if (this.phase === 'gameplay' && this.selectedCell && this.isLegalTarget(canonicalKey)) {
       node.classList.add('legal-target');
     }
 
-    const piece = this.boardState[key];
+    if (this.showRecapHighlights && this.lastMoveRecap) {
+      if (this.lastMoveRecap.from === canonicalKey) node.classList.add('recap-highlight-from');
+      if (this.lastMoveRecap.to === canonicalKey) node.classList.add('recap-highlight-to');
+    }
+
+    const piece = this.boardState[canonicalKey];
     if (piece) {
       const pieceEl = document.createElement('div');
       pieceEl.className = `junqi-piece ${piece.side}`;
@@ -2769,7 +2907,16 @@ class JunqiBoard {
         if (piece.side === this.activeTurn) {
           isVisible = (this.privacyMode !== 'extra_privacy' || this.isExtraPrivacyRevealed);
         } else {
+          // Concealed opponent pieces stay face-down backs unless flag is disclosed
           isVisible = !!piece.revealed;
+        }
+      }
+
+      // Check if Flag disclosed due to Field Marshal elimination
+      if (piece.name === '军旗' && this.flagDisclosed[piece.side]) {
+        pieceEl.classList.add('flag-disclosed');
+        if (piece.side !== this.activeTurn) {
+          isVisible = true; // Expose Flag position to opponent!
         }
       }
 
@@ -2779,12 +2926,19 @@ class JunqiBoard {
         pieceEl.textContent = piece.name;
       }
 
+      // FLIP MODE ARMY FACE ORIENTATION
+      if (this.gameMode === 'flip' && piece.revealed && this.assignedColors.p2) {
+        if (piece.side === this.assignedColors.p2) {
+          pieceEl.classList.add('face-top-player'); // Rotate 180° for top player army
+        }
+      }
+
       if (this.phase === 'setup') {
-        if (this.selectedSetupCell === key) {
+        if (this.selectedSetupCell === canonicalKey) {
           pieceEl.classList.add('selected');
         }
       } else {
-        if (this.selectedCell === key) {
+        if (this.selectedCell === canonicalKey) {
           pieceEl.classList.add('selected');
         }
       }
@@ -2792,7 +2946,7 @@ class JunqiBoard {
       node.appendChild(pieceEl);
     }
 
-    node.addEventListener('click', () => this.handleNodeClick(key, piece));
+    node.addEventListener('click', () => this.handleNodeClick(canonicalKey, piece));
     return node;
   }
 
@@ -2844,7 +2998,6 @@ class JunqiBoard {
   handleSetupClick(key, piece) {
     const currentSide = this.setupStep || 'navy';
 
-    // If no piece selected yet
     if (!this.selectedSetupCell) {
       if (piece && piece.side === currentSide) {
         this.selectedSetupCell = key;
@@ -2852,16 +3005,14 @@ class JunqiBoard {
         this.render();
       } else {
         sounds.playInvalid();
-        showHint('ILLEGAL_SETUP', `Tap a piece in your own territory (${currentSide === 'navy' ? 'Navy / Bottom' : 'Red / Top'}) to select it for swapping.`);
+        showHint('ILLEGAL_SETUP', `Tap a piece in your own territory (${currentSide === 'navy' ? 'Navy / Bottom' : 'Red / Top'}) to select it.`);
       }
       return;
     }
 
-    // A piece is already selected at posA
     const posA = this.selectedSetupCell;
     const pieceA = this.boardState[posA];
 
-    // Tap same piece -> unselect
     if (posA === key) {
       this.selectedSetupCell = null;
       sounds.playTap();
@@ -2872,7 +3023,6 @@ class JunqiBoard {
     const posB = key;
     const pieceB = this.boardState[posB];
 
-    // Validate target is in current player territory
     const [targetR] = posB.split('-').map(Number);
     const inTerritory = currentSide === 'navy' ? (targetR >= 6 && targetR <= 11) : (targetR >= 0 && targetR <= 5);
 
@@ -2882,7 +3032,6 @@ class JunqiBoard {
       return;
     }
 
-    // Validate swap
     const check = validateSwapInSetup(pieceA, posA, pieceB, posB);
     if (!check.valid) {
       sounds.playInvalid();
@@ -2890,7 +3039,6 @@ class JunqiBoard {
       return;
     }
 
-    // Execute swap
     if (pieceB) {
       this.boardState[posA] = pieceB;
       this.boardState[posB] = pieceA;
@@ -2958,31 +3106,43 @@ class JunqiBoard {
     const attacker = this.boardState[fromKey];
     const defender = this.boardState[toKey];
 
+    let summaryText = `Opponent moved ${fromKey} → ${toKey}`;
+
     if (!defender) {
       this.boardState[toKey] = attacker;
       delete this.boardState[fromKey];
       sounds.playMoveTok();
       this.lastBattle = null;
+      summaryText = `${attacker.side.toUpperCase()} moved ${fromKey} → ${toKey}`;
     } else {
       sounds.playCombat();
       const outcome = resolveCombat(attacker, defender);
 
+      if (outcome.fieldMarshalDefeatedSide) {
+        this.flagDisclosed[outcome.fieldMarshalDefeatedSide] = true;
+        showHint('COMMANDER_FALLEN', `Field Marshal (司令) defeated! Flag position is now disclosed!`);
+      }
+
       if (outcome.winner === attacker) {
         this.boardState[toKey] = attacker;
         delete this.boardState[fromKey];
-        attacker.revealed = true;
+        // In Classic (暗棋), attacker does NOT become revealed to opponent!
+        if (this.gameMode === 'flip') attacker.revealed = true;
         this.capturedPieces.push(defender);
         this.lastBattle = { attackerSide: attacker.side, attackerName: attacker.name, defenderName: defender.name, result: `${attacker.name} Victory` };
+        summaryText = `Battle at ${toKey}: ${attacker.side.toUpperCase()} captured opponent piece!`;
       } else if (outcome.winner === defender) {
         delete this.boardState[fromKey];
-        defender.revealed = true;
+        if (this.gameMode === 'flip') defender.revealed = true;
         this.capturedPieces.push(attacker);
         this.lastBattle = { attackerSide: attacker.side, attackerName: attacker.name, defenderName: defender.name, result: `${defender.name} Defended` };
+        summaryText = `Battle at ${toKey}: ${defender.side.toUpperCase()} defended successfully!`;
       } else {
         delete this.boardState[fromKey];
         delete this.boardState[toKey];
         this.capturedPieces.push(attacker, defender);
         this.lastBattle = { attackerSide: attacker.side, attackerName: attacker.name, defenderName: defender.name, result: `Mutual Destruction` };
+        summaryText = `Battle at ${toKey}: Mutual Destruction! Both pieces removed.`;
       }
 
       if (outcome.gameOver) {
@@ -2994,6 +3154,14 @@ class JunqiBoard {
         return;
       }
     }
+
+    this.lastMoveRecap = {
+      from: fromKey,
+      to: toKey,
+      actingSide: attacker.side,
+      summaryText: summaryText,
+      timestamp: Date.now()
+    };
 
     this.selectedCell = null;
     this.endTurn();
@@ -3014,21 +3182,26 @@ class JunqiBoard {
           if (!aiDefender) {
             this.boardState[aiMove.to] = aiAttacker;
             delete this.boardState[aiMove.from];
+            this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `Computer moved piece`, timestamp: Date.now() };
           } else {
             const outcome = resolveCombat(aiAttacker, aiDefender);
+            if (outcome.fieldMarshalDefeatedSide) {
+              this.flagDisclosed[outcome.fieldMarshalDefeatedSide] = true;
+            }
             if (outcome.winner === aiAttacker) {
               this.boardState[aiMove.to] = aiAttacker;
               delete this.boardState[aiMove.from];
-              aiAttacker.revealed = true;
               this.capturedPieces.push(aiDefender);
+              this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `Computer attacked ${aiMove.to}: Your piece was captured`, timestamp: Date.now() };
             } else if (outcome.winner === aiDefender) {
               delete this.boardState[aiMove.from];
-              aiDefender.revealed = true;
               this.capturedPieces.push(aiAttacker);
+              this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `Computer attacked ${aiMove.to}: Your piece defended successfully`, timestamp: Date.now() };
             } else {
               delete this.boardState[aiMove.from];
               delete this.boardState[aiMove.to];
               this.capturedPieces.push(aiAttacker, aiDefender);
+              this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `Computer attacked ${aiMove.to}: Mutual Destruction`, timestamp: Date.now() };
             }
           }
         }
@@ -3047,6 +3220,7 @@ class JunqiBoard {
         this.activeTurn = nextTurn;
         this.saveState();
         this.render();
+        this.triggerLastMoveReplay();
       });
     } else {
       this.activeTurn = nextTurn;

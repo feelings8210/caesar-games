@@ -11,9 +11,8 @@ export class JunqiBoard {
     this.app = appController;
 
     this.gameMode = 'vs_computer'; // 'vs_computer', 'classic', 'flip'
-    this.seatingMode = 'side_by_side'; // 'side_by_side', 'face_to_face'
     this.privacyMode = 'standard'; // 'standard', 'extra_privacy'
-    this.aiDifficulty = 'normal';
+    this.aiDifficulty = 'standard'; // 'relaxed', 'standard'
 
     this.activeTurn = 'navy'; // 'navy' or 'red'
     this.assignedColors = { p1: 'navy', p2: 'red' }; // In Flip mode, set on first reveal
@@ -29,6 +28,8 @@ export class JunqiBoard {
     this.capturedPieces = [];
     this.turnHistory = [];
     this.lastBattle = null;
+    this.lastMoveRecap = null;
+    this.flagDisclosed = { navy: false, red: false };
     this.isGameOver = false;
 
     this.ai = new LocalJunqiAI(this.aiDifficulty);
@@ -39,9 +40,8 @@ export class JunqiBoard {
 
   startNewGame(mode = 'vs_computer', options = {}) {
     this.gameMode = mode;
-    this.seatingMode = options.seating || 'side_by_side';
     this.privacyMode = options.privacy || 'standard';
-    this.aiDifficulty = options.aiDifficulty || 'normal';
+    this.aiDifficulty = options.aiDifficulty || 'standard';
     this.ai = new LocalJunqiAI(this.aiDifficulty);
 
     this.activeTurn = 'navy';
@@ -50,6 +50,8 @@ export class JunqiBoard {
     this.capturedPieces = [];
     this.turnHistory = [];
     this.lastBattle = null;
+    this.lastMoveRecap = null;
+    this.flagDisclosed = { navy: false, red: false };
     this.isGameOver = false;
     this.isExtraPrivacyRevealed = false;
 
@@ -165,16 +167,17 @@ export class JunqiBoard {
 
   loadState(saved) {
     this.gameMode = saved.mode || 'vs_computer';
-    this.seatingMode = saved.seating || 'side_by_side';
     this.privacyMode = saved.privacy || 'standard';
     this.activeTurn = saved.activeTurn || 'navy';
     this.boardState = saved.board || {};
     this.assignedColors = saved.assignedColors || { p1: 'navy', p2: 'red' };
     this.capturedPieces = saved.captured || [];
     this.turnHistory = saved.history || [];
-    this.aiDifficulty = saved.aiDifficulty || 'normal';
+    this.aiDifficulty = saved.aiDifficulty || 'standard';
     this.isGameOver = !!saved.isGameOver;
     this.lastBattle = saved.lastBattle || null;
+    this.lastMoveRecap = saved.lastMoveRecap || null;
+    this.flagDisclosed = saved.flagDisclosed || { navy: false, red: false };
 
     this.phase = saved.phase || 'gameplay';
     this.setupStep = saved.setupStep || 'navy';
@@ -188,7 +191,6 @@ export class JunqiBoard {
   saveState() {
     saveGameState({
       gameMode: this.gameMode,
-      seatingMode: this.seatingMode,
       privacyMode: this.privacyMode,
       activeTurn: this.activeTurn,
       boardState: this.boardState,
@@ -198,6 +200,8 @@ export class JunqiBoard {
       aiDifficulty: this.aiDifficulty,
       isGameOver: this.isGameOver,
       lastBattle: this.lastBattle,
+      lastMoveRecap: this.lastMoveRecap,
+      flagDisclosed: this.flagDisclosed,
       phase: this.phase,
       setupStep: this.setupStep,
       initialSetupSessionState: this.initialSetupSessionState
@@ -286,7 +290,6 @@ export class JunqiBoard {
   renderHeaderControls() {
     const passBtn = document.getElementById('btn-trigger-pass');
     if (passBtn) {
-      // ONLY show Pass iPad in Classic mode during gameplay
       if (this.gameMode === 'classic' && this.phase === 'gameplay') {
         passBtn.style.display = 'inline-flex';
       } else {
@@ -301,7 +304,7 @@ export class JunqiBoard {
       if (this.phase === 'setup') {
         if (this.gameMode === 'vs_computer') {
           statusDot.className = 'status-dot navy';
-          turnLabel.textContent = 'Your Setup — Tap any 2 pieces to swap';
+          turnLabel.textContent = 'Your Setup — Tap 2 pieces to swap';
         } else {
           const pName = this.setupStep === 'navy' ? 'Player 1 (Navy)' : 'Player 2 (Red)';
           statusDot.className = `status-dot ${this.setupStep}`;
@@ -342,6 +345,17 @@ export class JunqiBoard {
     }
   }
 
+  triggerLastMoveReplay() {
+    if (!this.lastMoveRecap) return;
+    this.showRecapHighlights = true;
+    this.render();
+
+    setTimeout(() => {
+      this.showRecapHighlights = false;
+      this.render();
+    }, 1800);
+  }
+
   render() {
     this.renderHeaderControls();
 
@@ -376,7 +390,6 @@ export class JunqiBoard {
 
       this.container.appendChild(setupBar);
 
-      // Attach button listeners after DOM insertion
       setTimeout(() => {
         const qBtn = document.getElementById('btn-setup-quick');
         const rBtn = document.getElementById('btn-setup-reset');
@@ -387,15 +400,22 @@ export class JunqiBoard {
       }, 0);
     }
 
+    // Header Replay Button for Last Move
+    const actionsGroup = document.querySelector('.board-actions-group');
+    if (actionsGroup && this.phase === 'gameplay' && this.lastMoveRecap) {
+      let replayBtn = document.getElementById('btn-replay-last-move');
+      if (!replayBtn) {
+        replayBtn = document.createElement('button');
+        replayBtn.id = 'btn-replay-last-move';
+        replayBtn.className = 'btn-ctrl';
+        replayBtn.innerHTML = '<span>▶</span> Replay';
+        replayBtn.onclick = () => this.triggerLastMoveReplay();
+        actionsGroup.insertBefore(replayBtn, actionsGroup.firstChild);
+      }
+    }
+
     const boardWrapper = document.createElement('div');
     boardWrapper.className = 'junqi-board-topology';
-
-    // Face-to-Face seating rotation
-    if (this.seatingMode === 'face_to_face' && (this.phase === 'setup' ? this.setupStep === 'red' : this.activeTurn === 'red')) {
-      boardWrapper.classList.add('rotate-180');
-    } else {
-      boardWrapper.classList.remove('rotate-180');
-    }
 
     // Render SVG lines network
     const svgLayer = this.createSvgNetwork();
@@ -435,15 +455,18 @@ export class JunqiBoard {
       boardWrapper.appendChild(privacyControl);
     }
 
-    // Last Battle Indicator Overlay
-    if (this.phase === 'gameplay' && this.lastBattle) {
-      const battleBanner = document.createElement('div');
-      battleBanner.className = 'last-battle-banner';
-      battleBanner.innerHTML = `
-        <span class="battle-title">⚔ LAST BATTLE</span>
-        <span class="battle-text">${this.lastBattle.attackerSide.toUpperCase()} ${this.lastBattle.attackerName} vs ${this.lastBattle.defenderName} → <strong>${this.lastBattle.result}</strong></span>
-      `;
-      boardWrapper.appendChild(battleBanner);
+    // Last Move / Battle Recap Overlay
+    if (this.phase === 'gameplay' && (this.showRecapHighlights || this.lastBattle || this.lastMoveRecap)) {
+      const recapData = this.lastMoveRecap;
+      if (recapData) {
+        const battleBanner = document.createElement('div');
+        battleBanner.className = 'last-battle-banner';
+        battleBanner.innerHTML = `
+          <span class="battle-title">⚔ LAST MOVE RECAP</span>
+          <span class="battle-text">${recapData.summaryText}</span>
+        `;
+        boardWrapper.appendChild(battleBanner);
+      }
     }
 
     this.container.appendChild(boardWrapper);
@@ -495,26 +518,37 @@ export class JunqiBoard {
     return svg;
   }
 
-  createNodeElement(row, col, key) {
+  createNodeElement(row, col, canonicalKey) {
     const node = document.createElement('div');
     node.className = 'board-node-station';
-    node.dataset.key = key;
+    node.dataset.key = canonicalKey;
+
+    // ONE-IPAD PERSPECTIVE: Determine display grid coordinates based on active player
+    const isRedActiveInClassic = (this.gameMode === 'classic') && (this.phase === 'setup' ? this.setupStep === 'red' : this.activeTurn === 'red');
+    
+    const displayRow = isRedActiveInClassic ? (11 - row) : row;
+    const displayCol = isRedActiveInClassic ? (4 - col) : col;
 
     const colXPercent = [9.09, 29.54, 50, 70.45, 90.9];
     const rowYPercent = [5.3, 12.6, 20.0, 27.3, 34.6, 42.0, 58.0, 65.3, 72.6, 80.0, 87.3, 94.6];
 
-    node.style.left = `${colXPercent[col]}%`;
-    node.style.top = `${rowYPercent[row]}%`;
+    node.style.left = `${colXPercent[displayCol]}%`;
+    node.style.top = `${rowYPercent[displayRow]}%`;
 
-    if (CAMPS.has(key)) node.classList.add('station-camp');
-    else if (HEADQUARTERS.has(key)) node.classList.add('station-hq');
+    if (CAMPS.has(canonicalKey)) node.classList.add('station-camp');
+    else if (HEADQUARTERS.has(canonicalKey)) node.classList.add('station-hq');
     else node.classList.add('station-post');
 
-    if (this.phase === 'gameplay' && this.selectedCell && this.isLegalTarget(key)) {
+    if (this.phase === 'gameplay' && this.selectedCell && this.isLegalTarget(canonicalKey)) {
       node.classList.add('legal-target');
     }
 
-    const piece = this.boardState[key];
+    if (this.showRecapHighlights && this.lastMoveRecap) {
+      if (this.lastMoveRecap.from === canonicalKey) node.classList.add('recap-highlight-from');
+      if (this.lastMoveRecap.to === canonicalKey) node.classList.add('recap-highlight-to');
+    }
+
+    const piece = this.boardState[canonicalKey];
     if (piece) {
       const pieceEl = document.createElement('div');
       pieceEl.className = `junqi-piece ${piece.side}`;
@@ -531,7 +565,16 @@ export class JunqiBoard {
         if (piece.side === this.activeTurn) {
           isVisible = (this.privacyMode !== 'extra_privacy' || this.isExtraPrivacyRevealed);
         } else {
+          // Concealed opponent pieces stay face-down backs unless flag is disclosed
           isVisible = !!piece.revealed;
+        }
+      }
+
+      // Check if Flag disclosed due to Field Marshal elimination
+      if (piece.name === '军旗' && this.flagDisclosed[piece.side]) {
+        pieceEl.classList.add('flag-disclosed');
+        if (piece.side !== this.activeTurn) {
+          isVisible = true; // Expose Flag position to opponent!
         }
       }
 
@@ -541,12 +584,19 @@ export class JunqiBoard {
         pieceEl.textContent = piece.name;
       }
 
+      // FLIP MODE ARMY FACE ORIENTATION
+      if (this.gameMode === 'flip' && piece.revealed && this.assignedColors.p2) {
+        if (piece.side === this.assignedColors.p2) {
+          pieceEl.classList.add('face-top-player'); // Rotate 180° for top player army
+        }
+      }
+
       if (this.phase === 'setup') {
-        if (this.selectedSetupCell === key) {
+        if (this.selectedSetupCell === canonicalKey) {
           pieceEl.classList.add('selected');
         }
       } else {
-        if (this.selectedCell === key) {
+        if (this.selectedCell === canonicalKey) {
           pieceEl.classList.add('selected');
         }
       }
@@ -554,7 +604,7 @@ export class JunqiBoard {
       node.appendChild(pieceEl);
     }
 
-    node.addEventListener('click', () => this.handleNodeClick(key, piece));
+    node.addEventListener('click', () => this.handleNodeClick(canonicalKey, piece));
     return node;
   }
 
@@ -606,7 +656,6 @@ export class JunqiBoard {
   handleSetupClick(key, piece) {
     const currentSide = this.setupStep || 'navy';
 
-    // If no piece selected yet
     if (!this.selectedSetupCell) {
       if (piece && piece.side === currentSide) {
         this.selectedSetupCell = key;
@@ -614,16 +663,14 @@ export class JunqiBoard {
         this.render();
       } else {
         sounds.playInvalid();
-        showHint('ILLEGAL_SETUP', `Tap a piece in your own territory (${currentSide === 'navy' ? 'Navy / Bottom' : 'Red / Top'}) to select it for swapping.`);
+        showHint('ILLEGAL_SETUP', `Tap a piece in your own territory (${currentSide === 'navy' ? 'Navy / Bottom' : 'Red / Top'}) to select it.`);
       }
       return;
     }
 
-    // A piece is already selected at posA
     const posA = this.selectedSetupCell;
     const pieceA = this.boardState[posA];
 
-    // Tap same piece -> unselect
     if (posA === key) {
       this.selectedSetupCell = null;
       sounds.playTap();
@@ -634,7 +681,6 @@ export class JunqiBoard {
     const posB = key;
     const pieceB = this.boardState[posB];
 
-    // Validate target is in current player territory
     const [targetR] = posB.split('-').map(Number);
     const inTerritory = currentSide === 'navy' ? (targetR >= 6 && targetR <= 11) : (targetR >= 0 && targetR <= 5);
 
@@ -644,7 +690,6 @@ export class JunqiBoard {
       return;
     }
 
-    // Validate swap
     const check = validateSwapInSetup(pieceA, posA, pieceB, posB);
     if (!check.valid) {
       sounds.playInvalid();
@@ -652,7 +697,6 @@ export class JunqiBoard {
       return;
     }
 
-    // Execute swap
     if (pieceB) {
       this.boardState[posA] = pieceB;
       this.boardState[posB] = pieceA;
@@ -720,31 +764,43 @@ export class JunqiBoard {
     const attacker = this.boardState[fromKey];
     const defender = this.boardState[toKey];
 
+    let summaryText = `Opponent moved ${fromKey} → ${toKey}`;
+
     if (!defender) {
       this.boardState[toKey] = attacker;
       delete this.boardState[fromKey];
       sounds.playMoveTok();
       this.lastBattle = null;
+      summaryText = `${attacker.side.toUpperCase()} moved ${fromKey} → ${toKey}`;
     } else {
       sounds.playCombat();
       const outcome = resolveCombat(attacker, defender);
 
+      if (outcome.fieldMarshalDefeatedSide) {
+        this.flagDisclosed[outcome.fieldMarshalDefeatedSide] = true;
+        showHint('COMMANDER_FALLEN', `Field Marshal (司令) defeated! Flag position is now disclosed!`);
+      }
+
       if (outcome.winner === attacker) {
         this.boardState[toKey] = attacker;
         delete this.boardState[fromKey];
-        attacker.revealed = true;
+        // In Classic (暗棋), attacker does NOT become revealed to opponent!
+        if (this.gameMode === 'flip') attacker.revealed = true;
         this.capturedPieces.push(defender);
         this.lastBattle = { attackerSide: attacker.side, attackerName: attacker.name, defenderName: defender.name, result: `${attacker.name} Victory` };
+        summaryText = `Battle at ${toKey}: ${attacker.side.toUpperCase()} captured opponent piece!`;
       } else if (outcome.winner === defender) {
         delete this.boardState[fromKey];
-        defender.revealed = true;
+        if (this.gameMode === 'flip') defender.revealed = true;
         this.capturedPieces.push(attacker);
         this.lastBattle = { attackerSide: attacker.side, attackerName: attacker.name, defenderName: defender.name, result: `${defender.name} Defended` };
+        summaryText = `Battle at ${toKey}: ${defender.side.toUpperCase()} defended successfully!`;
       } else {
         delete this.boardState[fromKey];
         delete this.boardState[toKey];
         this.capturedPieces.push(attacker, defender);
         this.lastBattle = { attackerSide: attacker.side, attackerName: attacker.name, defenderName: defender.name, result: `Mutual Destruction` };
+        summaryText = `Battle at ${toKey}: Mutual Destruction! Both pieces removed.`;
       }
 
       if (outcome.gameOver) {
@@ -756,6 +812,14 @@ export class JunqiBoard {
         return;
       }
     }
+
+    this.lastMoveRecap = {
+      from: fromKey,
+      to: toKey,
+      actingSide: attacker.side,
+      summaryText: summaryText,
+      timestamp: Date.now()
+    };
 
     this.selectedCell = null;
     this.endTurn();
@@ -776,21 +840,26 @@ export class JunqiBoard {
           if (!aiDefender) {
             this.boardState[aiMove.to] = aiAttacker;
             delete this.boardState[aiMove.from];
+            this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `Computer moved piece`, timestamp: Date.now() };
           } else {
             const outcome = resolveCombat(aiAttacker, aiDefender);
+            if (outcome.fieldMarshalDefeatedSide) {
+              this.flagDisclosed[outcome.fieldMarshalDefeatedSide] = true;
+            }
             if (outcome.winner === aiAttacker) {
               this.boardState[aiMove.to] = aiAttacker;
               delete this.boardState[aiMove.from];
-              aiAttacker.revealed = true;
               this.capturedPieces.push(aiDefender);
+              this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `Computer attacked ${aiMove.to}: Your piece was captured`, timestamp: Date.now() };
             } else if (outcome.winner === aiDefender) {
               delete this.boardState[aiMove.from];
-              aiDefender.revealed = true;
               this.capturedPieces.push(aiAttacker);
+              this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `Computer attacked ${aiMove.to}: Your piece defended successfully`, timestamp: Date.now() };
             } else {
               delete this.boardState[aiMove.from];
               delete this.boardState[aiMove.to];
               this.capturedPieces.push(aiAttacker, aiDefender);
+              this.lastMoveRecap = { from: aiMove.from, to: aiMove.to, actingSide: 'red', summaryText: `Computer attacked ${aiMove.to}: Mutual Destruction`, timestamp: Date.now() };
             }
           }
         }
@@ -809,6 +878,7 @@ export class JunqiBoard {
         this.activeTurn = nextTurn;
         this.saveState();
         this.render();
+        this.triggerLastMoveReplay();
       });
     } else {
       this.activeTurn = nextTurn;

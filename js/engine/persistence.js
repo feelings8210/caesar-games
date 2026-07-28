@@ -6,17 +6,18 @@ export function saveGameState(state) {
   try {
     const serialized = JSON.stringify({
       mode: state.gameMode,             // 'vs_computer', 'classic', 'flip'
-      seating: state.seatingMode,         // 'side_by_side', 'face_to_face'
       privacy: state.privacyMode,         // 'standard', 'extra_privacy'
       activeTurn: state.activeTurn,       // 'navy', 'red'
       board: state.boardState,
       assignedColors: state.assignedColors, // { p1: 'navy', p2: 'red' }
       captured: state.capturedPieces || [],
       history: state.turnHistory || [],
-      aiDifficulty: state.aiDifficulty || 'normal',
+      aiDifficulty: state.aiDifficulty || 'standard',
       isGameOver: !!state.isGameOver,
       winner: state.winner || null,
       lastBattle: state.lastBattle || null,
+      lastMoveRecap: state.lastMoveRecap || null,
+      flagDisclosed: state.flagDisclosed || { navy: false, red: false },
       phase: state.phase || 'gameplay',
       setupStep: state.setupStep || 'navy',
       initialSetupSessionState: state.initialSetupSessionState || null,

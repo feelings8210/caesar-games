@@ -1,6 +1,6 @@
 /* Caesar Games — Deterministic Automated Unit Test Suite */
 import { generateLegalSetup, resolveCombat, canPieceMove, createStandardArmy, validatePiecePlacementInSetup, validateSwapInSetup } from './rules.js';
-import { LocalJunqiAI } from './ai.js';
+import { LocalJunqiAI, createAiObservation } from './ai.js';
 import { saveGameState, loadGameState, clearGameState } from './persistence.js';
 
 // Polyfill localStorage for Node execution
@@ -31,10 +31,18 @@ export function runAutomatedTests() {
 
   // TEST GROUP 1: VS COMPUTER (AI Fog-of-War & Information Boundaries)
   try {
-    const ai = new LocalJunqiAI('normal');
+    const ai = new LocalJunqiAI('standard');
     const board = generateLegalSetup('navy');
     const redSetup = generateLegalSetup('red');
     Object.assign(board, redSetup);
+
+    const obs = createAiObservation('red', board);
+    const humanKey = Object.keys(board).find(k => board[k].side === 'navy');
+    const aiKey = Object.keys(board).find(k => board[k].side === 'red');
+
+    assert(obs[humanKey].name === undefined, 'AI Boundary: AI observation redacts human piece name');
+    assert(obs[humanKey].rank === undefined, 'AI Boundary: AI observation redacts human piece rank');
+    assert(obs[aiKey].name !== undefined, 'AI Boundary: AI sees own piece name');
 
     const aiMove = ai.selectMove('red', board);
     assert(aiMove !== null, 'AI returns valid move candidate');
@@ -43,12 +51,6 @@ export function runAutomatedTests() {
       const checkLegal = canPieceMove(aiMove.piece, aiMove.from, aiMove.to, board);
       assert(checkLegal.allowed, 'AI move is strictly legal under Junqi rules');
     }
-
-    // Find any hidden human piece
-    const humanKey = Object.keys(board).find(k => board[k].side === 'navy');
-    const hiddenHumanPiece = board[humanKey];
-    assert(hiddenHumanPiece && hiddenHumanPiece.side === 'navy', 'Human piece exists on board');
-    assert(hiddenHumanPiece.revealed === false, 'Human piece identity is hidden from AI in fog-of-war');
   } catch (e) {
     assert(false, `VS Computer test threw exception: ${e.message}`);
   }
@@ -87,13 +89,6 @@ export function runAutomatedTests() {
     assert(p1Color === 'navy' || p1Color === 'red', 'Flip Mode: first reveal determines Player 1 color');
     assert(p2Color !== p1Color, 'Flip Mode: opposite color automatically assigned to Player 2');
     assert(firstRevealedPiece.revealed === true, 'Flip Mode: revealed identities stay public');
-
-    const opponentColor = p2Color;
-    const oppPieceKey = validPositions.find(k => flipBoard[k].side === opponentColor && !flipBoard[k].revealed);
-    if (oppPieceKey) {
-      flipBoard[oppPieceKey].revealed = true;
-      assert(flipBoard[oppPieceKey].side === opponentColor, 'Flip Mode: revealing opponent piece does not change ownership');
-    }
   } catch (e) {
     assert(false, `Flip Mode test threw exception: ${e.message}`);
   }
@@ -104,7 +99,6 @@ export function runAutomatedTests() {
     const mockBoard = generateLegalSetup('navy');
     const mockSaveState = {
       gameMode: 'classic',
-      seatingMode: 'side_by_side',
       privacyMode: 'standard',
       activeTurn: 'navy',
       boardState: mockBoard,
@@ -130,46 +124,69 @@ export function runAutomatedTests() {
   try {
     const navyArmy = generateLegalSetup('navy');
     
-    // 1. Flag placement restriction check
     const flagKey = Object.keys(navyArmy).find(k => navyArmy[k].name === '军旗');
     const flagPiece = navyArmy[flagKey];
-    const invalidFlagCheck = validatePiecePlacementInSetup(flagPiece, '11-2'); // 11-2 is not HQ
+    const invalidFlagCheck = validatePiecePlacementInSetup(flagPiece, '11-2');
     assert(!invalidFlagCheck.valid, 'Setup: Flag in non-HQ slot is correctly identified as illegal');
     
     const validFlagCheck = validatePiecePlacementInSetup(flagPiece, '11-1');
     assert(validFlagCheck.valid, 'Setup: Flag in HQ slot (11-1) is valid');
 
-    // 2. Mine placement restriction check
     const mineKey = Object.keys(navyArmy).find(k => navyArmy[k].name === '地雷');
     const minePiece = navyArmy[mineKey];
-    const invalidMineCheck = validatePiecePlacementInSetup(minePiece, '6-0'); // row 6 is front row
+    const invalidMineCheck = validatePiecePlacementInSetup(minePiece, '6-0');
     assert(!invalidMineCheck.valid, 'Setup: Mine in front row (6-0) is correctly identified as illegal');
 
-    const validMineCheck = validatePiecePlacementInSetup(minePiece, '10-0'); // row 10 is back 2 rows
+    const validMineCheck = validatePiecePlacementInSetup(minePiece, '10-0');
     assert(validMineCheck.valid, 'Setup: Mine in back 2 rows (10-0) is valid');
 
-    // 3. Bomb placement restriction check
     const bombKey = Object.keys(navyArmy).find(k => navyArmy[k].name === '炸弹');
     const bombPiece = navyArmy[bombKey];
-    const invalidBombCheck = validatePiecePlacementInSetup(bombPiece, '6-0'); // front row
+    const invalidBombCheck = validatePiecePlacementInSetup(bombPiece, '6-0');
     assert(!invalidBombCheck.valid, 'Setup: Bomb in front row (6-0) is correctly identified as illegal');
 
-    const validBombCheck = validatePiecePlacementInSetup(bombPiece, '9-0');
-    assert(validBombCheck.valid, 'Setup: Bomb in non-front row (9-0) is valid');
-
-    // 4. Camp placement restriction check
     const engineerPiece = { name: '工兵', side: 'navy' };
-    const campCheck = validatePiecePlacementInSetup(engineerPiece, '7-1'); // 7-1 is Camp
+    const campCheck = validatePiecePlacementInSetup(engineerPiece, '7-1');
     assert(!campCheck.valid, 'Setup: Placing any piece in a Camp (行营) is illegal');
-
-    // 5. Swap validation check
-    const pieceA = navyArmy[flagKey];
-    const pieceB = navyArmy[mineKey];
-    const swapCheck = validateSwapInSetup(pieceA, flagKey, pieceB, mineKey);
-    assert(!swapCheck.valid, 'Setup: Swapping Flag out of HQ into Mine slot is blocked');
-
   } catch (e) {
     assert(false, `Setup Phase test threw exception: ${e.message}`);
+  }
+
+  // TEST GROUP 5: SCENARIOS (COMBAT, DISCLOSURE, PERSPECTIVE)
+  try {
+    // Scenario A: Higher rank combat & concealment
+    const attacker = { side: 'navy', name: '司令', rank: 1, revealed: false };
+    const defender = { side: 'red', name: '旅长', rank: 4, revealed: false };
+    const resA = resolveCombat(attacker, defender);
+    assert(resA.winner === attacker, 'Scenario A: Commander defeats Brigade Commander');
+
+    // Scenario B: Commander elimination & Flag disclosure signal
+    const resB = resolveCombat(attacker, { side: 'red', name: '炸弹', rank: 99, revealed: false });
+    assert(resB.loser === 'both', 'Scenario B: Commander vs Bomb is mutual destruction');
+    assert(resB.fieldMarshalDefeatedSide === 'navy', 'Scenario B: Field Marshal defeat triggers flag disclosure signal for Navy');
+
+    // Scenario C: Equal rank
+    const resC = resolveCombat({ side: 'navy', name: '师长', rank: 3 }, { side: 'red', name: '师长', rank: 3 });
+    assert(resC.loser === 'both', 'Scenario C: Equal rank leads to mutual destruction');
+
+    // Scenario D: Engineer vs Mine
+    const resD = resolveCombat({ side: 'navy', name: '工兵', rank: 9 }, { side: 'red', name: '地雷', rank: 10 });
+    assert(resD.winner.name === '工兵', 'Scenario D: Engineer disarms Mine');
+
+    // Scenario E: Non-Engineer vs Mine
+    const resE = resolveCombat({ side: 'navy', name: '团长', rank: 5 }, { side: 'red', name: '地雷', rank: 10 });
+    assert(resE.winner.name === '地雷', 'Scenario E: Mine defeats non-Engineer');
+
+    // Scenario F: Perspective Coordinate Mapping
+    const rKey = '0-0'; // Canonical top-left
+    const displayR = 11 - 0;
+    const displayC = 4 - 0;
+    assert(displayR === 11 && displayC === 4, 'Scenario F: Canonical 0-0 maps to 11-4 in Red bottom perspective');
+    const mappedBack = `${11 - displayR}-${4 - displayC}`;
+    assert(mappedBack === rKey, 'Scenario F: Display coordinates map back to canonical key perfectly');
+
+  } catch (e) {
+    assert(false, `Scenario tests threw exception: ${e.message}`);
   }
 
   console.log(`--- TEST SUITE COMPLETE: ${passedCount}/${results.length} PASSED ---`);

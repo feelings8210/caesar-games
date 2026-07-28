@@ -1,5 +1,5 @@
 /* Caesar Games — PWA Service Worker for Offline iPad Play */
-const CACHE_NAME = 'caesar-games-v1';
+const CACHE_NAME = 'caesar-games-v2-pretravel';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

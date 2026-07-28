@@ -173,15 +173,6 @@
   transition: transform 0.4s ease;
 }
 
-/* Face-to-Face Seating Mode Board Rotation */
-.junqi-board-topology.rotate-180 {
-  transform: rotate(180deg);
-}
-
-.junqi-board-topology.rotate-180 .junqi-piece {
-  transform: rotate(180deg);
-}
-
 /* SVG Network Layer */
 .junqi-svg-network {
   position: absolute;
@@ -373,4 +364,59 @@
   transform: translateY(-4px) scale(1.06);
   box-shadow: 0 8px 22px rgba(30, 54, 93, 0.25), 0 0 0 3px var(--color-gold-primary);
   z-index: 15;
+}
+
+/* Flip Mode Army Face Orientation: Top player pieces face top (rotated 180deg) */
+.junqi-piece.face-top-player {
+  transform: rotate(180deg);
+}
+
+.junqi-piece.face-top-player.selected {
+  transform: rotate(180deg) translateY(4px) scale(1.06);
+}
+
+/* Disclosed Flag Indicator Badge */
+.junqi-piece.flag-disclosed::before {
+  content: '🚩';
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  font-size: 14px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+/* Last Move Recap Path Highlight */
+.board-node-station.recap-highlight-from::after {
+  content: '';
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2.5px dashed #D4A359;
+  animation: pulseRecapFrom 1.5s infinite ease-in-out;
+  pointer-events: none;
+}
+
+.board-node-station.recap-highlight-to::after {
+  content: '';
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid #D4A359;
+  box-shadow: 0 0 14px rgba(212, 163, 89, 0.75);
+  animation: pulseRecapTo 1.5s infinite ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes pulseRecapFrom {
+  0% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 0.9; transform: scale(1.1); }
+  100% { opacity: 0.4; transform: scale(0.9); }
+}
+
+@keyframes pulseRecapTo {
+  0% { opacity: 0.5; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 0.5; transform: scale(0.95); }
 }
