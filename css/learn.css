@@ -1,0 +1,234 @@
+/* Caesar Games — Learn / Rules & Hint Surface & Pass The iPad Transition (Round 03 Refinement) */
+
+/* Learn / Rules View */
+.learn-container {
+  width: 100%;
+  max-width: 920px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.learn-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1.5px solid var(--color-border-subtle);
+  padding-bottom: 14px;
+}
+
+.learn-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-navy-primary);
+}
+
+.learn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.learn-card {
+  background: var(--color-bg-surface-elevated);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.learn-card h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-navy-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.learn-card p {
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+/* Rank Hierarchy Visual Module */
+.rank-hierarchy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.rank-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rank-name {
+  font-family: var(--font-family-chinese);
+  font-size: 15px;
+  color: var(--color-navy-primary);
+}
+
+.rank-stars {
+  color: var(--color-gold-primary);
+  font-size: 12px;
+}
+
+/* Mini Board Diagram Preview */
+.mini-diagram {
+  height: 90px;
+  background: var(--color-bg-board);
+  border: 1px solid var(--color-border-medium);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.diagram-rail-line {
+  width: 80%;
+  height: 0;
+  border-top: 3px dashed var(--color-railway);
+  position: absolute;
+}
+
+.diagram-piece-node {
+  width: 44px;
+  height: 28px;
+  border-radius: 4px;
+  background: var(--color-navy-primary);
+  color: #FFF;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-piece);
+  z-index: 2;
+}
+
+/* Non-blocking Floating Contextual Hint Card Overlay */
+.hint-popover-backdrop {
+  position: absolute;
+  bottom: 24px;
+  right: 28px;
+  width: 340px;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity var(--transition-fast), transform var(--transition-bounce);
+}
+
+.hint-popover-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.hint-card {
+  width: 100%;
+  background: var(--color-bg-surface-elevated);
+  border: 2px solid var(--color-gold-primary);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-elevated);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hint-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-gold-dark);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.hint-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-navy-primary);
+}
+
+.hint-body {
+  font-size: 13.5px;
+  color: var(--color-text-main);
+  line-height: 1.45;
+  background: var(--color-bg-surface);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border-left: 3.5px solid var(--color-gold-primary);
+}
+
+/* Core Surface 4: Pass The iPad Privacy Shield */
+.pass-ipad-surface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(circle at 50% 40%, #FFFFFF 0%, #E7EDF4 100%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.pass-ipad-card {
+  width: 520px;
+  max-width: 90%;
+  background: var(--color-bg-surface-elevated);
+  border: 1.5px solid var(--color-border-medium);
+  border-radius: var(--radius-xl);
+  padding: 40px;
+  box-shadow: var(--shadow-elevated);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.pass-icon-ring {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--color-bg-surface);
+  border: 2px solid var(--color-gold-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pass-ipad-card h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-navy-primary);
+}
+
+.pass-ipad-card p {
+  font-size: 16px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}

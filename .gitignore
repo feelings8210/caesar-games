@@ -1,0 +1,6 @@
+.chrome-profile*
+cert.pem
+key.pem
+ios/
+.DS_Store
+*.log

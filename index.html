@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Caesar Games — Love & Play</title>
+  <meta name="description" content="Caesar Games: A quiet, refined collection of tabletop board games designed for shared iPad play. Featuring Chinese Junqi / 陆战棋.">
+  
+  <!-- Apple iOS Standalone Web App Meta Tags & PWA Manifest -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Caesar Games">
+  <link rel="apple-touch-icon" href="assets/cd_home_mark_transparent.png">
+  <link rel="manifest" href="manifest.json">
+
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/board.css">
+  <link rel="stylesheet" href="css/learn.css">
+</head>
+<body>
+  <div id="app">
+    <!-- App Header & Brand Bar -->
+    <header class="app-header">
+      <div class="brand-container" id="brand-header-link" title="Caesar Games Home">
+        <img src="assets/cd_home_mark_transparent.png" alt="CD Logo" class="cd-brand-logo">
+        <div class="brand-text">
+          <span class="brand-title">Caesar Games</span>
+          <span class="brand-subtitle">Love & Play</span>
+        </div>
+      </div>
+      <div class="header-controls-right">
+        <button id="btn-sound-toggle" class="btn-sound">🔊 Sound</button>
+      </div>
+    </header>
+
+    <!-- Surface 1: HOME -->
+    <main id="surface-home" class="surface-view home-surface active">
+      <div class="home-hero">
+        <div class="brand-presence-tag">Tabletop Collection</div>
+        <h1>陆战棋 · Junqi</h1>
+      </div>
+
+      <!-- V1 Playable Game Surface Card -->
+      <div class="game-library single-game">
+        <div class="game-card featured-v1">
+          <div class="game-card-preview">
+            <div class="card-preview-art">
+              <div class="mock-piece-preview navy">司令</div>
+              <span class="preview-vs-divider">·</span>
+              <div class="mock-piece-preview red">军长</div>
+            </div>
+          </div>
+          <div class="game-card-info">
+            <h2>Chinese Junqi</h2>
+            <p>Tactical tabletop strategy for iPad. Secrecy, railway blitzes, and campsite maneuvers.</p>
+          </div>
+          <div class="game-card-actions">
+            <button id="btn-play-junqi" class="btn btn-primary">Play</button>
+            <button id="btn-resume-junqi" class="btn btn-gold" style="display: none;">Resume</button>
+            <button id="btn-learn-rules" class="btn btn-secondary">Learn</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Surface 2: JUNQI GAME BOARD -->
+    <main id="surface-board" class="surface-view board-surface">
+      <!-- Board Header Controls -->
+      <div class="board-header-controls">
+        <div class="player-status-badge" id="player-status-badge">
+          <span class="status-dot navy" id="status-dot"></span>
+          <span id="player-turn-label">Your Turn (Navy)</span>
+        </div>
+        <div class="board-actions-group">
+          <button id="btn-board-hint" class="btn-ctrl">💡 Hint</button>
+          <button id="btn-trigger-pass" class="btn-ctrl">🔄 Pass iPad</button>
+          <button id="btn-board-rules" class="btn-ctrl">📖 Rules</button>
+          <button id="btn-board-menu" class="btn-ctrl">🏠 Home</button>
+        </div>
+      </div>
+
+      <!-- Board Mount Container -->
+      <div class="board-container-wrapper" id="junqi-board-mount">
+        <!-- Rendered via js/board.js -->
+      </div>
+    </main>
+
+    <!-- Surface 3: LEARN / RULES & PRACTICE -->
+    <main id="surface-learn" class="surface-view">
+      <div class="learn-container">
+        <div class="learn-header">
+          <div>
+            <h2>Junqi Rules & Interactive Practice</h2>
+            <p style="font-size: 14px; color: var(--color-text-muted);">Master piece ranks, railway movements, campsite protections, and Flip mode rules.</p>
+          </div>
+          <button id="btn-learn-back" class="btn btn-primary">Return to Game</button>
+        </div>
+
+        <!-- Interactive Practice Mini-Board Module -->
+        <div id="practice-board-mount" class="practice-section"></div>
+
+        <div class="learn-grid">
+          <!-- Rank Hierarchy Module -->
+          <div class="learn-card">
+            <h3>🎖 Rank Hierarchy (大官吃小官)</h3>
+            <p>Higher ranking pieces capture lower ranking opponent pieces upon collision.</p>
+            <div class="rank-hierarchy-list">
+              <div class="rank-item"><span class="rank-name">司令 (Field Marshal)</span><span class="rank-stars">★★★★</span></div>
+              <div class="rank-item"><span class="rank-name">军长 (Corps Commander)</span><span class="rank-stars">★★★</span></div>
+              <div class="rank-item"><span class="rank-name">师长 (Division Commander)</span><span class="rank-stars">★★</span></div>
+              <div class="rank-item"><span class="rank-name">旅长 (Brigade Commander)</span><span class="rank-stars">★</span></div>
+              <div class="rank-item"><span class="rank-name">团长 > 营长 > 连长 > 排长 > 工兵</span></div>
+            </div>
+          </div>
+
+          <!-- Movement Rules Module -->
+          <div class="learn-card">
+            <h3>🚂 Roads vs Railways (公路与铁路)</h3>
+            <p>公路 (Roads): 1 step in any connected direction.<br>铁路 (Railways): Move straight along clear tracks. Only 工兵 (Engineer) can turn corners along connected tracks!</p>
+            <div class="mini-diagram">
+              <div class="diagram-rail-line"></div>
+              <div class="diagram-piece-node">工兵</div>
+            </div>
+          </div>
+
+          <!-- Special Pieces Module -->
+          <div class="learn-card">
+            <h3>💣 Mines, Bombs & Camps (地雷、炸弹与行营)</h3>
+            <p><strong>地雷 (Mine):</strong> Static defense. Defeats all attackers except 工兵 or 炸弹.<br><strong>炸弹 (Bomb):</strong> Mutual destruction with any piece.<br><strong>行营 (Campsite):</strong> Safe haven! Pieces inside cannot be attacked.</p>
+          </div>
+
+          <!-- Flip Mode Rules Module -->
+          <div class="learn-card">
+            <h3>🔄 Flip Mode Rules (翻棋模式)</h3>
+            <p>Travel-friendly shared screen mode. 50 pieces shuffled face down. First reveal locks your army color. Per turn: Reveal 1 piece OR move 1 revealed piece.</p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Surface 4: PASS THE IPAD (Privacy Shield) -->
+    <div id="surface-pass-ipad" class="pass-ipad-surface" style="display: none;">
+      <div class="pass-ipad-card">
+        <div class="pass-icon-ring">
+          <img src="assets/cd_home_mark_transparent.png" alt="CD Logo" style="width: 48px; height: 48px; object-fit: contain;">
+        </div>
+        <h2 id="pass-ipad-title">Player 2's Turn</h2>
+        <p id="pass-ipad-desc">Please pass the iPad to Player 2. Hidden piece secrecy is fully protected.</p>
+        <button id="btn-pass-ready" class="btn btn-gold" style="padding: 16px 36px; font-size: 17px;">I'm Ready</button>
+      </div>
+    </div>
+
+    <!-- Mode Selection Modal Dialog -->
+    <div id="mode-selection-modal" class="mode-modal-backdrop">
+      <div class="mode-modal-card">
+        <div class="mode-modal-header">
+          <h2>How do you want to play?</h2>
+          <button id="btn-close-mode-modal" class="btn-close-x">✕</button>
+        </div>
+        <div class="mode-options-grid">
+          <div id="btn-mode-vs-comp" class="mode-option-card">
+            <div class="mode-icon">🤖</div>
+            <h3>Vs Computer</h3>
+            <p>Play against local computer opponent. Fog-of-war information boundaries strictly obeyed.</p>
+          </div>
+          <div id="btn-mode-2p-classic" class="mode-option-card">
+            <div class="mode-icon">👥</div>
+            <h3>2 Players · Classic</h3>
+            <p>Traditional hidden-information game with Pass the iPad privacy shield between turns.</p>
+          </div>
+          <div id="btn-mode-2p-flip" class="mode-option-card">
+            <div class="mode-icon">🔄</div>
+            <h3>2 Players · Flip</h3>
+            <p>Travel-friendly face-down reveal mode. Instant shared screen play with no pass screens.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Non-blocking Contextual Hint Popover Float -->
+    <div id="hint-popover-backdrop" class="hint-popover-backdrop">
+      <div class="hint-card">
+        <div class="hint-header">
+          <span>💡 Tactical Hint</span>
+        </div>
+        <div class="hint-title" id="hint-title">Rule Explanation</div>
+        <div class="hint-body" id="hint-body">Explanation text goes here.</div>
+        <button id="btn-close-hint" class="btn btn-secondary" style="align-self: flex-end; min-height: 36px; padding: 6px 16px; font-size: 13px;">Dismiss</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then(reg => {
+          console.log('[PWA] ServiceWorker registered with scope:', reg.scope);
+        }).catch(err => {
+          console.error('[PWA] ServiceWorker registration failed:', err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

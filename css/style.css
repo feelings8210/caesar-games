@@ -1,0 +1,423 @@
+/* Caesar Games — Main Styles (Complete V1 Product) */
+@import url('variables.css');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--color-bg-base);
+  color: var(--color-text-main);
+  font-family: var(--font-family-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  background: radial-gradient(circle at 50% 30%, #FFFFFF 0%, #F4F7FB 100%);
+}
+
+/* App Header & Brand Area */
+.app-header {
+  height: 64px;
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background-color: rgba(251, 252, 254, 0.95);
+  backdrop-filter: blur(8px);
+  z-index: 20;
+}
+
+.brand-container {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+}
+
+/* Official CD Brand Mark Logo */
+.cd-brand-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 5px rgba(30, 54, 93, 0.12));
+  transition: transform var(--transition-fast);
+}
+
+.brand-container:hover .cd-brand-logo {
+  transform: scale(1.05);
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--color-navy-primary);
+}
+
+.brand-subtitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-gold-primary);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-top: -1px;
+}
+
+.header-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-sound {
+  min-height: 38px;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-medium);
+  color: var(--color-text-main);
+  cursor: pointer;
+}
+
+/* Navigation / Surface Containers */
+.surface-view {
+  flex: 1;
+  display: none;
+  width: 100%;
+  height: calc(100vh - 64px);
+  position: relative;
+  overflow: hidden;
+}
+
+.surface-view.active {
+  display: flex;
+}
+
+/* Home Surface Layout — Clean Single Game Focus */
+.home-surface {
+  padding: 48px;
+  flex-direction: column;
+  gap: 28px;
+  overflow-y: auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-hero {
+  text-align: center;
+  max-width: 520px;
+}
+
+.brand-presence-tag {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-gold-primary);
+  margin-bottom: 6px;
+}
+
+.home-hero h1 {
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--color-navy-primary);
+  letter-spacing: -0.5px;
+}
+
+/* V1 Single Playable Game Container */
+.game-library.single-game {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  justify-content: center;
+}
+
+.game-card.featured-v1 {
+  width: 100%;
+  background: var(--color-bg-surface-elevated);
+  border: 1.5px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-shadow: var(--shadow-card);
+}
+
+.game-card-preview {
+  height: 150px;
+  background: linear-gradient(135deg, var(--color-bg-board), #DFE7F0);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-preview-art {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.mock-piece-preview {
+  width: 58px;
+  height: 58px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-family-chinese);
+  font-size: 24px;
+  font-weight: 700;
+  box-shadow: var(--shadow-piece);
+}
+
+.mock-piece-preview.navy {
+  background: linear-gradient(135deg, var(--color-navy-primary), var(--color-navy-dark));
+  color: #FFFFFF;
+  border: 1px solid var(--color-navy-border);
+}
+
+.mock-piece-preview.red {
+  background: linear-gradient(135deg, var(--color-red-primary), var(--color-red-dark));
+  color: #FFFFFF;
+  border: 1px solid var(--color-red-border);
+}
+
+.preview-vs-divider {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-slate-light);
+}
+
+.game-card-info {
+  text-align: center;
+}
+
+.game-card-info h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-navy-primary);
+  margin-bottom: 6px;
+}
+
+.game-card-info p {
+  font-size: 14px;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.game-card-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* Mode Selection Modal Dialog */
+.mode-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(30, 37, 48, 0.45);
+  backdrop-filter: blur(5px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+}
+
+.mode-modal-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mode-modal-card {
+  width: 640px;
+  max-width: 90%;
+  background: var(--color-bg-surface-elevated);
+  border: 1.5px solid var(--color-border-medium);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  box-shadow: var(--shadow-elevated);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.mode-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding-bottom: 12px;
+}
+
+.mode-modal-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-navy-primary);
+}
+
+.btn-close-x {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--color-slate);
+}
+
+.mode-options-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.mode-option-card {
+  background: var(--color-bg-surface);
+  border: 1.5px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+
+.mode-option-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-gold-primary);
+}
+
+.mode-icon {
+  font-size: 32px;
+}
+
+.mode-option-card h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-navy-primary);
+}
+
+.mode-option-card p {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.35;
+}
+
+/* Extra Privacy Reveal Button Overlay */
+.btn-extra-privacy-reveal {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 24px;
+  border-radius: var(--radius-full);
+  background: var(--color-gold-primary);
+  color: #FFFFFF;
+  font-size: 13.5px;
+  font-weight: 700;
+  border: none;
+  box-shadow: 0 4px 12px rgba(184, 138, 59, 0.35);
+  cursor: pointer;
+  z-index: 20;
+}
+
+/* Last Battle Outcome Banner Overlay */
+.last-battle-banner {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 18px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-surface-elevated);
+  border: 1px solid var(--color-border-medium);
+  box-shadow: var(--shadow-subtle);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 20;
+}
+
+.battle-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-gold-primary);
+  letter-spacing: 0.5px;
+}
+
+/* UI Buttons */
+.btn {
+  min-height: var(--touch-min-size);
+  padding: 12px 28px;
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition-fast);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-navy-primary), var(--color-navy-dark));
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(30, 54, 93, 0.22);
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
+}
+
+.btn-secondary {
+  background: var(--color-bg-surface);
+  color: var(--color-navy-primary);
+  border: 1.5px solid var(--color-border-medium);
+}
+
+.btn-secondary:active {
+  background: var(--color-border-subtle);
+  transform: scale(0.97);
+}
+
+.btn-gold {
+  background: linear-gradient(135deg, var(--color-gold-primary), var(--color-gold-dark));
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(184, 138, 59, 0.25);
+}
