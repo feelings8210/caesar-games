@@ -1,0 +1,520 @@
+{
+  "generatedAt": "2026-07-28T17:32:51.743Z",
+  "assertions": 36,
+  "passed": 36,
+  "failed": 0,
+  "screenshots": [
+    "CHROMIUM_CHESS_CAPTURE_FINAL.png",
+    "CHROMIUM_CHESS_CAPTURE_INITIAL.png",
+    "CHROMIUM_CHESS_CAPTURE_MID.png",
+    "CHROMIUM_CHESS_CASTLE_FINAL.png",
+    "CHROMIUM_CHESS_CASTLE_INITIAL.png",
+    "CHROMIUM_CHESS_CASTLE_MID.png",
+    "CHROMIUM_CHESS_NORMAL_FINAL.png",
+    "CHROMIUM_CHESS_NORMAL_INITIAL.png",
+    "CHROMIUM_CHESS_NORMAL_MID.png",
+    "CHROMIUM_JUNQI_REVEAL_FINAL.png",
+    "CHROMIUM_JUNQI_REVEAL_INITIAL.png",
+    "CHROMIUM_JUNQI_REVEAL_MID.png",
+    "CHROMIUM_XQ_CAPTURE_FINAL.png",
+    "CHROMIUM_XQ_CAPTURE_INITIAL.png",
+    "CHROMIUM_XQ_CAPTURE_MID.png",
+    "CHROMIUM_XQ_NORMAL_FINAL.png",
+    "CHROMIUM_XQ_NORMAL_INITIAL.png",
+    "CHROMIUM_XQ_NORMAL_MID.png",
+    "WEBKIT_CHESS_CAPTURE_FINAL.png",
+    "WEBKIT_CHESS_CAPTURE_INITIAL.png",
+    "WEBKIT_CHESS_CAPTURE_MID.png",
+    "WEBKIT_CHESS_CASTLE_FINAL.png",
+    "WEBKIT_CHESS_CASTLE_INITIAL.png",
+    "WEBKIT_CHESS_CASTLE_MID.png",
+    "WEBKIT_CHESS_NORMAL_FINAL.png",
+    "WEBKIT_CHESS_NORMAL_INITIAL.png",
+    "WEBKIT_CHESS_NORMAL_MID.png",
+    "WEBKIT_JUNQI_REVEAL_FINAL.png",
+    "WEBKIT_JUNQI_REVEAL_INITIAL.png",
+    "WEBKIT_JUNQI_REVEAL_MID.png",
+    "WEBKIT_XQ_CAPTURE_FINAL.png",
+    "WEBKIT_XQ_CAPTURE_INITIAL.png",
+    "WEBKIT_XQ_CAPTURE_MID.png",
+    "WEBKIT_XQ_NORMAL_FINAL.png",
+    "WEBKIT_XQ_NORMAL_INITIAL.png",
+    "WEBKIT_XQ_NORMAL_MID.png"
+  ],
+  "results": [
+    {
+      "engine": "chromium",
+      "name": "Xiangqi normal move interpolates in the intended direction",
+      "pass": true,
+      "start": {
+        "x": 377.109375,
+        "y": 515.609375
+      },
+      "midpoint": {
+        "x": 377.109375,
+        "y": 480.8094177246094
+      },
+      "end": {
+        "x": 377.109375,
+        "y": 461.859375
+      }
+    },
+    {
+      "engine": "chromium",
+      "name": "Xiangqi normal move settles to exact canonical state",
+      "pass": true,
+      "destination": "s",
+      "origin": null,
+      "flyers": 0
+    },
+    {
+      "engine": "chromium",
+      "name": "Xiangqi capture target remains intact before contact",
+      "pass": true,
+      "ghostPresent": true,
+      "ghostAnimations": 0,
+      "opacity": "1"
+    },
+    {
+      "engine": "chromium",
+      "name": "Xiangqi contact triggers readable compression/fade",
+      "pass": true,
+      "durations": [
+        225
+      ]
+    },
+    {
+      "engine": "chromium",
+      "name": "Chess normal move interpolates without teleport",
+      "pass": true,
+      "start": {
+        "x": 624.84375,
+        "y": 609.2421875
+      },
+      "midpoint": {
+        "x": 624.84375,
+        "y": 514.4032897949219
+      },
+      "end": {
+        "x": 624.84375,
+        "y": 469.84375
+      }
+    },
+    {
+      "engine": "chromium",
+      "name": "Chess normal move settles exactly",
+      "pass": true,
+      "destination": "p",
+      "origin": null,
+      "flyers": 0
+    },
+    {
+      "engine": "chromium",
+      "name": "Chess capture holds the target until physical contact",
+      "pass": true,
+      "ghostPresent": true,
+      "ghostAnimations": 0,
+      "opacity": "1"
+    },
+    {
+      "engine": "chromium",
+      "name": "Chess capture settles to exact canonical state",
+      "pass": true,
+      "destination": "r",
+      "origin": null,
+      "flyers": 0
+    },
+    {
+      "engine": "chromium",
+      "name": "Chess castling has simultaneous king and rook travel",
+      "pass": true,
+      "flyers": 2,
+      "separation": 34.57935679578088,
+      "kingHidden": "hidden",
+      "rookHidden": "hidden"
+    },
+    {
+      "engine": "chromium",
+      "name": "Chess castling settles both pieces exactly",
+      "pass": true,
+      "king": "k",
+      "rook": "r",
+      "oldKing": null,
+      "oldRook": null,
+      "flyers": 0
+    },
+    {
+      "engine": "chromium",
+      "name": "Junqi top-owner reveal keeps orientation off the moving shell",
+      "pass": true,
+      "shell": "matrix(0.06, 0, 0, 1.04, -34.2578, -24.7861)",
+      "face": "matrix(-1, 0, 0, -1, 0, 0)",
+      "settledVisibility": "hidden"
+    },
+    {
+      "engine": "chromium",
+      "name": "Junqi reveal settles with owner orientation and no duplicate",
+      "pass": true,
+      "facesTop": true,
+      "flyers": 0
+    },
+    {
+      "engine": "chromium",
+      "name": "Junqi top-facing travel right follows screen vector",
+      "pass": true,
+      "endpoints": {
+        "start": {
+          "x": 50.140625,
+          "y": 264.84375,
+          "w": 83.5625,
+          "h": 55.75
+        },
+        "end": {
+          "x": 133.71875,
+          "y": 264.84375,
+          "w": 83.5625,
+          "h": 55.75
+        }
+      },
+      "midpoint": {
+        "x": 85.34303283691406,
+        "y": 261.49876403808594,
+        "face": "matrix(-1, 0, 0, -1, 0, 0)"
+      }
+    },
+    {
+      "engine": "chromium",
+      "name": "Junqi top-facing travel left follows screen vector",
+      "pass": true,
+      "endpoints": {
+        "start": {
+          "x": 133.71875,
+          "y": 264.84375,
+          "w": 83.5625,
+          "h": 55.75
+        },
+        "end": {
+          "x": 50.140625,
+          "y": 264.84375,
+          "w": 83.5625,
+          "h": 55.75
+        }
+      },
+      "midpoint": {
+        "x": 98.52777099609375,
+        "y": 261.49876403808594,
+        "face": "matrix(-1, 0, 0, -1, 0, 0)"
+      }
+    },
+    {
+      "engine": "chromium",
+      "name": "Junqi top-facing travel down follows screen vector",
+      "pass": true,
+      "endpoints": {
+        "start": {
+          "x": 50.140625,
+          "y": 320.609375,
+          "w": 83.5625,
+          "h": 55.75
+        },
+        "end": {
+          "x": 50.140625,
+          "y": 410.9375,
+          "w": 83.5625,
+          "h": 55.75
+        }
+      },
+      "midpoint": {
+        "x": 50.140625,
+        "y": 355.43348693847656,
+        "face": "matrix(-1, 0, 0, -1, 0, 0)"
+      }
+    },
+    {
+      "engine": "chromium",
+      "name": "Junqi top-facing travel up follows screen vector",
+      "pass": true,
+      "endpoints": {
+        "start": {
+          "x": 50.140625,
+          "y": 410.9375,
+          "w": 83.5625,
+          "h": 55.75
+        },
+        "end": {
+          "x": 50.140625,
+          "y": 320.609375,
+          "w": 83.5625,
+          "h": 55.75
+        }
+      },
+      "midpoint": {
+        "x": 50.140625,
+        "y": 369.56727600097656,
+        "face": "matrix(-1, 0, 0, -1, 0, 0)"
+      }
+    },
+    {
+      "engine": "chromium",
+      "name": "Mute persists through reload and game switch without hiding state",
+      "pass": true,
+      "muted": true,
+      "audit": [
+        {
+          "cue": "place",
+          "played": false,
+          "at": 1785259962608
+        }
+      ],
+      "final": "s",
+      "afterSwitch": true
+    },
+    {
+      "engine": "chromium",
+      "name": "Reduced motion collapses JS and CSS motion while preserving final state",
+      "pass": true,
+      "elapsed": 12.5,
+      "duration": 1,
+      "transition": "0.001s",
+      "final": "s",
+      "flyers": 0
+    },
+    {
+      "engine": "webkit",
+      "name": "Xiangqi normal move interpolates in the intended direction",
+      "pass": true,
+      "start": {
+        "x": 377.1953125,
+        "y": 515.5234375
+      },
+      "midpoint": {
+        "x": 376.9199981689453,
+        "y": 475.5017395019531
+      },
+      "end": {
+        "x": 377.1953125,
+        "y": 461.7734375
+      }
+    },
+    {
+      "engine": "webkit",
+      "name": "Xiangqi normal move settles to exact canonical state",
+      "pass": true,
+      "destination": "s",
+      "origin": null,
+      "flyers": 0
+    },
+    {
+      "engine": "webkit",
+      "name": "Xiangqi capture target remains intact before contact",
+      "pass": true,
+      "ghostPresent": true,
+      "ghostAnimations": 0,
+      "opacity": "1"
+    },
+    {
+      "engine": "webkit",
+      "name": "Xiangqi contact triggers readable compression/fade",
+      "pass": true,
+      "durations": [
+        225
+      ]
+    },
+    {
+      "engine": "webkit",
+      "name": "Chess normal move interpolates without teleport",
+      "pass": true,
+      "start": {
+        "x": 624.84375,
+        "y": 609.2421875
+      },
+      "midpoint": {
+        "x": 624.6765441894531,
+        "y": 511.59169006347656
+      },
+      "end": {
+        "x": 624.84375,
+        "y": 469.84375
+      }
+    },
+    {
+      "engine": "webkit",
+      "name": "Chess normal move settles exactly",
+      "pass": true,
+      "destination": "p",
+      "origin": null,
+      "flyers": 0
+    },
+    {
+      "engine": "webkit",
+      "name": "Chess capture holds the target until physical contact",
+      "pass": true,
+      "ghostPresent": true,
+      "ghostAnimations": 0,
+      "opacity": "1"
+    },
+    {
+      "engine": "webkit",
+      "name": "Chess capture settles to exact canonical state",
+      "pass": true,
+      "destination": "r",
+      "origin": null,
+      "flyers": 0
+    },
+    {
+      "engine": "webkit",
+      "name": "Chess castling has simultaneous king and rook travel",
+      "pass": true,
+      "flyers": 2,
+      "separation": 31.2882806651848,
+      "kingHidden": "hidden",
+      "rookHidden": "hidden"
+    },
+    {
+      "engine": "webkit",
+      "name": "Chess castling settles both pieces exactly",
+      "pass": true,
+      "king": "k",
+      "rook": "r",
+      "oldKing": null,
+      "oldRook": null,
+      "flyers": 0
+    },
+    {
+      "engine": "webkit",
+      "name": "Junqi top-owner reveal keeps orientation off the moving shell",
+      "pass": true,
+      "shell": "matrix(0.06, 0, 0, 1.04, -34.257813, -24.786094)",
+      "face": "matrix(-1, 0, 0, -1, 0, 0)",
+      "settledVisibility": "hidden"
+    },
+    {
+      "engine": "webkit",
+      "name": "Junqi reveal settles with owner orientation and no duplicate",
+      "pass": true,
+      "facesTop": true,
+      "flyers": 0
+    },
+    {
+      "engine": "webkit",
+      "name": "Junqi top-facing travel right follows screen vector",
+      "pass": true,
+      "endpoints": {
+        "start": {
+          "x": 49.921875,
+          "y": 264.71875,
+          "w": 83.5625,
+          "h": 55.75
+        },
+        "end": {
+          "x": 133.5,
+          "y": 264.71875,
+          "w": 83.5625,
+          "h": 55.75
+        }
+      },
+      "midpoint": {
+        "x": 77.48757934570312,
+        "y": 261.24061584472656,
+        "face": "matrix(-1, 0, 0, -1, 0, 0)"
+      }
+    },
+    {
+      "engine": "webkit",
+      "name": "Junqi top-facing travel left follows screen vector",
+      "pass": true,
+      "endpoints": {
+        "start": {
+          "x": 133.5,
+          "y": 264.71875,
+          "w": 83.5625,
+          "h": 55.75
+        },
+        "end": {
+          "x": 49.921875,
+          "y": 264.71875,
+          "w": 83.5625,
+          "h": 55.75
+        }
+      },
+      "midpoint": {
+        "x": 97.01419067382812,
+        "y": 261.24061584472656,
+        "face": "matrix(-1, 0, 0, -1, 0, 0)"
+      }
+    },
+    {
+      "engine": "webkit",
+      "name": "Junqi top-facing travel down follows screen vector",
+      "pass": true,
+      "endpoints": {
+        "start": {
+          "x": 49.921875,
+          "y": 320.484375,
+          "w": 83.5625,
+          "h": 55.75
+        },
+        "end": {
+          "x": 49.921875,
+          "y": 410.8125,
+          "w": 83.5625,
+          "h": 55.75
+        }
+      },
+      "midpoint": {
+        "x": 49.68890380859375,
+        "y": 358.40452575683594,
+        "face": "matrix(-1, 0, 0, -1, 0, 0)"
+      }
+    },
+    {
+      "engine": "webkit",
+      "name": "Junqi top-facing travel up follows screen vector",
+      "pass": true,
+      "endpoints": {
+        "start": {
+          "x": 49.921875,
+          "y": 410.8125,
+          "w": 83.5625,
+          "h": 55.75
+        },
+        "end": {
+          "x": 49.921875,
+          "y": 320.484375,
+          "w": 83.5625,
+          "h": 55.75
+        }
+      },
+      "midpoint": {
+        "x": 49.68890380859375,
+        "y": 365.9361114501953,
+        "face": "matrix(-1, 0, 0, -1, 0, 0)"
+      }
+    },
+    {
+      "engine": "webkit",
+      "name": "Mute persists through reload and game switch without hiding state",
+      "pass": true,
+      "muted": true,
+      "audit": [
+        {
+          "cue": "place",
+          "played": false,
+          "at": 1785259970757
+        }
+      ],
+      "final": "s",
+      "afterSwitch": true
+    },
+    {
+      "engine": "webkit",
+      "name": "Reduced motion collapses JS and CSS motion while preserving final state",
+      "pass": true,
+      "elapsed": 7,
+      "duration": 1,
+      "transition": "0.001s",
+      "final": "s",
+      "flyers": 0
+    }
+  ]
+}

@@ -24,7 +24,7 @@ export const GAME_REGISTRY = Object.freeze({
     titleKey: 'game.xiangqi.title',
     nativeKey: 'game.xiangqi.native',
     descKey: 'game.xiangqi.desc',
-    rulesVersion: 'xiangqi-family-v1'
+    rulesVersion: 'xiangqi-family-v1.1'
   },
   chess: {
     id: 'chess',

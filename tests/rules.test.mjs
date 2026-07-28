@@ -622,6 +622,22 @@ t('a session round-trips through its record without losing state', () => {
   eq(back.selected, null, 'transient selection must NOT be restored');
 });
 
+t('Junqi resignation is terminal, recorded and preserved on resume', () => {
+  const s = new GameSession(MODES.CLASSIC, { player1Name: 'Caesar', player2Name: 'Daddy' });
+  s.phase = PHASES.PLAY;
+  s.activeTurn = 'navy';
+  const result = s.resign('navy');
+  ok(result.ok);
+  ok(s.isGameOver);
+  eq(s.winner, 'red');
+  eq(s.winReason, 'resignation');
+  eq(s.history.at(-1).resign, true);
+  const resumed = GameSession.fromRecord(s.toRecord());
+  ok(resumed.isGameOver);
+  eq(resumed.winner, 'red');
+  eq(resumed.winReason, 'resignation');
+});
+
 t('the public history never records a concealed identity', () => {
   const s = new GameSession(MODES.CLASSIC, { player1Name: 'A', player2Name: 'B' });
   s.phase = PHASES.PLAY;

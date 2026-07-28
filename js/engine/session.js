@@ -461,6 +461,27 @@ export class GameSession {
     this.selected = null;
   }
 
+  resign(side = this.controllingSide()) {
+    if (this.isGameOver || this.phase !== PHASES.PLAY || !['navy', 'red'].includes(side)) {
+      return { ok: false };
+    }
+    const winner = side === 'navy' ? 'red' : 'navy';
+    const name = this.nameForSide(side);
+    this.history.push({
+      n: this.history.length + 1,
+      side,
+      name,
+      from: null,
+      to: null,
+      resign: true,
+      text: t('record.resigned', { name }),
+      at: Date.now()
+    });
+    this._finish(winner, 'resignation');
+    this.touch();
+    return { ok: true, side, winner, result: 'resignation' };
+  }
+
   get winnerName() {
     if (!this.winner) return null;
     return this.nameForSide(this.winner);

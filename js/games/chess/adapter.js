@@ -15,15 +15,21 @@ export class ChessGame {
         from: move.from, to: move.to, promotion: move.promotion || 'q'
       });
     }
+    this.terminal = data.terminal ||
+      (data.status === 'finished' && data.result === 'resignation' ? 'finished' : null);
+    this.terminalWinner = data.winner || null;
+    this.terminalResult = data.result || null;
   }
 
   get turn() { return this.chess.turn(); }
-  get status() { return this.chess.isGameOver() ? 'finished' : 'in_progress'; }
+  get status() { return this.terminal || this.chess.isGameOver() ? 'finished' : 'in_progress'; }
   get winner() {
+    if (this.terminal) return this.terminalWinner;
     if (!this.chess.isCheckmate()) return null;
     return this.turn === 'w' ? 'b' : 'w';
   }
   get result() {
+    if (this.terminal) return this.terminalResult;
     if (this.chess.isCheckmate()) return 'checkmate';
     if (this.chess.isStalemate()) return 'stalemate';
     if (this.chess.isThreefoldRepetition()) return 'repetition';
@@ -41,6 +47,7 @@ export class ChessGame {
   }
 
   legalMoves() {
+    if (this.terminal) return [];
     return this.chess.moves({ verbose: true }).map(m => ({
       from: m.from, to: m.to, promotion: m.promotion || null,
       capture: !!m.captured, san: m.san
@@ -53,6 +60,7 @@ export class ChessGame {
   inCheck() { return this.chess.inCheck(); }
 
   move(from, to, promotion) {
+    if (this.terminal) return { ok: false, reason: 'gameOver' };
     const move = this.chess.move({ from, to, promotion: promotion || 'q' });
     if (!move) return { ok: false, reason: 'illegal' };
     const entry = {
@@ -67,10 +75,31 @@ export class ChessGame {
     };
   }
 
+  resign(side = this.turn) {
+    if (this.status !== 'in_progress' || !['w', 'b'].includes(side)) return { ok: false };
+    const winner = side === 'w' ? 'b' : 'w';
+    const entry = {
+      n: this.history.length + 1,
+      side,
+      piece: null,
+      from: null,
+      to: null,
+      resign: true,
+      capture: false,
+      check: false
+    };
+    this.history.push(entry);
+    this.terminal = 'finished';
+    this.terminalWinner = winner;
+    this.terminalResult = 'resignation';
+    return { ok: true, ...entry, status: 'finished', winner, result: 'resignation' };
+  }
+
   serialize() {
     return {
       fen: this.chess.fen(), pgn: this.chess.pgn(), history: clone(this.history),
-      status: this.status, winner: this.winner, result: this.result
+      status: this.status, winner: this.winner, result: this.result,
+      terminal: this.terminal
     };
   }
   clone() { return new ChessGame(this.serialize()); }

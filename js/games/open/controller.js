@@ -1,4 +1,4 @@
-import { XiangqiGame } from '../xiangqi/engine.js';
+import { XiangqiGame, XQ_RULES_VERSION } from '../xiangqi/engine.js';
 import { chooseXiangqiMove } from '../xiangqi/ai.js';
 import { ChessGame } from '../chess/adapter.js';
 import { chooseChessMove } from '../chess/ai.js';
@@ -78,7 +78,11 @@ export class OpenGameController {
   resumeSession(session) {
     this.dispose();
     this.session = session;
+    if (session.engine.status === 'finished' && !session.completedAt) {
+      session.completedAt = Date.now();
+    }
     sounds.setMaterial(session.gameType);
+    this.persist();
     this.render();
     if (this.isAiTurn()) this.scheduleAi();
   }
@@ -243,6 +247,27 @@ export class OpenGameController {
       s.gameId === gameId && s.gameType === gameType && this.isAiTurn();
   }
 
+  resign(side) {
+    const s = this.session;
+    if (!s || s.engine.status !== 'in_progress') return false;
+    this.aiToken++;
+    if (this.aiTimer) clearTimeout(this.aiTimer);
+    if (this.aiWorker) this.aiWorker.terminate();
+    this.aiTimer = null;
+    this.aiWorker = null;
+    this.busy = false;
+    this.selected = null;
+    const result = s.engine.resign?.(side);
+    if (!result?.ok) return false;
+    s.updatedAt = Date.now();
+    s.completedAt = Date.now();
+    this.persist();
+    this.render();
+    sounds.victory();
+    this.host.onOpenGameEnd();
+    return true;
+  }
+
   render() {
     const s = this.session;
     if (!s) return;
@@ -279,7 +304,7 @@ export class OpenGameController {
       completedAt: s.completedAt, status: state.status,
       winner: state.winner, result: state.result, moveCount: state.history.length,
       rulesVersion: s.gameType === 'xiangqi'
-        ? 'xiangqi-family-v1'
+        ? XQ_RULES_VERSION
         : s.gameType === 'gomoku' ? GOMOKU_RULES_VERSION : 'chess.js-1.4.0',
       serializedState: state, opening: clone(s.opening), history: clone(state.history)
     };
@@ -298,7 +323,8 @@ export class OpenGameController {
 export function replayOpenRecord(record, step) {
   const game = createEngine(record.gameType, record.opening);
   for (const move of (record.history || []).slice(0, step)) {
-    game.move(move.from, move.to, move.promotion);
+    if (move.resign) game.resign(move.side);
+    else game.move(move.from, move.to, move.promotion);
   }
   return game;
 }

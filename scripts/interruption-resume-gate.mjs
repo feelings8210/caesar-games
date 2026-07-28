@@ -9,7 +9,7 @@ import {
 
 const port = 8109;
 const origin = `http://127.0.0.1:${port}`;
-const outputDir = path.resolve('review/v2.0.3-pre-travel');
+const outputDir = path.resolve('review/v2.0.4-hotfix');
 fs.mkdirSync(outputDir, { recursive: true });
 
 const server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], {
@@ -26,7 +26,7 @@ const engines = [
     executablePath: '/Users/cdmini/Library/Caches/ms-playwright/webkit-2287/pw_run.sh'
   }]
 ];
-const report = { build: 'v2.0.3', generatedAt: new Date().toISOString(), engines: {} };
+const report = { build: 'v2.0.4', generatedAt: new Date().toISOString(), engines: {} };
 
 const check = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -239,12 +239,49 @@ try {
       result.scenarios.gomokuPlacement.flyers === 0,
     `${name}: Gomoku placement reload was not canonical`);
 
+    // Resigning while an opening AI job is pending cancels that job and the
+    // terminal winner/reason survives reload without a post-resign move.
+    await fresh(page);
+    const resignationId = await page.evaluate(() => {
+      const app = window.caesarApp;
+      app.startOpenGame('xiangqi', {
+        mode: 'vs_computer', player1Name: 'Caesar', player2Name: 'Computer',
+        humanSide: 'b', aiDifficulty: 'standard'
+      });
+      return app.openGame.session.gameId;
+    });
+    await page.locator('#btn-resign').click();
+    await page.locator('#confirm.is-open').waitFor();
+    await page.locator('#btn-confirm-ok').click();
+    await page.locator('#game-end.is-open').waitFor();
+    await page.waitForTimeout(1200);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.evaluate(gameId => window.caesarApp.resumeGame(gameId), resignationId);
+    await page.locator('#game-end.is-open').waitFor();
+    result.scenarios.resignation = await page.evaluate(gameId => ({
+      sameGame: window.caesarApp.openGame.session.gameId === gameId,
+      status: window.caesarApp.openGame.session.engine.status,
+      winner: window.caesarApp.openGame.session.engine.winner,
+      result: window.caesarApp.openGame.session.engine.result,
+      history: window.caesarApp.openGame.session.engine.history.length,
+      resign: window.caesarApp.openGame.session.engine.history.at(-1)?.resign,
+      flyers: document.querySelectorAll('.open-flyer').length
+    }), resignationId);
+    check(result.scenarios.resignation.sameGame &&
+      result.scenarios.resignation.status === 'finished' &&
+      result.scenarios.resignation.winner === 'r' &&
+      result.scenarios.resignation.result === 'resignation' &&
+      result.scenarios.resignation.history === 1 &&
+      result.scenarios.resignation.resign &&
+      result.scenarios.resignation.flyers === 0,
+    `${name}: resignation did not cancel AI or survive reload`);
+
     // Replay state and timer are presentation-only and disappear on reload.
     await page.evaluate(gameId => {
       window.caesarApp.goHome();
       window.caesarApp.openRecord(gameId);
       window.caesarApp.replayToggle();
-    }, gomokuId);
+    }, resignationId);
     await page.locator('[data-dialog="record"].is-open').waitFor();
     await page.reload({ waitUntil: 'networkidle' });
     result.scenarios.replay = await page.evaluate(() => ({
@@ -312,5 +349,5 @@ try {
 }
 
 const passed = Object.values(report.engines).every(engine =>
-  Object.keys(engine.scenarios).length === 7 && engine.runtimeErrors.length === 0);
+  Object.keys(engine.scenarios).length === 8 && engine.runtimeErrors.length === 0);
 if (!passed) process.exitCode = 1;

@@ -7,7 +7,7 @@ import { webkit } from '/Users/cdmini/.cache/codex-runtimes/codex-primary-runtim
 
 const port = 8108;
 const origin = `http://127.0.0.1:${port}`;
-const outputDir = path.resolve('review/v2.0.3-pre-travel');
+const outputDir = path.resolve('review/v2.0.4-hotfix');
 const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'caesar-cold-start-'));
 fs.mkdirSync(outputDir, { recursive: true });
 
@@ -18,8 +18,8 @@ const launchOptions = {
 const viewport = { width: 1180, height: 820 };
 const report = {
   gate: 'fully closed WebKit process, unreachable origin, fresh offline process',
-  build: 'v2.0.3',
-  cache: 'caesar-games-v2.0.3',
+  build: 'v2.0.4',
+  cache: 'caesar-games-v2.0.4',
   generatedAt: new Date().toISOString(),
   online: {},
   offline: {},
@@ -282,15 +282,15 @@ const boards = [
   report.offline.chess, report.offline.gomoku
 ];
 const passed =
-  report.online.build?.includes('v2.0.3') &&
-  report.online.cacheNames?.includes('caesar-games-v2.0.3') &&
+  report.online.build?.includes('v2.0.4') &&
+  report.online.cacheNames?.includes('caesar-games-v2.0.4') &&
   report.online.savedGames >= 4 &&
   report.online.processFullyClosed &&
   report.online.originUnreachableAfterShutdown &&
   report.offline.freshProcess &&
   report.offline.homeLoaded &&
-  report.offline.build?.includes('v2.0.3') &&
-  report.offline.cacheNames?.includes('caesar-games-v2.0.3') &&
+  report.offline.build?.includes('v2.0.4') &&
+  report.offline.cacheNames?.includes('caesar-games-v2.0.4') &&
   report.offline.libraryRows >= 4 &&
   report.offline.onlySameOriginResources &&
   boards.every(board => board?.width > 0 && board?.height > 0 && board?.visiblePieces > 0) &&

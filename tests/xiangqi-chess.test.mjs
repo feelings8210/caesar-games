@@ -99,7 +99,95 @@ test('Check is detected from a chariot', () => {
   assert.equal(isInCheck(b, 'r'), true);
 });
 
-test('No legal move is a loss even without check', () => {
+test('Check with a legal General escape remains playable', () => {
+  const b = board([
+    ['0,4','b','g'],['9,4','r','g'],['5,4','r','s'],['2,4','r','r']
+  ]);
+  assert.equal(isInCheck(b, 'b'), true);
+  assert.equal(legalMovesFor(b, 'b').some(m =>
+    m.from === '0,4' && ['0,3', '0,5'].includes(m.to)), true);
+  assert.equal(new XiangqiGame({ board: b, turn: 'b' }).status, 'in_progress');
+});
+
+test('Check can be removed by capturing the checking piece', () => {
+  const b = board([
+    ['0,4','b','g'],['0,3','b','a'],['9,4','r','g'],['5,4','r','s'],
+    ['1,4','r','r']
+  ]);
+  assert.equal(isInCheck(b, 'b'), true);
+  assert.equal(legalMovesFor(b, 'b').some(m => m.from === '0,3' && m.to === '1,4'), true);
+});
+
+test('Check can be removed by interposing a blocker', () => {
+  const b = board([
+    ['0,4','b','g'],['1,3','b','r'],['9,4','r','g'],['5,4','r','s'],
+    ['3,4','r','r']
+  ]);
+  assert.equal(isInCheck(b, 'b'), true);
+  assert.equal(legalMovesFor(b, 'b').some(m => m.from === '1,3' && m.to === '1,4'), true);
+});
+
+test('True Xiangqi checkmate is terminal without General capture', () => {
+  const game = new XiangqiGame({
+    board: board([
+      ['0,4','b','g'],['9,4','r','g'],['5,4','r','s'],
+      ['1,3','r','r'],['1,5','r','r'],['2,4','r','r']
+    ]),
+    turn: 'b'
+  });
+  assert.equal(game.inCheck('b'), true);
+  assert.equal(game.status, 'finished');
+  assert.equal(game.result, 'checkmate');
+  assert.equal(game.winner, 'r');
+  assert.equal(game.board['0,4'].kind, 'g');
+  assert.equal(game.legalMoves().length, 0);
+});
+
+test('Xiangqi stalemate 困毙 is a loss for the side with zero legal moves', () => {
+  const game = new XiangqiGame({
+    board: board([
+      ['0,4','b','g'],['9,4','r','g'],['5,4','r','s'],
+      ['2,3','r','r'],['2,5','r','r'],['1,0','r','r']
+    ]),
+    turn: 'b'
+  });
+  assert.equal(game.inCheck('b'), false);
+  assert.equal(game.status, 'finished');
+  assert.equal(game.result, 'stalemate');
+  assert.equal(game.winner, 'r');
+});
+
+test('Double-cannon mating pattern is terminal with no phantom evasion', () => {
+  const game = new XiangqiGame({
+    board: board([
+      ['0,4','b','g'],['9,4','r','g'],
+      ['1,3','r','r'],['1,5','r','r'],
+      ['2,4','r','c'],['3,4','r','c']
+    ]),
+    turn: 'b'
+  });
+  assert.equal(game.inCheck('b'), true);
+  assert.equal(game.status, 'finished');
+  assert.equal(game.result, 'checkmate');
+  assert.equal(game.winner, 'r');
+});
+
+test('A zero-response Xiangqi save normalizes to a terminal result on resume', () => {
+  const serialized = {
+    board: board([
+      ['0,4','b','g'],['9,4','r','g'],['5,4','r','s'],
+      ['2,3','r','r'],['2,5','r','r'],['1,0','r','r']
+    ]),
+    turn: 'b',
+    status: 'in_progress',
+    history: []
+  };
+  const resumed = new XiangqiGame(serialized);
+  assert.equal(resumed.status, 'finished');
+  assert.equal(resumed.result, 'stalemate');
+});
+
+test('Zero legal replies after a completed move immediately declare a winner', () => {
   const game = new XiangqiGame({
     board: board([
       ['0,4','b','g'],['9,4','r','g'],['5,4','r','s'],
@@ -168,6 +256,20 @@ test('Xiangqi Standard takes an exposed General immediately', () => {
   });
   const move = chooseXiangqiMove(game.serialize(), 'standard');
   assert.deepEqual([move.from, move.to], ['1,4', '0,4']);
+});
+
+test('Xiangqi resignation is terminal and survives serialization', () => {
+  const game = new XiangqiGame();
+  const result = game.resign('r');
+  assert.equal(result.ok, true);
+  assert.equal(game.status, 'finished');
+  assert.equal(game.winner, 'b');
+  assert.equal(game.result, 'resignation');
+  assert.equal(game.history.at(-1).resign, true);
+  const resumed = new XiangqiGame(game.serialize());
+  assert.equal(resumed.status, 'finished');
+  assert.equal(resumed.result, 'resignation');
+  assert.equal(chooseXiangqiMove(resumed.serialize(), 'standard'), null);
 });
 
 test('Chess initial state and standard piece movement are authoritative', () => {
@@ -283,6 +385,19 @@ test('Chess Standard converts a forced mate in one', () => {
   const result = game.move(move.from, move.to, move.promotion);
   assert.equal(result.status, 'finished');
   assert.equal(result.result, 'checkmate');
+});
+
+test('Chess resignation is terminal, persisted and stops AI', () => {
+  const game = new ChessGame();
+  const result = game.resign('w');
+  assert.equal(result.ok, true);
+  assert.equal(game.status, 'finished');
+  assert.equal(game.winner, 'b');
+  assert.equal(game.result, 'resignation');
+  const resumed = new ChessGame(game.serialize());
+  assert.equal(resumed.status, 'finished');
+  assert.equal(resumed.result, 'resignation');
+  assert.equal(chooseChessMove(resumed.serialize(), 'standard'), null);
 });
 
 console.log(`\nCaesar Games — Xiangqi + Chess rules: ${passed} passed, ${failed} failed\n`);

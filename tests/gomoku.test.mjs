@@ -105,4 +105,17 @@ test('both AI modes stay legal and bounded', () => {
   }
 });
 
+test('resignation is terminal, persisted and stops AI', () => {
+  const game = new GomokuGame();
+  game.move(null, '7,7');
+  const result = game.resign('w');
+  assert.equal(result.ok, true);
+  assert.equal(game.status, 'finished');
+  assert.equal(game.winner, 'b');
+  assert.equal(game.result, 'resignation');
+  const resumed = new GomokuGame(game.serialize());
+  assert.equal(resumed.result, 'resignation');
+  assert.equal(chooseGomokuMove(resumed.serialize(), 'standard'), null);
+});
+
 console.log(`Caesar Games — Gomoku rules & AI: ${passed} passed, 0 failed`);

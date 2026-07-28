@@ -118,6 +118,7 @@
       <div id="play-controls" class="control-stack is-hidden">
         <p id="move-counter" class="move-counter"></p>
         <button id="btn-replay-move" class="btn btn-quiet is-hidden" type="button" data-i18n="play.replayMove">Replay last move</button>
+        <button id="btn-resign" class="btn btn-quiet is-hidden" type="button" data-i18n="play.resign">Resign</button>
       </div>
     </aside>
   </div>
@@ -266,7 +267,7 @@
 
 <div id="confirm" class="overlay">
   <div class="overlay-card">
-    <h2 data-i18n="library.deleteTitle">Delete game</h2>
+    <h2 id="confirm-title" data-i18n="library.deleteTitle">Delete game</h2>
     <p id="confirm-text" class="end-detail"></p>
     <div class="end-actions">
       <button id="btn-confirm-ok" class="btn btn-danger" type="button" data-i18n="library.deleteConfirm">Delete</button>

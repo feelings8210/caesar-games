@@ -164,7 +164,7 @@ export class App {
       this.selectedGameType = rec.gameType;
       sounds.setMaterial(rec.gameType);
       this.openGame.resumeSession(session);
-      this.go(rec.status === 'finished' ? S.OPEN_END : S.OPEN_PLAY);
+      this.go(session.engine.status === 'finished' ? S.OPEN_END : S.OPEN_PLAY);
       return true;
     }
 
@@ -773,6 +773,7 @@ export class App {
     $('#play-controls').classList.toggle('is-hidden', isSetup);
     $('#btn-replay-move').classList.toggle('is-hidden',
       isSetup || !session.lastMove || session.isGameOver);
+    $('#btn-resign').classList.toggle('is-hidden', isSetup || session.isGameOver);
 
     const counter = $('#move-counter');
     counter.textContent = session.history.length
@@ -783,12 +784,13 @@ export class App {
     $('#mode-tag').textContent = modeLabel(session.mode);
   }
 
-  renderOpenChrome({ gameType, turnName, turnSide, thinking, check, moveCount }) {
+  renderOpenChrome({ gameType, status, turnName, turnSide, thinking, check, moveCount }) {
     const mount = $('#board-mount');
     mount.dataset.openGame = gameType;
     $('#setup-controls').classList.add('is-hidden');
     $('#play-controls').classList.remove('is-hidden');
     $('#btn-replay-move').classList.add('is-hidden');
+    $('#btn-resign').classList.toggle('is-hidden', status !== 'in_progress');
     $('#move-counter').textContent = moveCount ? t('record.moveCount', { n: moveCount }) : '';
     $('#turn-status').textContent = thinking
       ? t('play.thinking', { name: turnName })
@@ -826,7 +828,8 @@ export class App {
         checkmate: 'end.byCheckmate', stalemate: 'end.byStalemate',
         repetition: 'end.byRepetition', insufficient: 'end.byInsufficient',
         fifty_move: 'end.byFifty', no_legal_move: 'end.byNoLegal',
-        general: 'end.byGeneral', five: 'end.byFive', draw: 'end.draws'
+        general: 'end.byGeneral', five: 'end.byFive',
+        resignation: 'end.byResignation', draw: 'end.draws'
       };
       $('#end-reason').textContent = t(reasonKeys[engine.result] || 'end.byNoLegal');
       $('#end-memory').textContent = formatFamilyMemory(this.openGame.toRecord());
@@ -838,7 +841,9 @@ export class App {
     $('#end-winner').textContent = t('end.wins', { name: session.winnerName });
     $('#end-detail').textContent = t('end.detail', {
       p1: session.player1Name, p2: session.player2Name, n: session.history.length });
-    $('#end-reason').textContent = t(session.winReason === 'flag' ? 'end.byFlag' : 'end.byImmobile');
+    $('#end-reason').textContent = t(session.winReason === 'flag'
+      ? 'end.byFlag'
+      : session.winReason === 'resignation' ? 'end.byResignation' : 'end.byImmobile');
     $('#end-memory').textContent = formatFamilyMemory(session.toRecord());
     $('#game-end').classList.add('is-open');
   }
@@ -926,9 +931,64 @@ export class App {
   }
 
   confirmDelete(g) {
-    this._confirmTarget = g.gameId;
-    $('#confirm-text').textContent = t('library.deleteAsk', { p1: g.player1Name, p2: g.player2Name });
+    this.confirmAction({
+      title: t('library.deleteTitle'),
+      text: t('library.deleteAsk', { p1: g.player1Name, p2: g.player2Name }),
+      confirm: t('library.deleteConfirm'),
+      cancel: t('library.deleteCancel'),
+      action: () => {
+        deleteGame(g.gameId);
+        this.renderLibrary();
+      }
+    });
+  }
+
+  confirmAction({ title, text, confirm, cancel, action }) {
+    this._confirmAction = action;
+    $('#confirm-title').textContent = title;
+    $('#confirm-text').textContent = text;
+    $('#btn-confirm-ok').textContent = confirm;
+    $('#btn-confirm-cancel').textContent = cancel;
     $('#confirm').classList.add('is-open');
+  }
+
+  requestResign() {
+    let side, name, winnerName;
+    if (this.openGame.session) {
+      const s = this.openGame.session;
+      if (s.engine.status !== 'in_progress') return;
+      side = s.mode === 'vs_computer' ? s.humanSide : s.engine.turn;
+      name = this.openGame.playerForSide(side);
+      const winner = side === 'r' ? 'b' : side === 'w' ? 'b' : side === 'b'
+        ? (s.gameType === GAME_TYPES.XIANGQI ? 'r' : 'w') : null;
+      winnerName = this.openGame.playerForSide(winner);
+    } else {
+      const s = this.session;
+      if (!s || s.isGameOver || s.phase !== PHASES.PLAY) return;
+      side = s.mode === MODES.VS_AI ? 'navy' : s.controllingSide();
+      name = s.nameForSide(side);
+      winnerName = s.nameForSide(side === 'navy' ? 'red' : 'navy');
+    }
+    this.confirmAction({
+      title: t('resign.title'),
+      text: t('resign.ask', { name, winner: winnerName }),
+      confirm: t('resign.confirm'),
+      cancel: t('resign.cancel'),
+      action: () => this.performResign(side)
+    });
+  }
+
+  performResign(side) {
+    this.cancelAi();
+    if (this.openGame.session) {
+      this.openGame.resign(side);
+      return;
+    }
+    const session = this.session;
+    if (!session?.resign(side).ok) return;
+    this.persist();
+    sounds.victory();
+    this.go(S.GAME_END);
   }
 
   openRecord(gameId) {
@@ -1005,9 +1065,11 @@ export class App {
       row.className = 'record-move';
       row.classList.toggle('is-current', i + 1 === step);
       const who = m.side === firstSide ? rec.player1Name : rec.player2Name;
-      const moveText = rec.gameType === GAME_TYPES.GOMOKU
-        ? t('record.moveOpen', { piece: t('gomoku.stone'), from: '—', to: m.to })
-        : (m.san || t('record.moveOpen', { piece: m.piece, from: m.from, to: m.to }));
+      const moveText = m.resign
+        ? t('record.resigned', { name: who })
+        : rec.gameType === GAME_TYPES.GOMOKU
+          ? t('record.moveOpen', { piece: t('gomoku.stone'), from: '—', to: m.to })
+          : (m.san || t('record.moveOpen', { piece: m.piece, from: m.from, to: m.to }));
       row.innerHTML = `<span class="rm-n">${i + 1}</span>` +
         `<span class="rm-who">${escapeHtml(who)}</span>` +
         `<span class="rm-text">${escapeHtml(moveText)}</span>`;
@@ -1228,6 +1290,7 @@ export class App {
 
     on('#btn-handoff-ready', () => this.onHandoffReady(), { silent: true });
     on('#btn-replay-move', () => this.replayLastMove(), { silent: true });
+    on('#btn-resign', () => this.requestResign());
 
     on('#btn-end-again', () => {
       if (this.state === S.OPEN_END) {
@@ -1255,12 +1318,15 @@ export class App {
     on('#btn-replay-next', () => this.replaySeek(this.replay.step + 1), { silent: true });
     on('#btn-replay-play', () => this.replayToggle(), { silent: true });
 
-    on('#btn-confirm-cancel', () => $('#confirm').classList.remove('is-open'));
-    on('#btn-confirm-ok', () => {
-      if (this._confirmTarget) deleteGame(this._confirmTarget);
-      this._confirmTarget = null;
+    on('#btn-confirm-cancel', () => {
+      this._confirmAction = null;
       $('#confirm').classList.remove('is-open');
-      this.renderLibrary();
+    });
+    on('#btn-confirm-ok', () => {
+      const action = this._confirmAction;
+      this._confirmAction = null;
+      $('#confirm').classList.remove('is-open');
+      action?.();
     });
 
     $$('[data-promotion]').forEach(button => {

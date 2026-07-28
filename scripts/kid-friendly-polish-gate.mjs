@@ -9,7 +9,7 @@ import {
 
 const port = 8105;
 const origin = `http://127.0.0.1:${port}`;
-const outputDir = path.resolve('review/kid-friendly-polish');
+const outputDir = path.resolve('review/v2.0.4-hotfix/polish');
 fs.mkdirSync(outputDir, { recursive: true });
 
 const server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], {

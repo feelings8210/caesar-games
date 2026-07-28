@@ -69,6 +69,6 @@ await browser.close();
 
 if (!result.sameGame || result.width <= 0 || result.height <= 0 ||
     result.pieces <= 0 || !result.offlineAction ||
-    !result.caches.includes('caesar-games-v2.0.3')) {
+    !result.caches.includes('caesar-games-v2.0.4')) {
   process.exitCode = 1;
 }

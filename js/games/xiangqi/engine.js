@@ -3,7 +3,7 @@
  * Red's. Rendering orientation never mutates this state.
  */
 
-export const XQ_RULES_VERSION = 'xiangqi-family-v1';
+export const XQ_RULES_VERSION = 'xiangqi-family-v1.1';
 export const XQ_START = 'rheagaehr/9/1c5c1/s1s1s1s1s/9/9/S1S1S1S1S/1C5C1/9/RHEAGAEHR r';
 
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -150,6 +150,14 @@ export function legalMovesFor(board, side) {
   return moves;
 }
 
+function terminalForTurn(board, side) {
+  if (legalMovesFor(board, side).length) return null;
+  return {
+    winner: side === 'r' ? 'b' : 'r',
+    result: isInCheck(board, side) ? 'checkmate' : 'stalemate'
+  };
+}
+
 function positionKey(board, turn) {
   return `${turn}|${Object.keys(board).sort().map(k => {
     const p = board[k]; return `${k}:${p.side}${p.kind}`;
@@ -167,9 +175,22 @@ export class XiangqiGame {
     this.positions = clone(data.positions || {});
     const opening = positionKey(this.board, this.turn);
     if (!Object.keys(this.positions).length) this.positions[opening] = 1;
+    // Old saves may contain an in-progress position whose side to move already
+    // has no legal reply. Normalize it on load so Continue can never restore a
+    // dead, non-terminal board.
+    if (this.status === 'in_progress') {
+      const terminal = terminalForTurn(this.board, this.turn);
+      if (terminal) {
+        this.status = 'finished';
+        this.winner = terminal.winner;
+        this.result = terminal.result;
+      }
+    }
   }
 
-  legalMoves(side = this.turn) { return legalMovesFor(this.board, side); }
+  legalMoves(side = this.turn) {
+    return this.status === 'in_progress' ? legalMovesFor(this.board, side) : [];
+  }
   legalTargets(from) { return this.legalMoves().filter(m => m.from === from).map(m => m.to); }
   inCheck(side = this.turn) { return isInCheck(this.board, side); }
 
@@ -193,10 +214,11 @@ export class XiangqiGame {
     if (captured?.kind === 'g') {
       this.status = 'finished'; this.winner = actingSide; this.result = 'general';
     } else {
-      const replies = this.legalMoves();
-      if (!replies.length) {
-        this.status = 'finished'; this.winner = actingSide;
-        this.result = givesCheck ? 'checkmate' : 'no_legal_move';
+      const terminal = terminalForTurn(this.board, this.turn);
+      if (terminal) {
+        this.status = 'finished';
+        this.winner = terminal.winner;
+        this.result = terminal.result;
       } else {
         const pk = positionKey(this.board, this.turn);
         this.positions[pk] = (this.positions[pk] || 0) + 1;
@@ -206,6 +228,26 @@ export class XiangqiGame {
       }
     }
     return { ok: true, ...entry, capture: !!captured, status: this.status, result: this.result };
+  }
+
+  resign(side = this.turn) {
+    if (this.status !== 'in_progress' || !['r', 'b'].includes(side)) return { ok: false };
+    const winner = side === 'r' ? 'b' : 'r';
+    const entry = {
+      n: this.history.length + 1,
+      side,
+      piece: null,
+      from: null,
+      to: null,
+      resign: true,
+      capture: false,
+      check: false
+    };
+    this.history.push(entry);
+    this.status = 'finished';
+    this.winner = winner;
+    this.result = 'resignation';
+    return { ok: true, ...entry, status: this.status, winner, result: this.result };
   }
 
   serialize() {

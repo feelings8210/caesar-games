@@ -110,6 +110,25 @@ export class GomokuGame {
     };
   }
 
+  resign(side = this.turn) {
+    if (this.status !== 'in_progress' || !['b', 'w'].includes(side)) return { ok: false };
+    const winner = other(side);
+    const move = {
+      n: this.history.length + 1,
+      side,
+      piece: null,
+      from: null,
+      to: null,
+      resign: true,
+      capture: false
+    };
+    this.history.push(move);
+    this.status = 'finished';
+    this.winner = winner;
+    this.result = 'resignation';
+    return { ok: true, ...move, status: this.status, winner, result: this.result };
+  }
+
   serialize() {
     return {
       board: clone(this.board),
