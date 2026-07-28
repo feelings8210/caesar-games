@@ -1,139 +1,107 @@
-CAESAR GAMES — AI STRENGTH + FLIP MOTION DIRECTION HOTFIX
-Build v2.0.1 · 2026-07-28
+CAESAR GAMES — PRE-TRAVEL FINAL HARDENING
+Build v2.0.2 · 2026-07-28
 
-AI_AUDIT:
-  PASS — Standard was genuinely shallow in all three games and is now
-  materially deeper/better. Relaxed remains child-friendly and randomized.
+SAFE_EXIT_GAME_SWITCHING:
+  PASS — Home, game-to-game switching, Games Library, Continue, and new-game
+  paths preserve independent unfinished and historical records. Resume now
+  constructs a complete candidate before releasing the healthy live session.
 
-JUNQI_RELAXED_STRENGTH:
-  PASS — legal one-ply heuristic choice with meaningful randomness.
+IPAD_TOUCH_HARDENING:
+  PASS — game boards suppress selection, drag, scroll gestures, callouts, and
+  context behavior. Suppression is board-scoped; page zoom and Learn/Record
+  scrolling remain available. WebKit landscape safe-area and positive rendered
+  geometry checks pass. This is automated WebKit evidence, not physical-iPad
+  acceptance.
 
-JUNQI_STANDARD_STRENGTH:
-  PASS — deterministic sanitized-observation scoring with public probability,
-  safer captures, reply pressure, mobility, flag, mine, engineer, camp and
-  railway strategy.
+AUDIO_LIFECYCLE:
+  PASS — audio unlocks on real gestures, wakes on visible/pageshow, recreates a
+  closed context after interruption, persists mute, and remains decorative.
+  Fresh-process offline WebKit audio ran with local select/capture cues and no
+  doubled or stale cross-game cue failures.
 
-JUNQI_NO_CHEATING_TEST:
-  PASS — concealed identity swap produces the identical Standard decision;
-  unknown name, rank, static status and encoded ID remain unavailable.
+INTERRUPTION_RESUME_SAFETY:
+  PASS — Junqi human, reveal, and AI turns are advanced and persisted as one
+  canonical transaction before presentation. Reload during human animation
+  resumes exactly one AI reply; reload during AI animation restores the human
+  turn with no duplicate. Ready restores the privacy shield. Capture, Replay,
+  and game-end reloads restore canonical state with no flyer, ghost, transient
+  replay timer, stale modal, wrong turn, or duplicate move.
 
-XIANGQI_RELAXED_STRENGTH:
-  PASS — randomized choice from six sound one-ply candidates.
+STORAGE_CORRUPTION_SAFETY:
+  PASS — complete records are normalized and validated before replacement.
+  Malformed records are skipped individually; whole-payload corruption falls
+  back to a last-good copy. Quota failure leaves the in-memory game playable
+  and does not wipe unrelated history.
 
-XIANGQI_STANDARD_STRENGTH:
-  PASS — bounded iterative selective alpha-beta through measured depth 4,
-  attack/defense maps, hanging avoidance, General safety, checks, cannon/horse
-  legality, material, activity, soldier advancement and tactical ordering.
+TRAVEL_OFFLINE_COLD_START:
+  PASS FOR THE v2.0.2 RELEASE CANDIDATE — WebKit installed the complete cache,
+  saved all three games, fully terminated its browser process, confirmed the
+  origin unreachable, and launched a fresh process. Home, Library, Continue,
+  Junqi, Xiangqi, Chess, one move per game, local Junqi AI, sound, and positive
+  board geometry all passed from disk. Production v2.0.2 cold-start verification
+  remains pending only because the publishing guard blocked the push.
 
-CHESS_RELAXED_STRENGTH:
-  PASS — randomized choice from seven sound one-ply candidates.
+JUNQI_NON_REGRESSION:
+  PASS — rules/session/AI 68/68; rendered Chromium and WebKit coverage includes
+  Classic setup/privacy/current-player-bottom/Last Move, Flip orientation and
+  direction, Vs Computer, hidden-information boundary, persistence, sound,
+  motion, records, replay, interruption, and offline AI.
 
-CHESS_STANDARD_STRENGTH:
-  PASS — bounded iterative alpha-beta through measured depth 4, mate/capture/
-  check/promotion/castling ordering, material/activity/pawn/bishop-pair/
-  king-safety evaluation and forced-mate coverage.
+XIANGQI_NON_REGRESSION:
+  PASS — legal rules, two-player orientation, Vs Computer AI, capture motion,
+  Continue, Record/Replay, persistence, geometry, and offline moves pass in
+  Chromium and WebKit.
 
-AI_RESPONSE_TIME:
-  PASS — compute medians Relaxed/Standard:
-  Chess 4.5 / 826.2 ms; Xiangqi 63.8 / 935.6 ms; Junqi 0.7 / 10.1 ms.
-  Complete Standard browser replies:
-  Chromium Xiangqi 1433.5 ms, Chess 1735.0 ms;
-  WebKit Xiangqi 1140.0 ms, Chess 1728.0 ms.
-  Chess/Xiangqi search runs in a cancellable module worker.
-
-FLIP_MOTION_ROOT_CAUSE:
-  CONFIRMED — centering translate, rotate(180deg), and travel translate shared
-  one transform context, inverting top-face local motion axes.
-
-FLIP_LEFT_RIGHT_TEST:
-  PASS — both armies, both face directions, Chromium and WebKit; mid-path dx
-  sign always matches logical left/right.
-
-FLIP_UP_DOWN_TEST:
-  PASS — both armies, both face directions, Chromium and WebKit; mid-path dy
-  sign always matches logical up/down across rows 5↔6.
-
-FLIP_TOP_SIDE_ROTATION_TEST:
-  PASS — shell translates in screen coordinates while child face remains
-  rotated 180°; 32/32 path assertions, no arc, correction, or snap-back.
+CHESS_NON_REGRESSION:
+  PASS — legal rules, captures, promotion, castling, check/end state, Vs
+  Computer AI, Record/Replay, persistence, geometry, and offline moves pass in
+  Chromium and WebKit.
 
 CHROMIUM_E2E:
-  PASS — Junqi 63/63; Xiangqi/Chess/shared 17/17; motion 16/16.
+  PASS — Junqi/shared 70/70; Xiangqi/Chess/shared 21/21; interruption/reload
+  6/6; zero runtime errors; final rendered board 381.75×468.46 with 32 pieces.
 
 WEBKIT_E2E:
-  PASS — Junqi 63/63; Xiangqi/Chess/shared 17/17; motion 16/16.
+  PASS — Junqi/shared 70/70; Xiangqi/Chess/shared 21/21; interruption/reload
+  6/6; zero runtime errors; final rendered board 381.75×468.46 with 32 pieces.
 
-NON_REGRESSION:
-  PASS — Junqi rules/session/AI 68/68; Xiangqi/Chess rules/AI 37/37;
-  Classic, Flip, Xiangqi, Chess, Games, Continue, bilingual UI, sound,
-  persistence, records/replay, cross-game transitions and stale-AI isolation.
+FAMILY_GAME_MEMORY:
+  IMPLEMENTED — finished result and Record surfaces show one quiet bilingual
+  line using existing player, move-count, and completion-date metadata.
 
-OFFLINE_STATUS:
-  PASS — WebKit installed caesar-games-v2.0.1, server was stopped and confirmed
-  unreachable, cached app resumed the same Xiangqi game with 32 pieces and
-  completed another legal move.
+THREE_MATERIAL_SOUND_FLAVORS:
+  DEFERRED_NOT_BLOCKING — current shared local sound vocabulary is stable.
+  Per-game timbre retuning immediately before travel adds subjective risk and
+  is not required for any P0 gate.
 
 BUILD_VERSION:
-  v2.0.1 / caesar-games-v2.0.1
+  v2.0.2
+
+SERVICE_WORKER_VERSION:
+  caesar-games-v2.0.2
 
 PRODUCTION_COMMIT:
-  Final main/HEAD commit is reported in the task result.
+  RELEASE CANDIDATE 94d076b. Current GitHub Pages production remains 36c341b
+  (v2.0.0) because this environment blocked external publication.
 
 PAGES_STATUS:
-  BLOCKED BY PUBLISHING GUARD — production remains verified at v2.0.0.
-  Local v2.0.1 release state is clean. Exact owner command:
-  git push origin main
+  PUBLISH BLOCKED BY GLOBAL GUARD — production was verified online at
+  https://feelings8210.github.io/caesar-games/ and still reports v2.0.0.
+  Exact owner command: git push origin main
 
 KNOWN_REMAINING_ISSUES:
-  No known automated software blocker. This environment rejected external
-  push, so Pages cannot deploy or be verified until the owner runs the command
-  above. Physical iPad timing/feel remains the owner smoke test; local bounded
-  AI is not represented as tournament grade.
+  No known automated software blocker. The owner push and subsequent production
+  v2.0.2 cold-start confirmation remain. Physical iPad/Home-Screen and real
+  travel feel remain the owner’s final smoke test. No physical-device
+  acceptance is claimed here.
 
-READY_FOR_OWNER_SHORT_SMOKE_TEST:
-  YES after owner push and GitHub Pages serves v2.0.1.
+READY_FOR_OWNER_FINAL_TRAVEL_SMOKE_TEST:
+  YES — after the owner pushes main and Pages serves v2.0.2.
 
-KID_FRIENDLY_MOTION_SOUND_POLISH:
-  PASS — one calm physical-tabletop language now covers Junqi, Xiangqi and
-  Chess selection, destination reveal, true travel, contact, capture removal,
-  invalid resistance, Quick Setup settling, check and result transitions.
-
-JUNQI_REVEAL:
-  PASS — 225ms lift/squeeze/midpoint face change/settle. Top-owner orientation
-  stays on the face child; all four rotated-piece travel directions remain
-  correct with exact final state.
-
-XIANGQI_MOTION:
-  PASS — 215ms disc travel, target held until contact, short compression/fade,
-  exact final state and one-time General/palace check emphasis.
-
-CHESS_MOTION:
-  PASS — lighter 185ms travel, contact capture, pawn-first promotion
-  transformation, and coherent king+rook castling with a pass-by lift.
-
-SOUND_PALETTE:
-  PASS — local Web Audio uses filtered material strikes and damped custom
-  multi-harmonic bodies for tap, select, place, capture, invalid, reveal,
-  check, pass/ready, Quick Setup and warm victory. Subtle bounded variation is
-  applied; there is no loss buzzer, runtime network, or third-party sound pack.
-
-SOUND_QA:
-  PASS — contact-timed cues, exact cue counts, intended invalid feedback,
-  duplicate Quick Setup suppression, stale-AI suppression, and persistent mute
-  across reload/game switch/offline. All state remains visible while muted.
-
-POLISH_BROWSER_QA:
-  PASS — dedicated Chromium + WebKit gate 36/36 with 36 initial/mid/final
-  frames; rendered E2E Chromium and WebKit: Junqi 64/64 each,
-  Xiangqi/Chess/shared shell 21/21 each.
-
-REDUCED_MOTION:
-  PASS — real reduced-motion contexts collapse JavaScript and CSS motion to
-  1ms while preserving exact visible final state.
-
-POLISH_EVIDENCE:
-  review/kid-friendly-polish/REPORT.md
-  review/kid-friendly-polish/POLISH_QA.json
-  review/kid-friendly-polish/*.png
+EVIDENCE:
+  review/v2.0.2-pre-travel/QA_SUMMARY.md
+  review/v2.0.2-pre-travel/BROWSER_E2E.json
+  review/v2.0.2-pre-travel/INTERRUPTION_RESUME.json
+  review/v2.0.2-pre-travel/COLD_START_OFFLINE.json
 
 TERMINAL_TAB: CLOSE
