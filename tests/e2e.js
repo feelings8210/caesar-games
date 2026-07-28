@@ -331,7 +331,7 @@ export async function runE2E({ verbose = false } = {}) {
   await T('Quick setup produces a different, still-legal formation', async () => {
     const before = JSON.stringify(app().session.boardState);
     tap('#btn-quick-setup');
-    await sleep(80);
+    await waitFor(() => !app()._busy, { label: 'Quick Setup settles' });
     ok(app().session.validateCurrentFormation().valid, 'quick setup must be legal');
     ok(JSON.stringify(app().session.boardState) !== before, 'quick setup should rearrange');
     eq($$('.bv-piece.is-face').length, 25);
@@ -340,8 +340,10 @@ export async function runE2E({ verbose = false } = {}) {
   await T('Reset restores the formation this player started from', async () => {
     const s = app().session;
     const baseline = JSON.stringify(s.setupBaseline);
-    tap('#btn-quick-setup'); await sleep(60);
-    tap('#btn-reset-setup'); await sleep(60);
+    tap('#btn-quick-setup');
+    await waitFor(() => !app()._busy, { label: 'Quick Setup before reset' });
+    tap('#btn-reset-setup');
+    await waitFor(() => !app()._busy, { label: 'Reset settles' });
     const now = {};
     for (const [k, p] of Object.entries(s.boardState)) if (p.side === s.setupSide) now[k] = p;
     eq(Object.keys(now).length, 25);
@@ -357,7 +359,11 @@ export async function runE2E({ verbose = false } = {}) {
     tap(`.bv-node[data-key="${flagKey}"]`);
     await sleep(30);
     tap(`.bv-node[data-key="${plain}"]`);
-    await sleep(60);
+    await sleep(20);
+    const resistance = $(`.bv-node[data-key="${flagKey}"] .bv-piece`).getAnimations();
+    ok(resistance.some(animation => animation.effect.getTiming().duration === 125),
+      'invalid setup move needs a short physical resistance cue');
+    await sleep(50);
     ok(isVisible($('#toast')), 'the player must be told why');
     ok(/Headquarters/i.test($('#toast').textContent), `unhelpful message: ${$('#toast').textContent}`);
     eq(s.boardState[flagKey].name, '军旗', 'the flag must not have moved');
@@ -578,6 +584,40 @@ export async function runE2E({ verbose = false } = {}) {
     ok(Math.abs(afterTop - beforeTop) < 2, 'stations must not move between turns');
   });
 
+  await T('flip: top-owner reveal turns at midpoint without rotating its shell', async () => {
+    const s = app().session;
+    const { sounds } = await import('../js/engine/sound.js');
+    const seat2Side = s.assignedColors.p2;
+    const key = Object.keys(s.boardState).find(k =>
+      !s.boardState[k].revealed && s.boardState[k].side === seat2Side);
+    ok(key, 'a concealed top-owner piece exists');
+    sounds.clearAudit();
+    tap(`.bv-node[data-key="${key}"]`);
+    const flyer = await waitFor(() => $('.bv-reveal-flyer'), {
+      label: 'reveal flyer'
+    });
+    ok(flyer.classList.contains('is-back'), 'reveal begins with the concealed back');
+    await waitFor(() => $('.bv-reveal-flyer.is-face.faces-top'), {
+      label: 'reveal midpoint face'
+    });
+    const midFlyer = $('.bv-reveal-flyer');
+    const shellTransform = getComputedStyle(midFlyer).transform;
+    const faceTransform = getComputedStyle(midFlyer.querySelector('.bv-face')).transform;
+    no(/matrix\(-1,\s*0,\s*0,\s*-1/.test(shellTransform),
+      `orientation leaked onto reveal shell: ${shellTransform}`);
+    no(faceTransform === 'none', 'top-owner reveal face must be owner-oriented');
+    eq(getComputedStyle($(`.bv-node[data-key="${key}"] .bv-piece`)).visibility, 'hidden',
+      'settled piece stays hidden during reveal motion');
+    await waitFor(() => !$('.bv-reveal-flyer') && !app().board.animating, {
+      timeout: 4000, label: 'reveal settles'
+    });
+    ok($(`.bv-node[data-key="${key}"] .bv-piece`).classList.contains('faces-top'),
+      'final revealed piece preserves top-owner orientation');
+    const cues = sounds.getAudit().filter(entry => entry.played).map(entry => entry.cue);
+    eq(cues.filter(cue => cue === 'reveal').length, 1, 'one reveal cue');
+    eq(cues.filter(cue => cue === 'place').length, 0, 'no duplicate place cue');
+  });
+
   await T('flip: revealed armies face opposite directions, by owner not by square', async () => {
     const s = app().session;
     // Reveal a good number of pieces so both armies are represented.
@@ -681,10 +721,21 @@ export async function runE2E({ verbose = false } = {}) {
     assertBoardGeometry('Vs Computer setup');
     eq(visiblePieceCount('.bv-piece.is-face.side-navy'), 25, 'visible own setup pieces');
 
+    const { sounds } = await import('../js/engine/sound.js');
+    sounds.clearAudit();
     tap('#btn-quick-setup');
-    await sleep(100);
+    tap('#btn-quick-setup');
+    await waitFor(() => $$('.bv-piece').some(piece => piece.getAnimations().length), {
+      label: 'coordinated Quick Setup motion'
+    });
+    ok($$('.bv-piece').some(piece =>
+      piece.getAnimations().some(animation => animation.effect.getTiming().duration === 205)),
+    'Quick Setup uses the shared short settling duration');
+    await sleep(320);
     assertBoardGeometry('Vs Computer Quick Setup');
     eq(visiblePieceCount('.bv-piece.is-face.side-navy'), 25, 'visible pieces after Quick Setup');
+    eq(sounds.getAudit().filter(entry => entry.played && entry.cue === 'shuffle').length, 1,
+      'double-tapped Quick Setup has one coordinated tabletop cue');
 
     tap('#btn-reset-setup');
     await sleep(100);

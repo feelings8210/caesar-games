@@ -171,6 +171,7 @@ export class App {
   leaveSession() {
     this.cancelAi();
     this.board.cancelAnimations();
+    this._busy = false;
     if (this.session) {
       this.persist();
       this.session.dispose();
@@ -259,7 +260,12 @@ export class App {
     const before = session.selected;
     const res = session.setupTap(k);
 
-    if (!res.ok) { sounds.invalid(); this.flash(res.reason); return; }
+    if (!res.ok) {
+      sounds.invalid();
+      void this.board.nudge(session.selected || k);
+      this.flash(res.reason);
+      return;
+    }
     if (res.selected) { sounds.select(); this.render(); return; }
     if (res.deselected) { sounds.tap(); this.render(); return; }
 
@@ -286,7 +292,12 @@ export class App {
       const check = piece.static
         ? { allowed: false, reason: t(piece.name === FLAG ? 'rule.flagStatic' : 'rule.mineStatic') }
         : { allowed: true };
-      if (!check.allowed) { sounds.invalid(); this.flash(check.reason); return; }
+      if (!check.allowed) {
+        sounds.invalid();
+        void this.board.nudge(k);
+        this.flash(check.reason);
+        return;
+      }
       session.selected = k;
       sounds.select();
       this.render();
@@ -296,7 +307,12 @@ export class App {
     if (!session.selected) return;
 
     const check = session.canMove(session.selected, k);
-    if (!check.allowed) { sounds.invalid(); this.flash(check.reason); return; }
+    if (!check.allowed) {
+      sounds.invalid();
+      void this.board.nudge(session.selected);
+      this.flash(check.reason);
+      return;
+    }
 
     await this.commitMove(session.selected, k);
   }
@@ -310,11 +326,13 @@ export class App {
       // A reveal is a whole turn: hold the input gate until it has resolved,
       // otherwise a second tap lands before the turn has changed hands.
       this._busy = true;
+      const concealed = this.board.capturePiece(k);
       session.revealPiece(k);
-      sounds.reveal();
       this.persist();
       this.render();
-      await this.board.pulse([k], 'is-pulse', 420);
+      await this.board.animateReveal(k, concealed, () => {
+        if (this.session === session && !session.disposed) sounds.reveal();
+      });
       this._busy = false;
       if (this.session !== session || session.disposed) return;
       this.afterTurn();
@@ -324,7 +342,12 @@ export class App {
     if (session.selected === k) { session.selected = null; sounds.tap(); this.render(); return; }
 
     if (piece && piece.revealed && side && piece.side === side) {
-      if (piece.static) { sounds.invalid(); this.flash(t(piece.name === FLAG ? 'rule.flagStatic' : 'rule.mineStatic')); return; }
+      if (piece.static) {
+        sounds.invalid();
+        void this.board.nudge(k);
+        this.flash(t(piece.name === FLAG ? 'rule.flagStatic' : 'rule.mineStatic'));
+        return;
+      }
       session.selected = k;
       sounds.select();
       this.render();
@@ -333,7 +356,12 @@ export class App {
 
     if (!session.selected) return;
     const check = session.canMove(session.selected, k);
-    if (!check.allowed) { sounds.invalid(); this.flash(check.reason); return; }
+    if (!check.allowed) {
+      sounds.invalid();
+      void this.board.nudge(session.selected);
+      this.flash(check.reason);
+      return;
+    }
     await this.commitMove(session.selected, k);
   }
 
@@ -355,13 +383,6 @@ export class App {
   async presentMove(session, result, token) {
     const orientationBefore = this.board.orientation;
 
-    if (result.combat) {
-      if (result.outcome === COMBAT.BOTH_REMOVED) sounds.mutualLoss();
-      else sounds.battle();
-    } else {
-      sounds.place();
-    }
-
     const faceHtml = this.flyerHtmlFor(session, result);
     await this.board.animateMove({
       from: result.from,
@@ -370,7 +391,16 @@ export class App {
       outcome: result.outcome,
       removedFrom: result.removedFrom,
       faceHtml: faceHtml.html,
-      faceClass: faceHtml.cls
+      faceClass: faceHtml.cls,
+      onContact: () => {
+        if (this.session !== session || session.disposed) return;
+        if (result.combat) {
+          if (result.outcome === COMBAT.BOTH_REMOVED) sounds.mutualLoss();
+          else sounds.battle();
+        } else {
+          sounds.place();
+        }
+      }
     });
 
     void orientationBefore; void token;
@@ -430,8 +460,37 @@ export class App {
    * Setup controls
    * ================================================================ */
 
-  onQuickSetup() { sounds.place(); this.session.quickSetup(); this.persist(); this.render(); }
-  onResetSetup() { sounds.tap(); this.session.resetSetup(); this.persist(); this.render(); }
+  async onQuickSetup() {
+    if (this._busy) return;
+    const session = this.session;
+    this._busy = true;
+    const previous = this.board.captureFormation();
+    session.quickSetup();
+    this.persist();
+    this.render();
+    try {
+      await this.board.animateFormation(previous);
+      if (this.session === session && !session.disposed) sounds.shuffle();
+    } finally {
+      if (this.session === session) this._busy = false;
+    }
+  }
+
+  async onResetSetup() {
+    if (this._busy) return;
+    const session = this.session;
+    this._busy = true;
+    const previous = this.board.captureFormation();
+    session.resetSetup();
+    this.persist();
+    this.render();
+    try {
+      await this.board.animateFormation(previous);
+      if (this.session === session && !session.disposed) sounds.place();
+    } finally {
+      if (this.session === session) this._busy = false;
+    }
+  }
 
   onReady() {
     const session = this.session;
@@ -480,13 +539,16 @@ export class App {
     }
 
     await this.board.pulse([lm.from], 'is-replay-origin', 300);
-    if (lm.combat) sounds.battle(); else sounds.place();
     await this.board.animateMove({
       from: lm.from, to: lm.to,
       combat: lm.combat,
       outcome: lm.outcome,
       removedFrom: [],
-      faceHtml: html, faceClass: cls
+      faceHtml: html, faceClass: cls,
+      onContact: () => {
+        if (this.session !== session || session.disposed) return;
+        if (lm.combat) sounds.battle(); else sounds.place();
+      }
     });
     this.render();
   }

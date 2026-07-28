@@ -536,7 +536,27 @@ button { cursor: pointer; border: none; background: none; }
   box-shadow: var(--lift-3);
   padding: 32px 30px 26px;
   text-align: center;
-  animation: rise var(--calm);
+  animation: result-enter var(--calm);
+}
+@keyframes result-enter {
+  from { transform: translateY(14px) scale(.97) }
+  72% { transform: translateY(-1px) scale(1.006) }
+  to { transform: translateY(0) scale(1) }
+}
+#promotion .overlay-card { animation: promotion-enter 220ms cubic-bezier(.2,.76,.26,1); }
+@keyframes promotion-enter {
+  from { transform: translateY(8px) scale(.975) }
+  to { transform: translateY(0) scale(1) }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog-card,
+  .handoff-card,
+  .overlay-card,
+  #promotion .overlay-card,
+  .toast.is-visible {
+    animation-duration: 1ms !important;
+  }
 }
 .overlay-card h2 { margin: 0 0 8px; font-size: 24px; font-weight: 600; letter-spacing: -.02em; }
 

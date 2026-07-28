@@ -17,6 +17,7 @@ import {
   roadNeighbors, railNeighbors, isRailAdjacent
 } from '../engine/rules.js';
 import { isPieceVisibleTo, MODES, PHASES } from '../engine/session.js';
+import { motionMs } from './motion.js';
 
 /* ------------------------------------------------------------------ *
  * Geometry
@@ -267,10 +268,12 @@ export class BoardView {
       face.textContent = piece.name;
       el.appendChild(face);
       el.setAttribute('aria-label', piece.name);
+      el.dataset.pieceId = piece.id;
     } else {
       // A concealed piece must carry no identifying data in the DOM at all.
       el.textContent = '';
       el.removeAttribute('aria-label');
+      delete el.dataset.pieceId;
       el.innerHTML = '<span class="bv-face"><span class="bv-back-mark" aria-hidden="true"></span></span>';
     }
   }
@@ -287,6 +290,108 @@ export class BoardView {
 
   /* ---------------- motion ---------------- */
 
+  capturePiece(k) {
+    return this.nodes.get(k)?.firstElementChild?.cloneNode(true) || null;
+  }
+
+  captureFormation() {
+    const positions = new Map();
+    for (const piece of this.boardEl?.querySelectorAll('.bv-piece[data-piece-id]') || []) {
+      positions.set(piece.dataset.pieceId, piece.getBoundingClientRect());
+    }
+    return positions;
+  }
+
+  async animateFormation(previous) {
+    if (!previous?.size) return;
+    const animations = [];
+    let order = 0;
+    for (const piece of this.boardEl?.querySelectorAll('.bv-piece[data-piece-id]') || []) {
+      const before = previous.get(piece.dataset.pieceId);
+      if (!before) continue;
+      const after = piece.getBoundingClientRect();
+      const dx = before.left - after.left;
+      const dy = before.top - after.top;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+      const duration = motionMs(205);
+      const delay = motionMs(Math.min(54, order * 3), 0);
+      animations.push(piece.animate([
+        { transform: `translate(${dx}px, ${dy}px) scale(.97)`, opacity: .82 },
+        { transform: 'translate(0,0) scale(1)', opacity: 1 }
+      ], {
+        duration,
+        delay,
+        easing: 'cubic-bezier(.22,.76,.28,1)',
+        fill: 'both'
+      }).finished.catch(() => {}));
+      order++;
+    }
+    await Promise.race([
+      Promise.all(animations),
+      new Promise(resolve => setTimeout(resolve, motionMs(285)))
+    ]);
+  }
+
+  nudge(k) {
+    const piece = this.nodes.get(k)?.firstElementChild;
+    if (!piece) return Promise.resolve();
+    const animation = piece.animate([
+      { transform: 'translateX(0)' },
+      { transform: 'translateX(-3px)', offset: .30 },
+      { transform: 'translateX(2px)', offset: .62 },
+      { transform: 'translateX(0)' }
+    ], {
+      duration: motionMs(125),
+      easing: 'cubic-bezier(.36,.07,.19,.97)'
+    });
+    return animation.finished.catch(() => {});
+  }
+
+  async animateReveal(k, concealedSnapshot, onMidpoint = () => {}) {
+    const target = this.nodes.get(k)?.firstElementChild;
+    const center = this.centerOf(k);
+    if (!target || !center || !concealedSnapshot) {
+      onMidpoint();
+      return;
+    }
+
+    target.style.visibility = 'hidden';
+    const flyer = concealedSnapshot;
+    flyer.classList.add('bv-reveal-flyer');
+    flyer.style.width = `${center.w * .82}px`;
+    flyer.style.height = `${center.h * .78}px`;
+    flyer.style.left = `${center.x}px`;
+    flyer.style.top = `${center.y}px`;
+    this.overlay.appendChild(flyer);
+
+    const squeeze = flyer.animate([
+      { transform: 'translate(-50%,-50%) translateY(0) scaleX(1) scaleY(1)' },
+      { transform: 'translate(-50%,-50%) translateY(-7%) scaleX(.06) scaleY(1.04)' }
+    ], {
+      duration: motionMs(105),
+      easing: 'cubic-bezier(.55,.02,.78,.38)',
+      fill: 'forwards'
+    });
+    await squeeze.finished.catch(() => {});
+
+    flyer.className = `${target.className} bv-reveal-flyer`;
+    flyer.innerHTML = target.innerHTML;
+    onMidpoint();
+
+    const expand = flyer.animate([
+      { transform: 'translate(-50%,-50%) translateY(-7%) scaleX(.06) scaleY(1.04)' },
+      { transform: 'translate(-50%,-50%) translateY(-2%) scaleX(1.035) scaleY(.985)', offset: .78 },
+      { transform: 'translate(-50%,-50%) translateY(0) scaleX(1) scaleY(1)' }
+    ], {
+      duration: motionMs(120),
+      easing: 'cubic-bezier(.18,.78,.24,1)',
+      fill: 'forwards'
+    });
+    await expand.finished.catch(() => {});
+    flyer.remove();
+    target.style.visibility = '';
+  }
+
   /**
    * Animate a piece travelling from one station to another.
    *
@@ -297,7 +402,10 @@ export class BoardView {
    *
    * @returns {Promise<void>} resolves when the motion has finished
    */
-  animateMove({ from, to, combat, outcome, removedFrom = [], faceHtml = null, faceClass = '' }) {
+  animateMove({
+    from, to, combat, outcome, removedFrom = [],
+    faceHtml = null, faceClass = '', onContact = () => {}
+  }) {
     const a = this.centerOf(from);
     const b = this.centerOf(to);
     if (!a || !b) return Promise.resolve();
@@ -305,8 +413,8 @@ export class BoardView {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const distance = Math.hypot(dx, dy);
-    const travel = Math.round(Math.min(340, Math.max(160, distance * 0.9)));
-    const total = travel + (combat ? 460 : 70);
+    const travel = motionMs(Math.round(Math.min(260, Math.max(160, distance * 0.75))));
+    const total = travel + motionMs(combat ? 260 : 70);
 
     this.animating = true;
 
@@ -362,7 +470,18 @@ export class BoardView {
       this._activeAnimations.add(cancel);
 
       timers.push(setTimeout(() => {
-        if (!combat) return finish();
+        onContact();
+        if (!combat) {
+          const settle = flyer.animate([
+            { transform: `${base} translate(${dx}px, ${dy}px) scale(1.025)` },
+            { transform: `${base} translate(${dx}px, ${dy}px) scale(1)` }
+          ], { duration: motionMs(65), easing: 'cubic-bezier(.2,.72,.28,1)' });
+          timers.push(setTimeout(() => {
+            try { settle.cancel(); } catch { /* already gone */ }
+            finish();
+          }, motionMs(65)));
+          return;
+        }
 
         // Contact pause, impact, then the losing piece leaves the board.
         flyer.classList.add('is-impact');
@@ -373,8 +492,8 @@ export class BoardView {
             const p = this.nodes.get(k)?.firstElementChild;
             if (p) { p.style.visibility = ''; p.classList.add('is-removed'); }
           }
-          timers.push(setTimeout(finish, 260));
-        }, 130));
+          timers.push(setTimeout(finish, motionMs(175)));
+        }, motionMs(60)));
       }, travel));
 
       // Safety net: presentation must never outlive its budget.
@@ -407,7 +526,7 @@ export class BoardView {
     return new Promise(res => setTimeout(() => {
       els.forEach(e => e.classList.remove(className));
       res();
-    }, ms));
+    }, motionMs(ms)));
   }
 
   /** Visible swap of two pieces during setup. */
@@ -423,9 +542,9 @@ export class BoardView {
       if (!el) return Promise.resolve();
       const anim = el.animate(
         [{ transform: 'translate(0,0)' }, { transform: `translate(${x}px, ${y}px)` }],
-        { duration: 180, easing: 'cubic-bezier(0.32,0.72,0.28,1)' }
+        { duration: motionMs(180), easing: 'cubic-bezier(0.32,0.72,0.28,1)' }
       );
-      return new Promise(res => setTimeout(() => { try { anim.cancel(); } catch { /* gone */ } res(); }, 200));
+      return new Promise(res => setTimeout(() => { try { anim.cancel(); } catch { /* gone */ } res(); }, motionMs(200)));
     };
     await Promise.all([run(ea, dx, dy), run(eb, -dx, -dy)]);
   }

@@ -124,7 +124,64 @@ export async function runOpenE2E({ verbose = false } = {}) {
     equal(app().openGame.session.engine.history.length, before + 1, 'history advanced');
   });
 
+  await test('Xiangqi normal move visibly travels and sounds once at contact', async () => {
+    await startOpen('xiangqi');
+    const { sounds } = await import('../js/engine/sound.js');
+    sounds.clearAudit();
+    const start = $('.open-node[data-key="6,0"]').getBoundingClientRect();
+    const end = $('.open-node[data-key="5,0"]').getBoundingClientRect();
+    const pending = app().openGame.commit('6,0', '5,0', null);
+    const flyer = await waitFor(() => $('.open-flyer'), 'Xiangqi flyer');
+    equal(getComputedStyle($('.open-node[data-key="5,0"] .open-piece')).visibility, 'hidden',
+      'final-state piece hidden during travel');
+    await waitFor(() => flyer.getAnimations().some(a => (a.currentTime || 0) >= 65),
+      'Xiangqi midpoint');
+    const mid = flyer.getBoundingClientRect();
+    const startY = start.top + start.height / 2;
+    const endY = end.top + end.height / 2;
+    const midY = mid.top + mid.height / 2;
+    ok(midY < startY - 2 && midY > endY + 2,
+      `flyer must interpolate between stations (${startY}, ${midY}, ${endY})`);
+    await pending;
+    ok(app().openGame.session.engine.board['5,0'], 'piece reaches exact destination');
+    ok(!app().openGame.session.engine.board['6,0'], 'origin clears');
+    equal($$('.open-flyer').length, 0, 'motion layer cleans up');
+    const cues = sounds.getAudit().filter(entry => entry.played).map(entry => entry.cue);
+    equal(cues.filter(cue => cue === 'place').length, 1, 'one place cue');
+    equal(cues.filter(cue => cue === 'capture').length, 0, 'no capture cue');
+  });
+
+  await test('Xiangqi capture holds the target until contact, then compresses it', async () => {
+    const { XiangqiGame } = await import('../js/games/xiangqi/engine.js');
+    const { sounds } = await import('../js/engine/sound.js');
+    app().openGame.session.engine = new XiangqiGame({
+      board: {
+        '9,4': { side: 'r', kind: 'g' },
+        '0,4': { side: 'b', kind: 'g' },
+        '5,4': { side: 'r', kind: 's' },
+        '4,0': { side: 'r', kind: 'r' },
+        '3,0': { side: 'b', kind: 's' }
+      },
+      turn: 'r'
+    });
+    app().openGame.render();
+    sounds.clearAudit();
+    const pending = app().openGame.commit('4,0', '3,0', null);
+    const ghost = await waitFor(() => $('.open-capture-ghost'), 'capture ghost');
+    equal(ghost.getAnimations().length, 0, 'target stays physically present before contact');
+    await waitFor(() => ghost.getAnimations().length > 0, 'capture contact compression');
+    ok(ghost.getAnimations().some(a => a.effect.getTiming().duration === 175),
+      'capture removal uses the short compression/fade');
+    await pending;
+    equal(app().openGame.session.engine.board['3,0'].kind, 'r', 'capturer settles exactly');
+    ok(!app().openGame.session.engine.board['4,0'], 'capture origin clears');
+    const cues = sounds.getAudit().filter(entry => entry.played).map(entry => entry.cue);
+    equal(cues.filter(cue => cue === 'capture').length, 1, 'one capture cue');
+    equal(cues.filter(cue => cue === 'place').length, 0, 'no duplicate place cue');
+  });
+
   await test('Xiangqi reaches and performs a legal capture through UI', async () => {
+    await startOpen('xiangqi');
     let capture = null;
     for (let ply = 0; ply < 20; ply++) {
       const legal = app().openGame.session.engine.legalMoves();
@@ -171,10 +228,15 @@ export async function runOpenE2E({ verbose = false } = {}) {
   });
 
   await test('Chess capture is rendered and recorded', async () => {
+    const { sounds } = await import('../js/engine/sound.js');
     await uiMove({ from: 'd7', to: 'd5' });
+    sounds.clearAudit();
     const pieces = $$('.chess-piece').length;
     await uiMove({ from: 'e4', to: 'd5' });
     equal($$('.chess-piece').length, pieces - 1, 'captured piece removed');
+    const cues = sounds.getAudit().filter(entry => entry.played).map(entry => entry.cue);
+    equal(cues.filter(cue => cue === 'capture').length, 1, 'one capture cue');
+    equal(cues.filter(cue => cue === 'place').length, 0, 'no duplicate place cue');
   });
 
   await test('Chess promotion requires an explicit human choice', async () => {
@@ -186,8 +248,50 @@ export async function runOpenE2E({ verbose = false } = {}) {
     await waitFor(() => $('#promotion').classList.contains('is-open'), 'promotion chooser');
     equal($$('[data-promotion]').filter(visible).length, 4, 'four choices');
     tap('[data-promotion="n"]');
+    await waitFor(() => $('.open-flyer'), 'promotion travel');
+    equal($('.open-flyer').textContent.trim(), '♙', 'pawn travels before transforming');
     await waitFor(() => !app().openGame.busy, 'promotion settles');
     equal(app().openGame.session.engine.board.a8.kind, 'n', 'selected Knight');
+  });
+
+  await test('Chess castling moves king and rook as one coherent action', async () => {
+    const { ChessGame } = await import('../js/games/chess/adapter.js');
+    const { sounds } = await import('../js/engine/sound.js');
+    await startOpen('chess');
+    app().openGame.session.engine = new ChessGame({
+      fen: '4k3/8/8/8/8/8/8/4K2R w K - 0 1'
+    });
+    app().openGame.render();
+    sounds.clearAudit();
+    const pending = app().openGame.commit('e1', 'g1', null);
+    await waitFor(() => $$('.open-flyer').length === 2, 'king and rook flyers');
+    await waitFor(() => $$('.open-flyer').every(flyer =>
+      flyer.getAnimations().some(a => (a.currentTime || 0) >= 55)), 'castling midpoint');
+    equal(getComputedStyle($('.open-node[data-key="g1"] .open-piece')).visibility, 'hidden',
+      'king target hidden during travel');
+    equal(getComputedStyle($('.open-node[data-key="f1"] .open-piece')).visibility, 'hidden',
+      'rook target hidden during travel');
+    await pending;
+    equal(app().openGame.session.engine.board.g1.kind, 'k', 'king exact destination');
+    equal(app().openGame.session.engine.board.f1.kind, 'r', 'rook exact destination');
+    ok(!app().openGame.session.engine.board.e1 && !app().openGame.session.engine.board.h1,
+      'both origins clear');
+    equal(sounds.getAudit().filter(entry => entry.played && entry.cue === 'place').length, 1,
+      'castling has one coherent place cue');
+  });
+
+  await test('Invalid Chess move gives resistance and one quiet invalid cue', async () => {
+    await startOpen('chess');
+    const { sounds } = await import('../js/engine/sound.js');
+    sounds.clearAudit();
+    tap('.open-node[data-key="e2"]');
+    tap('.open-node[data-key="e5"]');
+    const piece = $('.open-node[data-key="e2"] .open-piece');
+    await waitFor(() => piece.getAnimations().length, 'invalid resistance');
+    ok(piece.getAnimations().some(a => a.effect.getTiming().duration === 125),
+      'resistance lasts 100–150ms');
+    equal(sounds.getAudit().filter(entry => entry.played && entry.cue === 'invalid').length, 1,
+      'one invalid cue');
   });
 
   await test('Chess Vs Computer Relaxed replies and keeps human at bottom', async () => {
@@ -208,14 +312,19 @@ export async function runOpenE2E({ verbose = false } = {}) {
 
   await test('Rapid navigation discards a stale AI job by game id and type', async () => {
     await startOpen('xiangqi', 'vs_computer', { secondSide: true });
+    const { sounds } = await import('../js/engine/sound.js');
     const oldId = app().openGame.session.gameId;
+    sounds.clearAudit();
     await home();
     await startOpen('chess');
     const newId = app().openGame.session.gameId;
-    await sleep(800);
+    await sleep(1800);
     equal(app().openGame.session.gameId, newId, 'new game remains active');
     ok(newId !== oldId, 'new identity');
     equal(app().openGame.session.gameType, 'chess', 'type remains Chess');
+    const staleCues = sounds.getAudit().filter(entry =>
+      entry.played && ['place', 'capture', 'check', 'victory'].includes(entry.cue));
+    equal(staleCues.length, 0, 'stale AI emits no delayed board sound');
   });
 
   await test('All six cross-game transitions create the requested isolated game', async () => {
@@ -235,11 +344,17 @@ export async function runOpenE2E({ verbose = false } = {}) {
 
   await test('Completed Chess supports Record, Rematch, Home and another game', async () => {
     await startOpen('chess');
+    const { sounds } = await import('../js/engine/sound.js');
     await uiMove({ from: 'f2', to: 'f3' });
     await uiMove({ from: 'e7', to: 'e5' });
     await uiMove({ from: 'g2', to: 'g4' });
+    sounds.clearAudit();
     await uiMove({ from: 'd8', to: 'h4' });
     await waitFor(() => $('#game-end').classList.contains('is-open'), 'Chess result');
+    const finishCues = sounds.getAudit().filter(entry => entry.played).map(entry => entry.cue);
+    equal(finishCues.filter(cue => cue === 'place').length, 1, 'finishing move placed once');
+    equal(finishCues.filter(cue => cue === 'check').length, 1, 'check cue once');
+    equal(finishCues.filter(cue => cue === 'victory').length, 1, 'warm victory cue once');
     const finishedId = app().openGame.session.gameId;
     tap('#btn-end-again');
     await waitFor(() => visible($('.chess-board')), 'Chess rematch');

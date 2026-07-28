@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-28T14:44:26.422Z",
+  "generatedAt": "2026-07-28T15:18:38.289Z",
   "assertions": 32,
   "passed": 32,
   "failed": 0,
@@ -12,9 +12,9 @@
       "pass": true,
       "expectedDx": 1,
       "expectedDy": 0,
-      "midDx": 42.19,
+      "midDx": 41.4,
       "midDy": 0,
-      "shellTransform": "matrix(1, 0, 0, 1, 0.4119, -27.875)",
+      "shellTransform": "matrix(1, 0, 0, 1, -0.385387, -27.875)",
       "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
     },
     {
@@ -25,9 +25,9 @@
       "pass": true,
       "expectedDx": -1,
       "expectedDy": 0,
-      "midDx": -42.15,
+      "midDx": -41.24,
       "midDy": 0,
-      "shellTransform": "matrix(1, 0, 0, 1, -83.9264, -27.875)",
+      "shellTransform": "matrix(1, 0, 0, 1, -83.0244, -27.875)",
       "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
     },
     {
@@ -39,8 +39,8 @@
       "expectedDx": 0,
       "expectedDy": 1,
       "midDx": 0,
-      "midDy": 46.71,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, 18.8301)",
+      "midDy": 46.43,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, 18.5545)",
       "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
     },
     {
@@ -52,8 +52,8 @@
       "expectedDx": 0,
       "expectedDy": -1,
       "midDx": 0,
-      "midDy": -44.28,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, -72.1547)",
+      "midDy": -45.43,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, -73.3053)",
       "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
     },
     {
@@ -64,9 +64,9 @@
       "pass": true,
       "expectedDx": 1,
       "expectedDy": 0,
-      "midDx": 42.14,
+      "midDx": 42.1,
       "midDy": 0,
-      "shellTransform": "matrix(1, 0, 0, 1, 0.354004, -27.875)",
+      "shellTransform": "matrix(1, 0, 0, 1, 0.320732, -27.875)",
       "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
     },
     {
@@ -79,7 +79,7 @@
       "expectedDy": 0,
       "midDx": -42.08,
       "midDy": 0,
-      "shellTransform": "matrix(1, 0, 0, 1, -83.861, -27.875)",
+      "shellTransform": "matrix(1, 0, 0, 1, -83.8635, -27.875)",
       "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
     },
     {
@@ -91,8 +91,8 @@
       "expectedDx": 0,
       "expectedDy": 1,
       "midDx": 0,
-      "midDy": 45.46,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, 17.5833)",
+      "midDy": 45.45,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, 17.5726)",
       "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
     },
     {
@@ -104,8 +104,8 @@
       "expectedDx": 0,
       "expectedDy": -1,
       "midDx": 0,
-      "midDy": -45.49,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, -73.3666)",
+      "midDy": -64.29,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, -92.1622)",
       "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
     },
     {
@@ -116,9 +116,9 @@
       "pass": true,
       "expectedDx": 1,
       "expectedDy": 0,
-      "midDx": 41.65,
+      "midDx": 42.21,
       "midDy": 0,
-      "shellTransform": "matrix(1, 0, 0, 1, -0.130112, -27.875)",
+      "shellTransform": "matrix(1, 0, 0, 1, 0.425446, -27.875)",
       "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
     },
     {
@@ -129,9 +129,9 @@
       "pass": true,
       "expectedDx": -1,
       "expectedDy": 0,
-      "midDx": -42.18,
+      "midDx": -40.91,
       "midDy": 0,
-      "shellTransform": "matrix(1, 0, 0, 1, -83.9646, -27.875)",
+      "shellTransform": "matrix(1, 0, 0, 1, -82.6935, -27.875)",
       "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
     },
     {
@@ -143,8 +143,8 @@
       "expectedDx": 0,
       "expectedDy": 1,
       "midDx": 0,
-      "midDy": 44.16,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, 16.2876)",
+      "midDy": 45.53,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, 17.6552)",
       "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
     },
     {
@@ -156,8 +156,8 @@
       "expectedDx": 0,
       "expectedDy": -1,
       "midDx": 0,
-      "midDy": -46.24,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, -74.1154)",
+      "midDy": -45.47,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, -73.3439)",
       "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
     },
     {
@@ -168,9 +168,9 @@
       "pass": true,
       "expectedDx": 1,
       "expectedDy": 0,
-      "midDx": 42.14,
+      "midDx": 42.01,
       "midDy": 0,
-      "shellTransform": "matrix(1, 0, 0, 1, 0.355236, -27.875)",
+      "shellTransform": "matrix(1, 0, 0, 1, 0.231949, -27.875)",
       "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
     },
     {
@@ -181,9 +181,9 @@
       "pass": true,
       "expectedDx": -1,
       "expectedDy": 0,
-      "midDx": -42.22,
+      "midDx": -42.13,
       "midDy": 0,
-      "shellTransform": "matrix(1, 0, 0, 1, -83.999, -27.875)",
+      "shellTransform": "matrix(1, 0, 0, 1, -83.9066, -27.875)",
       "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
     },
     {
@@ -195,8 +195,8 @@
       "expectedDx": 0,
       "expectedDy": 1,
       "midDx": 0,
-      "midDy": 45.44,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, 17.5646)",
+      "midDy": 46.43,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, 18.5584)",
       "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
     },
     {
@@ -208,8 +208,8 @@
       "expectedDx": 0,
       "expectedDy": -1,
       "midDx": 0,
-      "midDy": -45.29,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, -73.1639)",
+      "midDy": -45.58,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.7812, -73.4598)",
       "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
     },
     {
@@ -220,9 +220,9 @@
       "pass": true,
       "expectedDx": 1,
       "expectedDy": 0,
-      "midDx": 78.84,
+      "midDx": 78.24,
       "midDy": -0.13,
-      "shellTransform": "matrix(1, 0, 0, 1, 37.461433, -27.875)",
+      "shellTransform": "matrix(1, 0, 0, 1, 36.68087, -27.875)",
       "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
     },
     {
@@ -235,7 +235,7 @@
       "expectedDy": 0,
       "midDx": -44.37,
       "midDy": -0.13,
-      "shellTransform": "matrix(1, 0, 0, 1, -85.93108, -27.875)",
+      "shellTransform": "matrix(1, 0, 0, 1, -87.128479, -27.875)",
       "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
     },
     {
@@ -247,8 +247,8 @@
       "expectedDx": 0,
       "expectedDy": 1,
       "midDx": -0.22,
-      "midDy": 50.16,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.78125, 22.408867)",
+      "midDy": 52.64,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.78125, 24.892311)",
       "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
     },
     {
@@ -272,9 +272,9 @@
       "pass": true,
       "expectedDx": 1,
       "expectedDy": 0,
-      "midDx": 46.31,
+      "midDx": 48.61,
       "midDy": -0.13,
-      "shellTransform": "matrix(1, 0, 0, 1, 4.745026, -27.875)",
+      "shellTransform": "matrix(1, 0, 0, 1, 7.042889, -27.875)",
       "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
     },
     {
@@ -285,9 +285,9 @@
       "pass": true,
       "expectedDx": -1,
       "expectedDy": 0,
-      "midDx": -47.9,
+      "midDx": -59.09,
       "midDy": -0.13,
-      "shellTransform": "matrix(1, 0, 0, 1, -89.466908, -27.875)",
+      "shellTransform": "matrix(1, 0, 0, 1, -100.651363, -27.875)",
       "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
     },
     {
@@ -299,117 +299,13 @@
       "expectedDx": 0,
       "expectedDy": 1,
       "midDx": -0.22,
-      "midDy": 55.03,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.78125, 27.280621)",
+      "midDy": 46.28,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.78125, 18.528057)",
       "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
     },
     {
       "engine": "webkit",
       "side": "navy",
-      "topFacing": true,
-      "direction": "up-cross-half",
-      "pass": true,
-      "expectedDx": 0,
-      "expectedDy": -1,
-      "midDx": -0.22,
-      "midDy": -49.13,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.78125, -76.884598)",
-      "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
-    },
-    {
-      "engine": "webkit",
-      "side": "red",
-      "topFacing": false,
-      "direction": "right",
-      "pass": true,
-      "expectedDx": 1,
-      "expectedDy": 0,
-      "midDx": 46.31,
-      "midDy": -0.13,
-      "shellTransform": "matrix(1, 0, 0, 1, 4.745026, -27.875)",
-      "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
-    },
-    {
-      "engine": "webkit",
-      "side": "red",
-      "topFacing": false,
-      "direction": "left",
-      "pass": true,
-      "expectedDx": -1,
-      "expectedDy": 0,
-      "midDx": -46.75,
-      "midDy": -0.13,
-      "shellTransform": "matrix(1, 0, 0, 1, -88.307526, -27.875)",
-      "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
-    },
-    {
-      "engine": "webkit",
-      "side": "red",
-      "topFacing": false,
-      "direction": "down-cross-half",
-      "pass": true,
-      "expectedDx": 0,
-      "expectedDy": 1,
-      "midDx": -0.22,
-      "midDy": 50.16,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.78125, 22.408867)",
-      "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
-    },
-    {
-      "engine": "webkit",
-      "side": "red",
-      "topFacing": false,
-      "direction": "up-cross-half",
-      "pass": true,
-      "expectedDx": 0,
-      "expectedDy": -1,
-      "midDx": -0.22,
-      "midDy": -51.66,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.78125, -79.411884)",
-      "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
-    },
-    {
-      "engine": "webkit",
-      "side": "red",
-      "topFacing": true,
-      "direction": "right",
-      "pass": true,
-      "expectedDx": 1,
-      "expectedDy": 0,
-      "midDx": 46.31,
-      "midDy": -0.13,
-      "shellTransform": "matrix(1, 0, 0, 1, 4.745026, -27.875)",
-      "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
-    },
-    {
-      "engine": "webkit",
-      "side": "red",
-      "topFacing": true,
-      "direction": "left",
-      "pass": true,
-      "expectedDx": -1,
-      "expectedDy": 0,
-      "midDx": -44.37,
-      "midDy": -0.13,
-      "shellTransform": "matrix(1, 0, 0, 1, -85.93108, -27.875)",
-      "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
-    },
-    {
-      "engine": "webkit",
-      "side": "red",
-      "topFacing": true,
-      "direction": "down-cross-half",
-      "pass": true,
-      "expectedDx": 0,
-      "expectedDy": 1,
-      "midDx": -0.22,
-      "midDy": 47.59,
-      "shellTransform": "matrix(1, 0, 0, 1, -41.78125, 19.840492)",
-      "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
-    },
-    {
-      "engine": "webkit",
-      "side": "red",
       "topFacing": true,
       "direction": "up-cross-half",
       "pass": true,
@@ -418,6 +314,110 @@
       "midDx": -0.22,
       "midDy": -47.84,
       "shellTransform": "matrix(1, 0, 0, 1, -41.78125, -75.590492)",
+      "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
+    },
+    {
+      "engine": "webkit",
+      "side": "red",
+      "topFacing": false,
+      "direction": "right",
+      "pass": true,
+      "expectedDx": 1,
+      "expectedDy": 0,
+      "midDx": 46.31,
+      "midDy": -0.13,
+      "shellTransform": "matrix(1, 0, 0, 1, 4.745026, -27.875)",
+      "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
+    },
+    {
+      "engine": "webkit",
+      "side": "red",
+      "topFacing": false,
+      "direction": "left",
+      "pass": true,
+      "expectedDx": -1,
+      "expectedDy": 0,
+      "midDx": -44.37,
+      "midDy": -0.13,
+      "shellTransform": "matrix(1, 0, 0, 1, -85.93108, -27.875)",
+      "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
+    },
+    {
+      "engine": "webkit",
+      "side": "red",
+      "topFacing": false,
+      "direction": "down-cross-half",
+      "pass": true,
+      "expectedDx": 0,
+      "expectedDy": 1,
+      "midDx": -0.22,
+      "midDy": 52.64,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.78125, 24.892311)",
+      "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
+    },
+    {
+      "engine": "webkit",
+      "side": "red",
+      "topFacing": false,
+      "direction": "up-cross-half",
+      "pass": true,
+      "expectedDx": 0,
+      "expectedDy": -1,
+      "midDx": -0.22,
+      "midDy": -46.53,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.78125, -74.278057)",
+      "faceTransform": "matrix(1, 0, 0, 1, 0, 0)"
+    },
+    {
+      "engine": "webkit",
+      "side": "red",
+      "topFacing": true,
+      "direction": "right",
+      "pass": true,
+      "expectedDx": 1,
+      "expectedDy": 0,
+      "midDx": 43.93,
+      "midDy": -0.13,
+      "shellTransform": "matrix(1, 0, 0, 1, 2.36858, -27.875)",
+      "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
+    },
+    {
+      "engine": "webkit",
+      "side": "red",
+      "topFacing": true,
+      "direction": "left",
+      "pass": true,
+      "expectedDx": -1,
+      "expectedDy": 0,
+      "midDx": -45.57,
+      "midDy": -0.13,
+      "shellTransform": "matrix(1, 0, 0, 1, -87.128479, -27.875)",
+      "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
+    },
+    {
+      "engine": "webkit",
+      "side": "red",
+      "topFacing": true,
+      "direction": "down-cross-half",
+      "pass": true,
+      "expectedDx": 0,
+      "expectedDy": 1,
+      "midDx": -0.22,
+      "midDy": 51.41,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.78125, 23.661884)",
+      "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
+    },
+    {
+      "engine": "webkit",
+      "side": "red",
+      "topFacing": true,
+      "direction": "up-cross-half",
+      "pass": true,
+      "expectedDx": 0,
+      "expectedDy": -1,
+      "midDx": -0.22,
+      "midDy": -49.13,
+      "shellTransform": "matrix(1, 0, 0, 1, -41.78125, -76.884598)",
       "faceTransform": "matrix(-1, 0, 0, -1, 0, 0)"
     }
   ]

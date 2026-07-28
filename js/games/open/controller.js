@@ -92,10 +92,13 @@ export class OpenGameController {
     if (pieceSide === s.engine.turn) {
       this.selected = key; sounds.select(); this.render(); return;
     }
-    if (!this.selected) { sounds.invalid(); return; }
+    if (!this.selected) return;
     const legal = s.engine.legalTargets(this.selected);
     if (!legal.includes(key)) {
-      sounds.invalid(); this.host.flash(t('open.illegal')); return;
+      sounds.invalid();
+      void this.view.nudge(this.selected);
+      this.host.flash(t('open.illegal'));
+      return;
     }
     let promotion = null;
     if (s.gameType === 'chess' && s.engine.needsPromotion(this.selected, key)) {
@@ -107,8 +110,19 @@ export class OpenGameController {
 
   async commit(from, to, promotion) {
     const s = this.session;
-    const startRect = this.view.rectFor(from);
+    const movingSnapshot = this.view.captureSnapshot(from);
     const capturedSnapshot = this.view.captureSnapshot(to);
+    let castleSnapshot = null;
+    const movingPiece = s.engine.board[from];
+    if (s.gameType === 'chess' && movingPiece?.kind === 'k' &&
+        Math.abs(from.charCodeAt(0) - to.charCodeAt(0)) === 2) {
+      const rank = from[1];
+      const kingSide = to[0] === 'g';
+      castleSnapshot = {
+        from: this.view.captureSnapshot(`${kingSide ? 'h' : 'a'}${rank}`),
+        to: `${kingSide ? 'f' : 'd'}${rank}`
+      };
+    }
     this.busy = true;
     this.selected = null;
     const result = s.engine.move(from, to, promotion);
@@ -119,11 +133,18 @@ export class OpenGameController {
     if (s.engine.status === 'finished') s.completedAt = Date.now();
     this.persist();
     this.render();
-    if (result.capture) sounds.battle(); else sounds.place();
-    if (result.check) sounds.check();
-    await this.view.animateFrom(startRect, to, { ...result, capturedSnapshot });
+    await this.view.animateFrom(movingSnapshot, to, {
+      ...result,
+      capturedSnapshot,
+      castleSnapshot,
+      onContact: () => {
+        if (this.session !== s) return;
+        if (result.capture) sounds.battle(); else sounds.place();
+      }
+    });
     this.busy = false;
     if (this.session !== s) return;
+    if (result.check) sounds.check();
     if (s.engine.status === 'finished') {
       sounds.victory(); this.host.onOpenGameEnd(); return;
     }

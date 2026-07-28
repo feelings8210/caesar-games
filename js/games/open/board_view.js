@@ -1,4 +1,5 @@
 import { XQ_FACES } from '../xiangqi/engine.js';
+import { motionMs } from '../../ui/motion.js';
 
 const CHESS_FACES = {
   w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
@@ -10,6 +11,7 @@ export class OpenBoardView {
     this.mount = mount;
     this.onTap = onTap;
     this.gameType = null;
+    this.lastCheckSide = null;
   }
 
   render({ gameType, board, selected, legalTargets = [], bottomSide, inCheck, interactive = true }) {
@@ -38,8 +40,14 @@ export class OpenBoardView {
           const piece = document.createElement('span');
           piece.className = `open-piece xq-piece side-${p.side}`;
           if (p.side !== bottomSide) piece.classList.add('faces-top');
-          if (inCheck && p.side === inCheck && p.kind === 'g') piece.classList.add('is-check');
-          piece.textContent = XQ_FACES[p.side][p.kind];
+          if (inCheck && p.side === inCheck && p.kind === 'g') {
+            piece.classList.add('is-check');
+            if (inCheck !== this.lastCheckSide) piece.classList.add('is-check-pulse');
+          }
+          const face = document.createElement('span');
+          face.className = 'open-piece-face';
+          face.textContent = XQ_FACES[p.side][p.kind];
+          piece.appendChild(face);
           node.appendChild(piece);
         }
         root.appendChild(node);
@@ -55,8 +63,14 @@ export class OpenBoardView {
         if (p) {
           const piece = document.createElement('span');
           piece.className = `open-piece chess-piece side-${p.side}`;
-          if (inCheck && p.side === inCheck && p.kind === 'k') piece.classList.add('is-check');
-          piece.textContent = CHESS_FACES[p.side][p.kind];
+          if (inCheck && p.side === inCheck && p.kind === 'k') {
+            piece.classList.add('is-check');
+            if (inCheck !== this.lastCheckSide) piece.classList.add('is-check-pulse');
+          }
+          const face = document.createElement('span');
+          face.className = 'open-piece-face';
+          face.textContent = CHESS_FACES[p.side][p.kind];
+          piece.appendChild(face);
           node.appendChild(piece);
         }
         root.appendChild(node);
@@ -66,6 +80,7 @@ export class OpenBoardView {
     overlay.className = 'open-motion-layer';
     root.appendChild(overlay);
     this.mount.appendChild(root);
+    this.lastCheckSide = inCheck || null;
   }
 
   node(canonical, selected, legalTargets, interactive) {
@@ -91,38 +106,176 @@ export class OpenBoardView {
     return piece ? { rect: node.getBoundingClientRect(), piece: piece.cloneNode(true) } : null;
   }
 
-  async animateFrom(startRect, to, { capture = false, capturedSnapshot = null } = {}) {
+  nudge(key) {
+    const piece = this.mount.querySelector(
+      `.open-node[data-key="${CSS.escape(key)}"] .open-piece`
+    );
+    if (!piece) return Promise.resolve();
+    return piece.animate([
+      { transform: 'translateX(0)' },
+      { transform: 'translateX(-3px)', offset: .30 },
+      { transform: 'translateX(2px)', offset: .62 },
+      { transform: 'translateX(0)' }
+    ], {
+      duration: motionMs(125),
+      easing: 'cubic-bezier(.36,.07,.19,.97)'
+    }).finished.catch(() => {});
+  }
+
+  async animateFrom(movingSnapshot, to, {
+    capture = false,
+    capturedSnapshot = null,
+    castleSnapshot = null,
+    promotion = null,
+    onContact = () => {}
+  } = {}) {
     const board = this.mount.querySelector('.open-board');
     const target = this.rectFor(to);
     const piece = this.mount.querySelector(`.open-node[data-key="${CSS.escape(to)}"] .open-piece`);
-    if (!board || !target || !piece || !startRect) return;
+    const startRect = movingSnapshot?.rect;
+    if (!board || !target || !piece || !startRect) {
+      onContact();
+      return;
+    }
     const br = board.getBoundingClientRect();
-    const flyer = piece.cloneNode(true);
+    const layer = board.querySelector('.open-motion-layer');
+    const flyer = movingSnapshot.piece.cloneNode(true);
     flyer.classList.add('open-flyer');
     flyer.style.left = `${startRect.left - br.left + startRect.width / 2}px`;
     flyer.style.top = `${startRect.top - br.top + startRect.height / 2}px`;
-    board.querySelector('.open-motion-layer').appendChild(flyer);
+    layer.appendChild(flyer);
+    piece.style.visibility = 'hidden';
+
     let ghost = null;
     if (capture && capturedSnapshot) {
       ghost = capturedSnapshot.piece;
       ghost.classList.add('open-flyer', 'open-capture-ghost');
       ghost.style.left = `${capturedSnapshot.rect.left - br.left + capturedSnapshot.rect.width / 2}px`;
       ghost.style.top = `${capturedSnapshot.rect.top - br.top + capturedSnapshot.rect.height / 2}px`;
-      board.querySelector('.open-motion-layer').appendChild(ghost);
-      ghost.animate([
-        { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: 0 },
-        { opacity: 1, transform: 'translate(-50%,-50%) scale(.96)', offset: .55 },
-        { opacity: 0, transform: 'translate(-50%,-50%) scale(.82)', offset: 1 }
-      ], { duration: 260, easing: 'ease-out', fill: 'forwards' });
+      layer.appendChild(ghost);
     }
+
     const dx = target.left - startRect.left;
     const dy = target.top - startRect.top;
-    const animation = flyer.animate([
+    const travelDuration = motionMs(this.gameType === 'xiangqi' ? 215 : 185);
+    const travel = flyer.animate([
       { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
-      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${capture ? 1.06 : 1.02})`, opacity: 1 }
-    ], { duration: capture ? 230 : 190, easing: 'cubic-bezier(.2,.72,.28,1)' });
-    await Promise.race([animation.finished.catch(() => {}), new Promise(r => setTimeout(r, 300))]);
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${capture ? 1.035 : 1.015})`, opacity: 1 }
+    ], {
+      duration: travelDuration,
+      easing: 'cubic-bezier(.2,.72,.28,1)',
+      fill: 'forwards'
+    });
+
+    let rookFlyer = null;
+    let rookPiece = null;
+    let rookTravel = null;
+    if (castleSnapshot?.from && castleSnapshot.to) {
+      const rookTarget = this.rectFor(castleSnapshot.to);
+      rookPiece = this.mount.querySelector(
+        `.open-node[data-key="${CSS.escape(castleSnapshot.to)}"] .open-piece`
+      );
+      if (rookTarget && rookPiece) {
+        const rr = castleSnapshot.from.rect;
+        rookFlyer = castleSnapshot.from.piece.cloneNode(true);
+        rookFlyer.classList.add('open-flyer', 'is-castle-rook');
+        rookFlyer.style.left = `${rr.left - br.left + rr.width / 2}px`;
+        rookFlyer.style.top = `${rr.top - br.top + rr.height / 2}px`;
+        layer.appendChild(rookFlyer);
+        rookPiece.style.visibility = 'hidden';
+        const rdx = rookTarget.left - rr.left;
+        const rdy = rookTarget.top - rr.top;
+        const passByLift = Math.max(12, rr.height * .34);
+        rookTravel = rookFlyer.animate([
+          { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
+          {
+            transform: `translate(calc(-50% + ${rdx * .62}px), calc(-50% + ${rdy * .62 - passByLift}px)) scale(1.015)`,
+            opacity: 1,
+            offset: .62
+          },
+          { transform: `translate(calc(-50% + ${rdx}px), calc(-50% + ${rdy}px)) scale(1.01)`, opacity: 1 }
+        ], {
+          duration: travelDuration,
+          easing: 'cubic-bezier(.2,.72,.28,1)',
+          fill: 'forwards'
+        });
+      }
+    }
+
+    this.lastMotion = { from: startRect, to: target, dx, dy, travel, rookTravel };
+    await Promise.race([
+      Promise.all([
+        travel.finished.catch(() => {}),
+        rookTravel?.finished.catch(() => {})
+      ]),
+      new Promise(resolve => setTimeout(resolve, travelDuration + 80))
+    ]);
+
+    onContact();
+    const finishAnimations = [];
+    if (capture && ghost) {
+      finishAnimations.push(ghost.animate([
+        { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: 0 },
+        { opacity: 1, transform: 'translate(-50%,-50%) scale(.955)', offset: .34 },
+        { opacity: 0, transform: 'translate(-50%,-50%) scale(.84)', offset: 1 }
+      ], {
+        duration: motionMs(175),
+        easing: 'cubic-bezier(.28,.02,.3,1)',
+        fill: 'forwards'
+      }).finished.catch(() => {}));
+      finishAnimations.push(flyer.animate([
+        { filter: 'brightness(1)', offset: 0 },
+        { filter: 'brightness(1.12)', offset: .34 },
+        { filter: 'brightness(1)', offset: 1 }
+      ], {
+        duration: motionMs(120),
+        easing: 'ease-out'
+      }).finished.catch(() => {}));
+    }
+
+    if (promotion) {
+      flyer.className = `${piece.className} open-flyer is-promoting`;
+      flyer.innerHTML = piece.innerHTML;
+      finishAnimations.push(flyer.animate([
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.88)`, opacity: .72 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.07)`, opacity: 1, offset: .72 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1)`, opacity: 1 }
+      ], {
+        duration: motionMs(165),
+        easing: 'cubic-bezier(.2,.76,.26,1)',
+        fill: 'forwards'
+      }).finished.catch(() => {}));
+    } else if (!capture) {
+      finishAnimations.push(flyer.animate([
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.015)` },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1)` }
+      ], {
+        duration: motionMs(65),
+        easing: 'cubic-bezier(.2,.72,.28,1)'
+      }).finished.catch(() => {}));
+    }
+
+    await Promise.race([
+      Promise.all(finishAnimations),
+      new Promise(resolve => setTimeout(resolve, motionMs(capture ? 210 : promotion ? 180 : 75)))
+    ]);
     flyer.remove();
+    rookFlyer?.remove();
     ghost?.remove();
+    piece.style.visibility = '';
+    if (rookPiece) rookPiece.style.visibility = '';
+  }
+
+  pauseForCapture(progress = .5) {
+    const motion = this.lastMotion;
+    if (!motion?.travel) return false;
+    const duration = motion.travel.effect.getTiming().duration;
+    motion.travel.pause();
+    motion.travel.currentTime = duration * progress;
+    if (motion.rookTravel) {
+      motion.rookTravel.pause();
+      motion.rookTravel.currentTime = duration * progress;
+    }
+    return true;
   }
 }

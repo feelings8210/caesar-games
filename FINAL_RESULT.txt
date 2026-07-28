@@ -93,4 +93,47 @@ KNOWN_REMAINING_ISSUES:
 READY_FOR_OWNER_SHORT_SMOKE_TEST:
   YES after owner push and GitHub Pages serves v2.0.1.
 
+KID_FRIENDLY_MOTION_SOUND_POLISH:
+  PASS — one calm physical-tabletop language now covers Junqi, Xiangqi and
+  Chess selection, destination reveal, true travel, contact, capture removal,
+  invalid resistance, Quick Setup settling, check and result transitions.
+
+JUNQI_REVEAL:
+  PASS — 225ms lift/squeeze/midpoint face change/settle. Top-owner orientation
+  stays on the face child; all four rotated-piece travel directions remain
+  correct with exact final state.
+
+XIANGQI_MOTION:
+  PASS — 215ms disc travel, target held until contact, short compression/fade,
+  exact final state and one-time General/palace check emphasis.
+
+CHESS_MOTION:
+  PASS — lighter 185ms travel, contact capture, pawn-first promotion
+  transformation, and coherent king+rook castling with a pass-by lift.
+
+SOUND_PALETTE:
+  PASS — local Web Audio uses filtered material strikes and damped custom
+  multi-harmonic bodies for tap, select, place, capture, invalid, reveal,
+  check, pass/ready, Quick Setup and warm victory. Subtle bounded variation is
+  applied; there is no loss buzzer, runtime network, or third-party sound pack.
+
+SOUND_QA:
+  PASS — contact-timed cues, exact cue counts, intended invalid feedback,
+  duplicate Quick Setup suppression, stale-AI suppression, and persistent mute
+  across reload/game switch/offline. All state remains visible while muted.
+
+POLISH_BROWSER_QA:
+  PASS — dedicated Chromium + WebKit gate 36/36 with 36 initial/mid/final
+  frames; rendered E2E Chromium and WebKit: Junqi 64/64 each,
+  Xiangqi/Chess/shared shell 21/21 each.
+
+REDUCED_MOTION:
+  PASS — real reduced-motion contexts collapse JavaScript and CSS motion to
+  1ms while preserving exact visible final state.
+
+POLISH_EVIDENCE:
+  review/kid-friendly-polish/REPORT.md
+  review/kid-friendly-polish/POLISH_QA.json
+  review/kid-friendly-polish/*.png
+
 TERMINAL_TAB: CLOSE

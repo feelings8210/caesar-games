@@ -15,7 +15,9 @@ class SoundEngine {
     this.ctx = null;
     this.master = null;
     this.noise = null;
+    this.materialWave = null;
     this.muted = this._readMuted();
+    this.audit = [];
   }
 
   _readMuted() {
@@ -53,7 +55,7 @@ class SoundEngine {
     comp.release.value = 0.18;
 
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.55;
+    this.master.gain.value = 0.42;
     this.master.connect(comp);
     comp.connect(this.ctx.destination);
 
@@ -63,16 +65,46 @@ class SoundEngine {
     const data = buf.getChannelData(0);
     for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
     this.noise = buf;
+    this.materialWave = this.ctx.createPeriodicWave(
+      new Float32Array([0, 0, 0, 0, 0, 0]),
+      new Float32Array([0, 1, .23, .08, .035, .012]),
+      { disableNormalization: false }
+    );
 
     return this.ctx;
   }
 
-  _ready() {
-    if (this.muted) return null;
+  _record(cue, played) {
+    const entry = { cue, played, at: Date.now() };
+    this.audit.push(entry);
+    if (this.audit.length > 80) this.audit.shift();
+    try { window.dispatchEvent(new CustomEvent('caesar-sound', { detail: entry })); } catch {}
+  }
+
+  getAudit() { return this.audit.map(entry => ({ ...entry })); }
+  clearAudit() { this.audit.length = 0; }
+
+  _ready(cue) {
+    if (this.muted) {
+      this._record(cue, false);
+      return null;
+    }
     const ctx = this._ensure();
-    if (!ctx) return null;
+    if (!ctx) {
+      this._record(cue, false);
+      return null;
+    }
     if (ctx.state === 'suspended') ctx.resume();
+    this._record(cue, true);
     return ctx;
+  }
+
+  _pitch(cents = 14) {
+    return 2 ** (((Math.random() * 2 - 1) * cents) / 1200);
+  }
+
+  _level(amount = .035) {
+    return 1 + (Math.random() * 2 - 1) * amount;
   }
 
   /** Filtered noise burst — the "strike" part of a physical impact. */
@@ -83,34 +115,40 @@ class SoundEngine {
 
     const filt = ctx.createBiquadFilter();
     filt.type = type;
-    filt.frequency.value = freq;
+    filt.frequency.value = freq * this._pitch(18);
     filt.Q.value = q;
 
     const env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, t);
-    env.gain.exponentialRampToValueAtTime(Math.max(gain, 0.0002), t + 0.002);
-    env.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+    const variedGain = gain * this._level();
+    const variedDecay = decay * this._level(.06);
+    env.gain.exponentialRampToValueAtTime(Math.max(variedGain, 0.0002), t + 0.002);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + variedDecay);
 
     src.connect(filt); filt.connect(env); env.connect(this.master);
     src.start(t, Math.random() * 0.2);
-    src.stop(t + decay + 0.02);
+    src.stop(t + variedDecay + 0.02);
   }
 
-  /** Damped sine — the resonant "body" that gives the material its character. */
-  _body(ctx, t, { freq = 320, gain = 0.22, decay = 0.09, type = 'sine', detune = 0 }) {
+  /** Inharmonic, damped modal body. The custom wave avoids pure-tone beeps. */
+  _body(ctx, t, { freq = 320, gain = 0.22, decay = 0.09, type = 'material', detune = 0 }) {
     const osc = ctx.createOscillator();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, t);
-    if (detune) osc.frequency.exponentialRampToValueAtTime(Math.max(freq + detune, 20), t + decay);
+    if (type === 'material' && this.materialWave) osc.setPeriodicWave(this.materialWave);
+    else osc.type = type;
+    const variedFreq = freq * this._pitch(12);
+    const variedDecay = decay * this._level(.05);
+    osc.frequency.setValueAtTime(variedFreq, t);
+    if (detune) osc.frequency.exponentialRampToValueAtTime(
+      Math.max(variedFreq + detune, 20), t + variedDecay);
 
     const env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, t);
-    env.gain.exponentialRampToValueAtTime(Math.max(gain, 0.0002), t + 0.004);
-    env.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+    env.gain.exponentialRampToValueAtTime(Math.max(gain * this._level(), 0.0002), t + 0.003);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + variedDecay);
 
     osc.connect(env); env.connect(this.master);
     osc.start(t);
-    osc.stop(t + decay + 0.02);
+    osc.stop(t + variedDecay + 0.02);
   }
 
   /* -------------------------------------------------------------- *
@@ -119,15 +157,15 @@ class SoundEngine {
 
   /** Small hard-material click — picking a piece up. */
   select() {
-    const ctx = this._ready(); if (!ctx) return;
+    const ctx = this._ready('select'); if (!ctx) return;
     const t = ctx.currentTime;
     this._transient(ctx, t, { freq: 3200, q: 1.6, gain: 0.16, decay: 0.014 });
-    this._body(ctx, t, { freq: 880, gain: 0.10, decay: 0.045, detune: -120 });
+    this._body(ctx, t, { freq: 760, gain: 0.085, decay: 0.050, detune: -90 });
   }
 
   /** Clean tactile "tok" — setting a piece down. */
   place() {
-    const ctx = this._ready(); if (!ctx) return;
+    const ctx = this._ready('place'); if (!ctx) return;
     const t = ctx.currentTime;
     this._transient(ctx, t, { freq: 1900, q: 0.9, gain: 0.28, decay: 0.022 });
     this._body(ctx, t, { freq: 300, gain: 0.24, decay: 0.085, detune: -90 });
@@ -136,15 +174,15 @@ class SoundEngine {
 
   /** UI button press — lighter than placing a piece. */
   tap() {
-    const ctx = this._ready(); if (!ctx) return;
+    const ctx = this._ready('tap'); if (!ctx) return;
     const t = ctx.currentTime;
     this._transient(ctx, t, { freq: 2600, q: 1.1, gain: 0.13, decay: 0.013 });
-    this._body(ctx, t, { freq: 520, gain: 0.09, decay: 0.04, detune: -80 });
+    this._body(ctx, t, { freq: 470, gain: 0.065, decay: 0.038, detune: -55 });
   }
 
   /** Restrained physical impact — one piece takes another. */
   battle() {
-    const ctx = this._ready(); if (!ctx) return;
+    const ctx = this._ready('capture'); if (!ctx) return;
     const t = ctx.currentTime;
     this._transient(ctx, t, { freq: 1100, q: 0.7, gain: 0.34, decay: 0.05 });
     this._body(ctx, t, { freq: 190, gain: 0.30, decay: 0.16, detune: -70 });
@@ -153,15 +191,16 @@ class SoundEngine {
 
   /** Restrained higher wood cue — the board is in check. */
   check() {
-    const ctx = this._ready(); if (!ctx) return;
+    const ctx = this._ready('check'); if (!ctx) return;
     const t = ctx.currentTime + 0.045;
     this._transient(ctx, t, { freq: 2400, q: 1.3, gain: 0.16, decay: 0.025 });
-    this._body(ctx, t, { freq: 698.46, gain: 0.12, decay: 0.13, detune: -80 });
+    this._body(ctx, t, { freq: 610, gain: 0.10, decay: 0.12, detune: -60 });
+    this._body(ctx, t, { freq: 355, gain: 0.055, decay: 0.16, detune: -30 });
   }
 
   /** Heavier paired impact — both pieces removed. */
   mutualLoss() {
-    const ctx = this._ready(); if (!ctx) return;
+    const ctx = this._ready('mutual-loss'); if (!ctx) return;
     const t = ctx.currentTime;
     this._transient(ctx, t, { freq: 900, q: 0.6, gain: 0.32, decay: 0.06 });
     this._body(ctx, t, { freq: 165, gain: 0.28, decay: 0.20, detune: -60 });
@@ -171,7 +210,7 @@ class SoundEngine {
 
   /** Quiet, dry "no" — never an alarm. */
   invalid() {
-    const ctx = this._ready(); if (!ctx) return;
+    const ctx = this._ready('invalid'); if (!ctx) return;
     const t = ctx.currentTime;
     this._transient(ctx, t, { freq: 420, q: 0.8, gain: 0.10, decay: 0.05, type: 'lowpass' });
     this._body(ctx, t, { freq: 128, gain: 0.11, decay: 0.075, detune: -22 });
@@ -179,7 +218,7 @@ class SoundEngine {
 
   /** Soft transition when the iPad changes hands. */
   pass() {
-    const ctx = this._ready(); if (!ctx) return;
+    const ctx = this._ready('pass'); if (!ctx) return;
     const t = ctx.currentTime;
     this._transient(ctx, t, { freq: 1400, q: 0.5, gain: 0.10, decay: 0.16, type: 'lowpass' });
     this._body(ctx, t, { freq: 330, gain: 0.10, decay: 0.20, detune: 110 });
@@ -187,35 +226,53 @@ class SoundEngine {
 
   /** Gentle confirmation — a player is ready. */
   ready() {
-    const ctx = this._ready(); if (!ctx) return;
+    const ctx = this._ready('ready'); if (!ctx) return;
     const t = ctx.currentTime;
-    this._body(ctx, t, { freq: 523.25, gain: 0.13, decay: 0.13 });
-    this._body(ctx, t + 0.075, { freq: 784.0, gain: 0.11, decay: 0.20 });
+    this._transient(ctx, t, { freq: 1700, q: .8, gain: .11, decay: .018 });
+    this._body(ctx, t, { freq: 390, gain: 0.10, decay: 0.12 });
+    this._transient(ctx, t + .075, { freq: 2100, q: .9, gain: .08, decay: .016 });
+    this._body(ctx, t + 0.075, { freq: 520, gain: 0.075, decay: 0.17 });
   }
 
   /** Short resolved cadence. No fanfare. */
   victory() {
-    const ctx = this._ready(); if (!ctx) return;
+    const ctx = this._ready('victory'); if (!ctx) return;
     const t = ctx.currentTime;
     const notes = [
       { f: 392.00, d: 0.00 },   // G4
-      { f: 523.25, d: 0.11 },   // C5
-      { f: 659.25, d: 0.22 }    // E5
+      { f: 523.25, d: 0.14 },   // C5
+      { f: 659.25, d: 0.30 }    // E5
     ];
     notes.forEach(({ f, d }) => {
-      this._body(ctx, t + d, { freq: f, gain: 0.13, decay: 0.34, type: 'triangle' });
-      this._body(ctx, t + d, { freq: f * 2, gain: 0.04, decay: 0.20 });
+      this._transient(ctx, t + d, { freq: 1650 + d * 900, q: .7, gain: .055, decay: .018 });
+      this._body(ctx, t + d, { freq: f, gain: 0.11, decay: 0.46 });
+      this._body(ctx, t + d, { freq: f * 1.51, gain: 0.028, decay: 0.28 });
     });
     // Quiet root underneath to give the cadence a floor.
-    this._body(ctx, t + 0.22, { freq: 261.63, gain: 0.09, decay: 0.55 });
+    this._body(ctx, t + 0.30, { freq: 261.63, gain: 0.085, decay: 0.72 });
   }
 
   /** A piece turns face-up in Flip mode. */
   reveal() {
-    const ctx = this._ready(); if (!ctx) return;
+    const ctx = this._ready('reveal'); if (!ctx) return;
     const t = ctx.currentTime;
-    this._transient(ctx, t, { freq: 2200, q: 1.0, gain: 0.18, decay: 0.02 });
-    this._body(ctx, t, { freq: 640, gain: 0.13, decay: 0.07, detune: 140 });
+    this._transient(ctx, t, { freq: 1800, q: .75, gain: 0.12, decay: 0.045 });
+    this._transient(ctx, t + .075, { freq: 2850, q: 1.1, gain: 0.14, decay: 0.022 });
+    this._body(ctx, t + .07, { freq: 570, gain: 0.095, decay: 0.085, detune: 85 });
+  }
+
+  /** One coordinated handful of pieces settling after Quick Setup. */
+  shuffle() {
+    const ctx = this._ready('shuffle'); if (!ctx) return;
+    const t = ctx.currentTime;
+    [0, .045, .092].forEach((delay, index) => {
+      this._transient(ctx, t + delay, {
+        freq: 1500 + index * 190, q: .75, gain: .075 - index * .008, decay: .018
+      });
+      this._body(ctx, t + delay, {
+        freq: 245 + index * 36, gain: .06, decay: .075, detune: -32
+      });
+    });
   }
 }
 

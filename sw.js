@@ -25,6 +25,7 @@ const PRECACHE = [
   './js/build.js',
   './js/pwa.js',
   './js/ui/board_view.js',
+  './js/ui/motion.js',
   './js/engine/rules.js',
   './js/engine/session.js',
   './js/engine/ai.js',
