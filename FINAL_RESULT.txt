@@ -1,18 +1,13 @@
-BASELINE: PASS — clean main/origin/main at v2.0.4 report 285a14d648cc69a4b2596f054a53cd9f88b4f827.
-BAD_STRATEGY_ALLOWED: PASS — legal hanging-material and losing-strategy moves remain silent and allowed.
-NEXT_TURN_CHECK_ALLOWED: PASS — Xiangqi and Chess moves that merely permit an opponent check next turn are allowed.
-SELF_CHECK_BLOCKED: PASS — current General/King self-check and facing-General violations remain blocked.
-ILLEGAL_MOVE_COPY: PASS — exact short English and Simplified Chinese specific/fallback copy verified.
-RESIGN: PASS — existing Resign / 认输 remains visible during active games; canonical logic was not rewritten.
-DRAW_XIANGQI_2P: PASS — offer, accept, decline, terminal draw, persistence, and record/replay reason verified.
-DRAW_CHESS_2P: PASS — offer, accept, decline, terminal draw, persistence, and record/replay reason verified.
-DRAW_VS_AI: PASS — Offer Draw is absent from Xiangqi and Chess Vs Computer.
-CHECKMATE_REGRESSION: PASS.
-STALEMATE_REGRESSION: PASS — Xiangqi 困毙 remains a loss.
-FOCUSED_TESTS: PASS — 55/55 focused rules/copy tests; git diff --check passed.
-CHROMIUM_SMOKE: PASS — 7/7 changed-UI checks, 0 runtime errors.
-CODE_COMMIT: 723930df468cf2e75718513011a6968c2b333ad8
-REPORT_COMMIT: THIS COMMIT — Record v2.0.5 focused hotfix result.
+BASELINE: PASS — clean main at bc9b0817022374200165909db582105d118c6566, matching origin/main.
+ROOT_CAUSE: Canonical CAMPS placed every Red camp one physical row too near Red's row-0 back line; rendering and rules correctly shared that wrong authority.
+OLD_RED_CAMPS: 1-1 1-3 2-2 3-1 3-3 — all removed from CAMPS.
+NEW_RED_CAMPS: 2-1 2-3 3-2 4-1 4-3 — each old coordinate moved +1 row toward the row-5 center/front line, with columns unchanged.
+BLUE_CAMPS_UNCHANGED: PASS — 7-1 7-3 8-2 9-1 9-3.
+CAMP_RULE_BEHAVIOR: PASS — setup exclusion, safe-square capture protection, movement adjacency, occupancy, rendering, and hit-testing consume corrected canonical CAMPS; old Red cells are attackable non-camps.
+FLIP_REGRESSION: PASS — navy_bottom and red_bottom render the same corrected canonical keys; rotation changes presentation positions only and clicks return canonical keys.
+FOCUSED_TESTS: PASS — Junqi rules/session 72/72; git diff --check passed.
+CHROMIUM_SMOKE: PASS — exact canonical/rendered sets in both orientations, corrected hit-testing and camp safety, old-cell removal; 0 runtime errors.
+CODE_COMMIT: 7ff792ba18042fd7a28e7d471c2452178e41c238
+REPORT_COMMIT: THIS COMMIT — Record v2.0.6 Junqi camp hotfix result.
 WORKTREE: CLEAN after report commit; nothing pushed.
-OWNER_NEXT_ACTION: Push main when ready to publish v2.0.5.
-TERMINAL_TAB: CLOSE
+OWNER_NEXT_ACTION: Push main when ready to publish v2.0.6.
