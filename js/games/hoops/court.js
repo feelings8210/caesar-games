@@ -10,10 +10,9 @@
  * Positions are canonical; the SVG is only a picture of them.
  */
 
-import { hoopsAudio as sfx } from './audio.js';
+import { BeatRunner, HOOP, dist, radiusOf } from './runner.js';
 
 const NS = 'http://www.w3.org/2000/svg';
-export const HOOP = [0, 5.25];
 const BALL_R = 0.75;
 
 function el(tag, attrs = {}, parent = null) {
@@ -23,41 +22,14 @@ function el(tag, attrs = {}, parent = null) {
   return node;
 }
 
-const lerp = (a, b, e) => a + (b - a) * e;
-const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-const easeInOut = x => (x < .5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
-const easeOut = x => 1 - (1 - x) ** 3;
-
-/** Sample a polyline at fraction e of its total length. */
-function sample(pts, e) {
-  if (pts.length === 1) return pts[0];
-  const lens = [];
-  let total = 0;
-  for (let i = 1; i < pts.length; i++) { const l = dist(pts[i - 1], pts[i]); lens.push(l); total += l; }
-  if (!total) return pts[pts.length - 1];
-  let d = e * total;
-  for (let i = 0; i < lens.length; i++) {
-    if (d <= lens[i] || i === lens.length - 1) {
-      const f = lens[i] ? Math.min(1, d / lens[i]) : 1;
-      return [lerp(pts[i][0], pts[i + 1][0], f), lerp(pts[i][1], pts[i + 1][1], f)];
-    }
-    d -= lens[i];
-  }
-  return pts[pts.length - 1];
-}
-
-const radiusOf = id => [1.22, 1.28, 1.38, 1.5, 1.62][Number(id.slice(1)) - 1] || 1.35;
-
-export class CourtView {
+export class CourtView extends BeatRunner {
   constructor(mount, { text }) {
+    super();
     this.text = text;              // (bilingual) => string, for in-court labels
-    this.token = 0;
-    this.pos = {};
     this.nodes = {};
-    this.ball = { holder: null, at: [...HOOP], h: 0 };
-    this.onFrame = null;
 
     this.svg = el('svg', { viewBox: '-27.5 -4 55 53.5', class: 'hc-svg', role: 'img' });
+    this.el = this.svg;
     mount.appendChild(this.svg);
     this._defs();
     this.gCourt = el('g', { class: 'hc-court' }, this.svg);
@@ -163,9 +135,9 @@ export class CourtView {
     this.gTrails.textContent = '';
     this.gFx.textContent = '';
     this.clearMarkers();
-    this.pos = {};
     this.nodes = {};
     this.you = you;
+    this.resetState(setup);
     const ids = Object.keys(setup).filter(k => /^[od]\d$/.test(k));
     // Defense drawn first so the attacking player reads on top at contact.
     ids.sort((a, b) => (a[0] === b[0] ? a.localeCompare(b) : a[0] === 'd' ? -1 : 1));
@@ -187,43 +159,23 @@ export class CourtView {
         this.youLabel = el('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central' }, tag);
       }
       this.nodes[id] = g;
-      this.pos[id] = [...setup[id]];
       this._place(id);
     }
-    this.ball = { holder: setup.ball || null, at: setup.ballAt ? [...setup.ballAt] : [...HOOP], h: 0 };
     this._renderBall(0);
     this.setTimer(null);
   }
 
   setYouLabel(s) { if (this.youLabel) this.youLabel.textContent = s; }
 
-  snapshot() {
-    return {
-      pos: Object.fromEntries(Object.entries(this.pos).map(([k, v]) => [k, [...v]])),
-      ball: { ...this.ball, at: [...this.ball.at] }
-    };
-  }
-
   restore(snap) {
-    this.cancel();
     this.gTrails.textContent = '';
     this.gFx.textContent = '';
-    for (const [k, v] of Object.entries(snap.pos)) { this.pos[k] = [...v]; this._place(k); }
-    this.ball = { ...snap.ball, at: [...snap.ball.at] };
-    this._renderBall(0);
+    this.restoreState(snap);
   }
 
   _place(id) {
     const [x, y] = this.pos[id];
     this.nodes[id].setAttribute('transform', `translate(${x.toFixed(3)} ${y.toFixed(3)})`);
-  }
-
-  _hand(id) {
-    const [x, y] = this.pos[id];
-    const r = radiusOf(id);
-    // Carried on the side away from the basket's centre line, slightly forward.
-    const side = x >= 0 ? 1 : -1;
-    return [x + side * (r * .55), y - r * .55];
   }
 
   _renderBall(bounce) {
@@ -237,142 +189,13 @@ export class CourtView {
     this.ballShadow.setAttribute('opacity', String(Math.max(.25, 1 - h * .45)));
   }
 
-  /* ---------------------------------------------------------------- *
-   * Beats
-   * ---------------------------------------------------------------- */
-
-  cancel() { this.token++; }
-
-  async play(beats, { slowLast = false } = {}) {
-    const token = this.token;
-    for (let i = 0; i < beats.length; i++) {
-      if (token !== this.token) return false;
-      await this._beat(beats[i], token, slowLast && i === beats.length - 1);
-    }
-    return token === this.token;
-  }
-
-  _beat(b, token, slow) {
-    return new Promise(resolve => {
-      const ms = (b.ms || 600) * (slow ? 1.7 : 1);
-      const ease = slow ? easeOut : b.ease === 'linear' ? (x => x) : easeInOut;
-      const tracks = {};
-      for (const [id, dest] of Object.entries(b.move || {})) {
-        if (!this.pos[id]) continue;
-        const pts = Array.isArray(dest[0]) ? dest : [dest];
-        tracks[id] = [[...this.pos[id]], ...pts];
-      }
-
-      let flight = null;
-      const from = [...this.ball.at];
-      if (b.pass) {
-        flight = { kind: 'pass', from, target: b.pass, arc: b.lob ? .95 : .32 };
-        this.ball.holder = null;
-        sfx.pass();
-        this._passLine(from, b.pass, ms);
-      } else if (b.shot) {
-        flight = { kind: 'shot', from, result: b.shot, arc: 1.25, blocked: false };
-        this.ball.holder = null;
-        sfx.release();
-      } else if (b.ball) {
-        flight = { kind: 'loose', from, target: b.ball, arc: .7, bounced: false };
-        this.ball.holder = null;
-      }
-
-      if (b.sfx === 'squeak') sfx.squeak();
-      if (b.sfx === 'whistle') sfx.whistle();
-      if (b.call) this.call(b.call[0], b.call[1]);
-
-      const holderMoves = this.ball.holder && tracks[this.ball.holder];
-      const dribbleEvery = slow ? 560 : 400;
-      let nextDribble = holderMoves ? 60 : Infinity;
-      const trailPts = Object.fromEntries(Object.keys(tracks).map(id => [id, [[...this.pos[id]]]]));
-
-      const start = performance.now();
-      let last = start;
-      const frame = now => {
-        if (token !== this.token) return resolve();
-        const elapsed = now - start;
-        const raw = Math.min(1, elapsed / ms);
-        const e = ease(raw);
-        const dt = now - last;
-        last = now;
-
-        for (const [id, pts] of Object.entries(tracks)) {
-          this.pos[id] = sample(pts, e);
-          this._place(id);
-          trailPts[id].push([...this.pos[id]]);
-        }
-
-        let bounce = 0;
-        if (flight) this._fly(flight, raw);
-        else if (holderMoves) {
-          const phase = (elapsed % dribbleEvery) / dribbleEvery;
-          bounce = Math.sin(phase * Math.PI);
-          if (elapsed >= nextDribble) { sfx.dribble(slow ? .7 : 1); nextDribble += dribbleEvery; }
-        }
-        this._renderBall(bounce);
-        if (this.onFrame) this.onFrame(dt, b);
-
-        if (raw < 1) { requestAnimationFrame(frame); return; }
-        this._land(flight);
-        for (const [id, pts] of Object.entries(trailPts)) this._trail(id, pts);
-        resolve();
-      };
-      requestAnimationFrame(frame);
-    });
-  }
-
-  _fly(f, raw) {
-    const e = f.kind === 'shot' ? raw : easeInOut(raw);
-    let to;
-    if (f.kind === 'shot') {
-      to = HOOP;
-      if (f.result === 'block' && raw >= .42) {
-        if (!f.blocked) { f.blocked = true; f.pivot = [...this.ball.at]; f.pivotH = this.ball.h; sfx.block(); this._burst(f.pivot); }
-        const k = (raw - .42) / .58;
-        const out = [f.pivot[0] + 5, f.pivot[1] + 4];
-        this.ball.at = [lerp(f.pivot[0], out[0], k), lerp(f.pivot[1], out[1], k)];
-        this.ball.h = f.pivotH * (1 - k) + Math.sin(k * Math.PI) * .3;
-        this.ball.spin = (this.ball.spin || 0) + 14;
-        this._spin();
-        return;
-      }
-    } else {
-      to = this.pos[f.target] ? this._hand(f.target) : HOOP;
-    }
-    this.ball.at = [lerp(f.from[0], to[0], e), lerp(f.from[1], to[1], e)];
-    this.ball.h = Math.sin(e * Math.PI) * f.arc;
-    if (f.kind === 'loose' && raw > .55 && !f.bounced) { f.bounced = true; sfx.dribble(.55); }
-    this.ball.spin = (this.ball.spin || 0) + 9;
-    this._spin();
-  }
-
   _spin() { this.seams.setAttribute('transform', `rotate(${this.ball.spin % 360})`); }
 
-  _land(f) {
-    if (!f) return;
-    this.ball.h = 0;
-    if (f.kind === 'pass' || f.kind === 'loose') {
-      this.ball.holder = f.target;
-      sfx.catch();
-      this._pulse(f.target);
-    } else if (f.kind === 'shot') {
-      if (f.result === 'make') {
-        this.ball.at = [HOOP[0], HOOP[1] + .6];
-        sfx.swish();
-        this.net.classList.remove('is-swish');
-        void this.net.getBBox?.();
-        this.net.classList.add('is-swish');
-        this._ripple(HOOP);
-      } else if (f.result === 'miss') {
-        this.ball.at = [HOOP[0] + .9, HOOP[1] + 1.2];
-        this.ball.h = .5;
-        sfx.rim();
-        this._burst(HOOP);
-      }
-    }
-    this._renderBall(0);
+  _swish() {
+    this.net.classList.remove('is-swish');
+    void this.net.getBBox?.();
+    this.net.classList.add('is-swish');
+    this._ripple(HOOP);
   }
 
   /* ---------------------------------------------------------------- *
