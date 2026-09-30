@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Caesar Games — Love &amp; Play</title>
-<meta name="description" content="Caesar Games — Junqi, Xiangqi, Chess and Gomoku in one quiet bilingual tabletop collection.">
+<meta name="description" content="Caesar Games — Junqi, Xiangqi, Chess, Gomoku and Hoops IQ in one quiet bilingual collection.">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/app.css">
 <link rel="stylesheet" href="css/board.css">
+<link rel="stylesheet" href="css/hoops.css">
 </head>
 <body>
 
@@ -74,6 +75,11 @@
         <span class="game-native" data-i18n="game.gomoku.native">五子棋</span>
         <span class="game-english" data-i18n="game.gomoku.title">Gomoku</span>
         <span class="game-desc" data-i18n="game.gomoku.desc">Five in a row · calm tactics</span>
+      </button>
+      <button id="btn-hoops" class="game-tile game-tile-hoops" type="button">
+        <span class="game-native" data-i18n="game.hoops.native">篮球智商</span>
+        <span class="game-english" data-i18n="game.hoops.title">Hoops IQ</span>
+        <span class="game-desc" data-i18n="game.hoops.desc">Read the defense · decide fast</span>
       </button>
     </div>
 
@@ -139,6 +145,11 @@
       </div>
     </div>
   </div>
+</main>
+
+<!-- ============================ HOOPS IQ ============================ -->
+<main class="screen" data-screen="hoops">
+  <div id="hoops-root" class="hoops" data-view="menu"></div>
 </main>
 
 <!-- ============================ LEARN ============================ -->
