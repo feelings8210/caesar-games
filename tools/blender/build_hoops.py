@@ -228,19 +228,19 @@ def compare():
         d = figurine(f'D_{style}', 'defense', figure_materials('red', style), style, number=5)
         d.location = (x + 1.45, -29.6, 0)
         d.rotation_euler = (0, 0, math.pi * 0.92)
-    bpy.ops.object.light_add(type='AREA', location=(-4, -38, 14))
-    key = bpy.context.object; key.data.size = 14; key.data.energy = 5200; key.data.color = srgb('#FFE9CC')
+    bpy.ops.object.light_add(type='AREA', location=(-6, -48, 16))
+    key = bpy.context.object; key.data.size = 18; key.data.energy = 9000; key.data.color = srgb('#FFE9CC')
     key.rotation_euler = (math.radians(50), 0, math.radians(-15))
     bpy.ops.object.light_add(type='AREA', location=(6, -20, 9))
     rim = bpy.context.object; rim.data.size = 10; rim.data.energy = 2600; rim.data.color = srgb('#BFD3FF')
     rim.rotation_euler = (math.radians(-60), 0, math.radians(160))
-    bpy.ops.object.camera_add(location=(0, -47, 5.6))
+    bpy.ops.object.camera_add(location=(0, -62, 7.5))
     cam = bpy.context.object
-    cam.rotation_euler = (Vector((0, -29.8, 2.3)) - cam.location).to_track_quat('-Z', 'Y').to_euler()
-    cam.data.lens = 58
+    cam.rotation_euler = (Vector((0, -29.8, 2.6)) - cam.location).to_track_quat('-Z', 'Y').to_euler()
+    cam.data.lens = 55
     cam.data.dof.use_dof = True
-    cam.data.dof.focus_distance = 17
-    cam.data.dof.aperture_fstop = 2.2
+    cam.data.dof.focus_distance = 32
+    cam.data.dof.aperture_fstop = 1.4
     scene.camera = cam
     PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
     scene.render.filepath = str(PREVIEW_DIR / 'compare_styles.png')
