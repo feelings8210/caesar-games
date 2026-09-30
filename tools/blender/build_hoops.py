@@ -114,7 +114,19 @@ def join(objs, name):
 
 # ---------------------------------------------------------------- figurine
 
-def figurine(name, pose, mats):
+def number_mesh(n, loc, rot, mat, size=0.62):
+    bpy.ops.object.text_add(location=loc, rotation=rot)
+    t = bpy.context.object
+    t.data.body = str(n)
+    t.data.size = size
+    t.data.extrude = 0.025
+    t.data.align_x = 'CENTER'
+    t.data.align_y = 'CENTER'
+    bpy.ops.object.convert(target='MESH')
+    return assign(bpy.context.object, mat)
+
+
+def figurine(name, pose, mats, style='mannequin', number=None):
     """A premium board-game miniature: round lacquer base, soft vinyl figure."""
     parts = []
     # Base: lacquered disc with a thin gold trim ring.
@@ -139,7 +151,7 @@ def figurine(name, pose, mats):
 
     for s in (-1, 1):
         foot = (s * stance, -0.1, top + 0.14)
-        parts.append(sphere(0.2, foot, mats['Shoe'], scale=(1.0, 1.55, 0.72)))
+        parts.append(sphere(0.2, foot, mats['Accent' if style == 'toy' else 'Shoe'], scale=(1.0, 1.55, 0.72)))
         parts += limb((s * stance, 0, top + 0.25), (s * stance * 0.8, lean * 2, top + knee), 0.17, mats['Skin'])
         parts += limb((s * stance * 0.8, lean * 2, top + knee), (s * 0.3, lean, top + hip), 0.2, mats['Skin'])
 
@@ -149,7 +161,18 @@ def figurine(name, pose, mats):
     torso.scale = (1.0, 0.72, 1.0)
     parts.append(bevel(torso, 0.18, 4))
     parts.append(cyl(0.16, 0.3, (0, lean * 2, top + hip + 1.95), mats['Skin'], verts=16))
-    parts.append(sphere(0.5, (0, lean * 2.2, top + hip + 2.45), mats['Skin'], scale=(0.95, 1.0, 1.08), seg=32))
+    head_c = (0, lean * 2.2, top + hip + 2.45 + (0.06 if style == 'toy' else 0))
+    head_r = 0.58 if style == 'toy' else 0.5
+    parts.append(sphere(head_r, head_c, mats['Skin'], scale=(0.95, 1.0, 1.08), seg=32))
+    if style == 'toy':
+        # Hair cap and a headband in the team accent.
+        parts.append(sphere(head_r * 1.03, (head_c[0], head_c[1] + 0.03, head_c[2] + 0.12), mats['Hair'], scale=(0.97, 1.02, 0.78), seg=32))
+        bpy.ops.mesh.primitive_torus_add(major_radius=head_r * 0.98, minor_radius=0.075, location=(head_c[0], head_c[1], head_c[2] + 0.1))
+        parts.append(assign(bpy.context.object, mats['Accent']))
+    if number is not None:
+        chest = top + hip + 1.12
+        parts.append(number_mesh(number, (0, lean * 1.5 - 0.47, chest), (math.radians(90), 0, 0), mats['Number']))
+        parts.append(number_mesh(number, (0, lean * 1.5 + 0.47, chest + 0.05), (math.radians(90), 0, math.pi), mats['Number'], size=0.78))
 
     for arm in (arm_l, arm_r):
         sh, el, ha = [Vector(p) + Vector((0, 0, top - 0.28)) for p in arm]
@@ -162,15 +185,67 @@ def figurine(name, pose, mats):
     return join(parts, name)
 
 
-def figure_materials(team):
+def figure_materials(team, style='mannequin'):
+    team_c = NAVY if team != 'red' else RED
+    k = f'_{style}_{team}' if team else ''
+    metal = style == 'metal'
     return {
-        'Base': material('Base', srgb('#14233D'), rough=0.28, coat=0.6),
-        'Trim': material('Trim', srgb('#C9A76A'), rough=0.3, metal=1.0),
-        'Jersey': material(f'Jersey_{team}' if team else 'Jersey', NAVY if team != 'red' else RED, rough=0.55),
-        'Shorts': material(f'Shorts_{team}' if team else 'Shorts', tuple(c * 0.55 for c in (NAVY if team != 'red' else RED)), rough=0.6),
-        'Skin': material('Skin', srgb('#E6D9C6'), rough=0.48),
-        'Shoe': material('Shoe', srgb('#F4F3EF'), rough=0.4),
+        'Base': material('Base' + k, srgb('#14233D'), rough=0.28, coat=0.6),
+        'Trim': material('Trim' + k, srgb('#C9A76A'), rough=0.3, metal=1.0),
+        'Jersey': material('Jersey' + k, team_c, rough=0.18 if metal else 0.55, coat=0.9 if metal else 0),
+        'Shorts': material('Shorts' + k, tuple(c * 0.55 for c in team_c), rough=0.2 if metal else 0.6, coat=0.9 if metal else 0),
+        'Skin': material('Skin' + k, srgb('#B9B4AB') if metal else srgb('#E6D9C6'), rough=0.32 if metal else 0.48, metal=1.0 if metal else 0),
+        'Shoe': material('Shoe' + k, srgb('#F4F3EF'), rough=0.4),
+        'Hair': material('Hair' + k, srgb('#2B211B'), rough=0.6),
+        'Accent': material('Accent' + k, srgb('#F4F3EF') if team != 'red' else srgb('#C9A76A'), rough=0.45),
+        'Number': material('Number' + k, srgb('#C9A76A') if metal else srgb('#F4F3EF'), rough=0.3 if metal else 0.45, metal=1.0 if metal else 0),
     }
+
+
+def compare():
+    """Three figurine styles side by side, offense front / defense back."""
+    reset()
+    scene = bpy.context.scene
+    scene.render.engine = 'CYCLES'
+    scene.cycles.device = 'CPU'
+    scene.cycles.samples = 48
+    scene.cycles.use_denoising = True
+    scene.render.resolution_x = 1800
+    scene.render.resolution_y = 820
+    scene.view_settings.view_transform = 'AgX'
+    scene.view_settings.look = 'AgX - Medium High Contrast'
+    world = bpy.data.worlds.new('World'); scene.world = world
+    world.use_nodes = True
+    world.node_tree.nodes['Background'].inputs['Color'].default_value = (*srgb('#0B1526'), 1)
+    bpy.ops.mesh.primitive_plane_add(size=1, location=(0, -25, 0))
+    f = bpy.context.object; f.scale = (50, 50, 1)
+    bpy.ops.object.transform_apply(scale=True)
+    f.data.materials.append(floor_material())
+    for i, style in enumerate(['mannequin', 'toy', 'metal']):
+        x = (i - 1) * 6.2
+        o = figurine(f'O_{style}', 'offense', figure_materials('navy', style), style, number=2)
+        o.location = (x - 1.35, -30, 0)
+        d = figurine(f'D_{style}', 'defense', figure_materials('red', style), style, number=5)
+        d.location = (x + 1.45, -29.6, 0)
+        d.rotation_euler = (0, 0, math.pi * 0.92)
+    bpy.ops.object.light_add(type='AREA', location=(-4, -38, 14))
+    key = bpy.context.object; key.data.size = 14; key.data.energy = 5200; key.data.color = srgb('#FFE9CC')
+    key.rotation_euler = (math.radians(50), 0, math.radians(-15))
+    bpy.ops.object.light_add(type='AREA', location=(6, -20, 9))
+    rim = bpy.context.object; rim.data.size = 10; rim.data.energy = 2600; rim.data.color = srgb('#BFD3FF')
+    rim.rotation_euler = (math.radians(-60), 0, math.radians(160))
+    bpy.ops.object.camera_add(location=(0, -47, 5.6))
+    cam = bpy.context.object
+    cam.rotation_euler = (Vector((0, -29.8, 2.3)) - cam.location).to_track_quat('-Z', 'Y').to_euler()
+    cam.data.lens = 58
+    cam.data.dof.use_dof = True
+    cam.data.dof.focus_distance = 17
+    cam.data.dof.aperture_fstop = 2.2
+    scene.camera = cam
+    PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
+    scene.render.filepath = str(PREVIEW_DIR / 'compare_styles.png')
+    bpy.ops.render.render(write_still=True)
+    print('rendered', scene.render.filepath)
 
 
 # ---------------------------------------------------------------- hoop
@@ -376,6 +451,9 @@ def preview():
 
 
 def main():
+    if '--compare' in sys.argv:
+        compare()
+        return
     reset()
     off = figurine('Figurine_Offense', 'offense', figure_materials(None))
     dfn = figurine('Figurine_Defense', 'defense', figure_materials(None))
