@@ -8,7 +8,7 @@
  * The court view owns motion; this file owns flow, text and progress.
  */
 
-import { CourtView, dist, radiusOf } from './court.js';
+import { CourtView } from './court.js';
 import { hoopsAudio as sfx } from './audio.js';
 import { CHAPTER, LEVELS } from './levels.js';
 import { t, getLocale } from '../../i18n/strings.js';
@@ -50,9 +50,7 @@ export class HoopsGame {
     this.flow = 0;               // bumps to cancel any in-flight sequence
     this.progress = readProgress();
     this._build();
-    this.court = new CourtView(this.$('.hp-court'), { text: L });
-    this.court.onFrame = (dt, beat) => this._tickClock(dt, beat);
-    this._bindPointer();
+    this.court = null;           // created on first level: 3D, or SVG fallback
   }
 
   $(sel) { return this.root.querySelector(sel); }
@@ -158,8 +156,9 @@ export class HoopsGame {
 
   leave() {
     this.flow++;
-    this.court.cancel();
-    this.court.setFrozen(false);
+    this.court?.cancel();
+    this.court?.setFrozen(false);
+    this.court?.sleep?.();
     cancelAnimationFrame(this._timerRaf);
     this.view = 'menu';
     this.phase = 'idle';
@@ -214,6 +213,8 @@ export class HoopsGame {
   async startLevel(i) {
     const flow = ++this.flow;
     cancelAnimationFrame(this._timerRaf);
+    await this._ensureCourt();
+    if (flow !== this.flow) return;
     this.index = i;
     this.view = 'play';
     this.choice = null;
@@ -225,7 +226,7 @@ export class HoopsGame {
     this.clock = lvl.hud ? lvl.hud.clock : null;
     this.buzzed = false;
     this.court.setScene(lvl.setup, lvl.you);
-    this.court.svg.classList.toggle('has-hud', !!lvl.hud);
+    this.court.el.classList.toggle('has-hud', !!lvl.hud);
     this.court.setYouLabel(t('hoops.you'));
     this.court.setFrozen(false);
     this.$('.hp-banner').className = 'hp-banner';
@@ -256,9 +257,11 @@ export class HoopsGame {
     this.court.setFrozen(true);
     this._setPhase('decide');
 
-    const total = lvl.decide * 1000;
+    // ?hoopsDecide=N stretches the window for slow software-GL test browsers.
+    const secs = Number(new URLSearchParams(location.search).get('hoopsDecide')) || lvl.decide;
+    const total = secs * 1000;
     const start = performance.now();
-    let lastSecond = Math.ceil(lvl.decide);
+    let lastSecond = Math.ceil(secs);
     const step = now => {
       if (flow !== this.flow || this.phase !== 'decide') return;
       const elapsed = now - start;
@@ -273,7 +276,7 @@ export class HoopsGame {
         lastSecond = sec;
         if (sec <= 3 && sec >= 1) sfx.tick(sec === 1);
       }
-      if (left <= 0) { this.choose(-1, lvl.decide); return; }
+      if (left <= 0) { this.choose(-1, secs); return; }
       this._timerRaf = requestAnimationFrame(step);
     };
     this.decideStart = start;
@@ -391,7 +394,7 @@ export class HoopsGame {
     this.$('.hp-watch-text').textContent = t(p === 'demo' ? 'hoops.bestPlay' : 'hoops.watch');
     this.$('.hp-prompt').textContent = L(lvl.prompt);
     this.$('.hp-howto').textContent = t(lvl.side === 'defense' ? 'hoops.howToDefense' : 'hoops.howTo');
-    this.court.setYouLabel(t('hoops.you'));
+    this.court?.setYouLabel(t('hoops.you'));
     this._renderHud();
 
     const on = { title: 'watch', intro: 'watch', demo: 'watch', outcome: 'watch', decide: 'decide', review: 'review' }[p];
@@ -464,38 +467,22 @@ export class HoopsGame {
    * ---------------------------------------------------------------- */
 
   _bindPointer() {
-    const svg = this.court.svg;
+    const el = this.court.el;
     let drag = null;
 
-    const nearest = (pt, reach) => {
-      let best = -1;
-      let bestD = Infinity;
-      this.level.options.forEach((opt, i) => {
-        const at = this.court.targetPoint(opt);
-        if (!at) return;
-        const d = dist(pt, at);
-        if (d < bestD) { bestD = d; best = i; }
-      });
-      return bestD <= reach ? best : -1;
-    };
-
-    svg.addEventListener('pointerdown', e => {
+    el.addEventListener('pointerdown', e => {
       if (this.phase !== 'decide') return;
       e.preventDefault();
-      const pt = this.court.toCourt(e.clientX, e.clientY);
-      const me = this.court.pos[this.level.you];
-      const onMe = me && dist(pt, me) <= radiusOf(this.level.you) + 1.8;
-      drag = { onMe, start: pt, moved: false, id: e.pointerId };
-      try { svg.setPointerCapture(e.pointerId); } catch { /* older WebKit */ }
+      drag = { onMe: this.court.hitActor(e.clientX, e.clientY, this.level.you), x: e.clientX, y: e.clientY, moved: false };
+      try { el.setPointerCapture(e.pointerId); } catch { /* older WebKit */ }
     });
 
-    svg.addEventListener('pointermove', e => {
+    el.addEventListener('pointermove', e => {
       if (!drag || this.phase !== 'decide') return;
-      const pt = this.court.toCourt(e.clientX, e.clientY);
-      if (dist(pt, drag.start) > 1.2) drag.moved = true;
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 12) drag.moved = true;
       if (drag.onMe && drag.moved) {
-        this.court.dragTo(this.court.pos[this.level.you], pt);
-        const hot = nearest(pt, 4.5);
+        this.court.dragTo(this.court.pos[this.level.you], this.court.toCourt(e.clientX, e.clientY));
+        const hot = this.court.pickTarget(e.clientX, e.clientY, true);
         if (hot !== this._hot) { this._hot = hot; if (hot >= 0) sounds.select(); }
         this.court.highlightTarget(hot);
       }
@@ -503,25 +490,46 @@ export class HoopsGame {
 
     const finish = e => {
       if (!drag || this.phase !== 'decide') { drag = null; return; }
-      const pt = this.court.toCourt(e.clientX, e.clientY);
-      let pick = -1;
-      if (drag.onMe && drag.moved) {
-        pick = nearest(pt, 4.5);
-      } else {
-        const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('.hc-target');
-        pick = hit ? Number(hit.dataset.opt) : nearest(pt, 3.4);
-      }
+      const pick = this.court.pickTarget(e.clientX, e.clientY, drag.onMe && drag.moved);
       this.court.endDrag();
       this.court.highlightTarget(-1);
       this._hot = -1;
       drag = null;
       if (pick >= 0) this.choose(pick);
     };
-    svg.addEventListener('pointerup', finish);
-    svg.addEventListener('pointercancel', () => {
+    el.addEventListener('pointerup', finish);
+    el.addEventListener('pointercancel', () => {
       drag = null;
       this.court.endDrag();
       this.court.highlightTarget(-1);
     });
+  }
+
+  /** The 3D court when the device can run it, the SVG court otherwise. */
+  _ensureCourt() {
+    if (!this._courtPromise) this._courtPromise = (async () => {
+      const mount = this.$('.hp-court');
+      let court = null;
+      if (!/[?&]hoops2d\b/.test(location.search)) {
+        try {
+          const mod = await import('./court3d.js');
+          if (mod.webglAvailable()) {
+            court = new mod.Court3D(mount, { text: L });
+            await court.ready;
+          }
+        } catch (err) {
+          console.warn('Hoops IQ: 3D court unavailable, using 2D', err);
+          court?.destroy?.();
+          court = null;
+        }
+      }
+      if (!court) court = new CourtView(mount, { text: L });
+      court.onFrame = (dt, beat) => this._tickClock(dt, beat);
+      this.court = court;
+      this.root.dataset.court = court instanceof CourtView ? '2d' : '3d';
+      this._bindPointer();
+      return court;
+    })();
+    return this._courtPromise;
   }
 }

@@ -37,3 +37,25 @@ A level unlocks the next one at 1 star or more.
 - `scripts/hoops-smoke.mjs` — plays every level in Chromium and captures screenshots.
 
 Progress is stored per device in `localStorage` under `caesar_hoops_progress_v1`.
+
+## 3D court (v2.2)
+
+The court is a tabletop diorama rendered with three.js (vendored, minified,
+`js/vendor/three/`): satin-metal figurines on team-coloured enamel bases —
+silver offense, gunmetal defense, gold for "you" — with broadcast-style
+tracking rings. Numbers, labels and calls are an HTML layer over the canvas.
+
+- `js/games/hoops/runner.js` — shared beat runner (positions, ball flight,
+  timing); both views subclass it.
+- `js/games/hoops/court3d.js` — three.js view and camera director:
+  broadcast → push-in on the freeze → high "decide" angle, auto-fitted to
+  the screen's aspect.
+- `js/games/hoops/court.js` — the SVG view, used when WebGL is unavailable
+  or with `?hoops2d=1`.
+- `tools/blender/build_hoops.py` — builds `assets/hoops/figurines.glb` and
+  `hoop.glb` (`--preview`, `--style metal`, `--ar` render stills);
+  `tools/blender/court_texture.py` draws `court_lines.png`.
+
+Testing: `node scripts/hoops-smoke.mjs <outDir>` plays every level in
+Chromium (software GL). `?hoopsDecide=N` stretches the decision window for
+slow test browsers only; `HOOPS_2D=1` runs the SVG fallback.

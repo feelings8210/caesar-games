@@ -271,6 +271,7 @@ export class CourtView extends BeatRunner {
 
   showTargets(options, actor) {
     this.clearMarkers();
+    this._options = options;
     const from = this.pos[actor];
     options.forEach((opt, i) => {
       const g = el('g', { class: `hc-target is-${opt.kind}`, 'data-opt': i }, this.gMarkers);
@@ -337,6 +338,43 @@ export class CourtView extends BeatRunner {
   }
 
   clearCue() { this.gFx.querySelectorAll('.hc-cue').forEach(n => n.remove()); }
+
+  /** Nearest option to a tap (or a drag release), or -1. */
+  pickTarget(clientX, clientY, drag = false) {
+    if (!drag) {
+      const hit = document.elementFromPoint(clientX, clientY)?.closest?.('.hc-target');
+      if (hit && this.svg.contains(hit)) return Number(hit.dataset.opt);
+    }
+    const pt = this.toCourt(clientX, clientY);
+    let best = -1;
+    let bestD = Infinity;
+    (this._options || []).forEach((opt, i) => {
+      const at = this.targetPoint(opt);
+      if (!at) return;
+      const d = dist(pt, at);
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    return bestD <= (drag ? 4.5 : 3.4) ? best : -1;
+  }
+
+  targetClientPoint(i) {
+    const hit = this.gMarkers.querySelector(`.hc-target[data-opt="${i}"] .hc-hit`);
+    if (!hit) return null;
+    const r = hit.getBoundingClientRect();
+    return [r.left + r.width / 2, r.top + r.height / 2];
+  }
+
+  actorClientPoint(id) {
+    const node = this.nodes[id]?.querySelector('.hc-body');
+    if (!node) return null;
+    const r = node.getBoundingClientRect();
+    return [r.left + r.width / 2, r.top + r.height / 2];
+  }
+
+  hitActor(clientX, clientY, id) {
+    const me = this.pos[id];
+    return !!me && dist(this.toCourt(clientX, clientY), me) <= radiusOf(id) + 1.8;
+  }
 
   /** Client pixel → court feet. */
   toCourt(clientX, clientY) {

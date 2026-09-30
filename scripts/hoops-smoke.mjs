@@ -28,12 +28,16 @@ try {
     try { if ((await fetch(origin)).ok) break; } catch { /* booting */ }
     await new Promise(r => setTimeout(r, 100));
   }
-  const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
-  const page = await browser.newPage({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2 });
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH || undefined,
+    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
+  });
+  const page = await browser.newPage({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: Number(process.env.DSF || 1) });
   page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
   page.on('console', m => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
 
-  await page.goto(origin);
+  const decide = Number(process.env.HOOPS_DECIDE || 20);
+  await page.goto(`${origin}/?hoopsDecide=${decide}${process.env.HOOPS_2D ? '&hoops2d=1' : ''}`);
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.screenshot({ path: `${outDir}/00-home.png` });
@@ -50,23 +54,27 @@ try {
   for (let i = 0; i < levelCount; i++) {
     if (i === 0) await page.click('.hp-level[data-index="0"]');
     await waitPhase('decide');
-    if (i === 0 || i === 6) await page.screenshot({ path: `${outDir}/${String(i + 2).padStart(2, '0')}-L${i + 1}-decide.png` });
+    if (i === 0 || i === 6) await page.screenshot({ path: `${outDir}/${String(i + 2).padStart(2, '0')}-L${i + 1}-push.png` });
 
     const best = await page.evaluate(async idx => {
       const { LEVELS } = await import('./js/games/hoops/levels.js');
       return LEVELS[idx].options.findIndex(o => o.grade === 3);
     }, i);
-    const target = page.locator(`.hc-target[data-opt="${best}"] .hc-hit`);
-    const box = await target.boundingBox();
-    const cx = box.x + box.width / 2;
-    const cy = box.y + box.height / 2;
+    await page.waitForTimeout(1300);   // let the freeze camera settle
+    if (i === 0 || i === 6) await page.screenshot({ path: `${outDir}/${String(i + 2).padStart(2, '0')}-L${i + 1}-decide.png` });
+    const point = await page.evaluate(i => window.caesarApp.hoops.court.targetClientPoint(i), best);
+    if (!point) throw new Error(`level ${i + 1}: no target point (phase ${await phase()})`);
+    const [cx, cy] = point;
 
     if (i === 0) {
       // Drag yourself onto the spot.
-      const me = await page.locator('.hc-player .hc-you-ring').boundingBox();
-      await page.mouse.move(me.x + me.width / 2, me.y + me.height / 2);
+      const [mx, my] = await page.evaluate(() => {
+        const h = window.caesarApp.hoops;
+        return h.court.actorClientPoint(h.level.you);
+      });
+      await page.mouse.move(mx, my);
       await page.mouse.down();
-      await page.mouse.move((me.x + cx) / 2, (me.y + cy) / 2, { steps: 6 });
+      await page.mouse.move((mx + cx) / 2, (my + cy) / 2, { steps: 6 });
       await page.mouse.move(cx, cy, { steps: 6 });
       await page.mouse.up();
     } else {
@@ -88,10 +96,13 @@ try {
   await page.click('#btn-language');
   await page.click('.hp-level[data-index="1"]');
   await waitPhase('decide');
+  report.court = await page.getAttribute('#hoops-root', 'data-court');
+  await page.waitForTimeout(1300);
   await page.screenshot({ path: `${outDir}/21-L2-decide-zh.png` });
-  const wrong = page.locator('.hc-target.is-shoot .hc-hit');
-  const wb = await wrong.boundingBox();
-  await page.mouse.click(wb.x + wb.width / 2, wb.y + wb.height / 2);
+  await page.waitForTimeout(1300);
+  const shootIdx = await page.evaluate(() => window.caesarApp.hoops.level.options.findIndex(o => o.kind === 'shoot'));
+  const [wx, wy] = await page.evaluate(i => window.caesarApp.hoops.court.targetClientPoint(i), shootIdx);
+  await page.mouse.click(wx, wy);
   await waitPhase('review');
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${outDir}/22-L2-wrong-zh.png` });
@@ -103,7 +114,7 @@ try {
   // Let the decision clock run out.
   await page.click('.hp-retry');
   await waitPhase('decide');
-  await waitPhase('review', 15000);
+  await waitPhase('review', (decide + 25) * 1000);
   report.timeoutVerdict = await page.textContent('.hp-verdict-text');
 
   // Home and back resets cleanly mid-level.

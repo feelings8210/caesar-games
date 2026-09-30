@@ -11,7 +11,7 @@
  * discards every older cache in one pass.
  */
 
-const BUILD_VERSION = 'v2.1.0';
+const BUILD_VERSION = 'v2.2.0';
 const CACHE = `caesar-games-${BUILD_VERSION}`;
 
 const PRECACHE = [
@@ -47,6 +47,17 @@ const PRECACHE = [
   './js/games/hoops/court.js',
   './js/games/hoops/levels.js',
   './js/games/hoops/controller.js',
+  './js/games/hoops/runner.js',
+  './js/games/hoops/court3d.js',
+  './js/vendor/three/three.core.min.js',
+  './js/vendor/three/three.module.min.js',
+  './js/vendor/three/addons/GLTFLoader.js',
+  './js/vendor/three/addons/BufferGeometryUtils.js',
+  './js/vendor/three/addons/SkeletonUtils.js',
+  './js/vendor/three/addons/RoomEnvironment.js',
+  './assets/hoops/figurines.glb',
+  './assets/hoops/hoop.glb',
+  './assets/hoops/court_lines.png',
   './js/vendor/chessjs/chess.js',
   './js/vendor/chessjs/LICENSE',
   './assets/cd_home_mark_transparent.png',
