@@ -185,20 +185,25 @@ def figurine(name, pose, mats, style='mannequin', number=None):
     return join(parts, name)
 
 
-def figure_materials(team, style='mannequin'):
+# Satin metals: pewter for offense, bronze for defense, gold for "you".
+METAL_BODY = {'navy': '#AEB3BA', 'red': '#A0714A', 'gold': '#D9B46A'}
+
+
+def figure_materials(team, style='mannequin', you=False):
     team_c = NAVY if team != 'red' else RED
-    k = f'_{style}_{team}' if team else ''
+    k = f'_{style}_{team}{"_you" if you else ""}' if team else ''
     metal = style == 'metal'
+    body = METAL_BODY['gold' if you else ('red' if team == 'red' else 'navy')]
     return {
         'Base': material('Base' + k, srgb('#14233D'), rough=0.28, coat=0.6),
         'Trim': material('Trim' + k, srgb('#C9A76A'), rough=0.3, metal=1.0),
         'Jersey': material('Jersey' + k, team_c, rough=0.18 if metal else 0.55, coat=0.9 if metal else 0),
         'Shorts': material('Shorts' + k, tuple(c * 0.55 for c in team_c), rough=0.2 if metal else 0.6, coat=0.9 if metal else 0),
-        'Skin': material('Skin' + k, srgb('#B9B4AB') if metal else srgb('#E6D9C6'), rough=0.32 if metal else 0.48, metal=1.0 if metal else 0),
+        'Skin': material('Skin' + k, srgb(body) if metal else srgb('#E6D9C6'), rough=(0.3 if you else 0.42) if metal else 0.48, metal=1.0 if metal else 0),
         'Shoe': material('Shoe' + k, srgb('#F4F3EF'), rough=0.4),
         'Hair': material('Hair' + k, srgb('#2B211B'), rough=0.6),
         'Accent': material('Accent' + k, srgb('#F4F3EF') if team != 'red' else srgb('#C9A76A'), rough=0.45),
-        'Number': material('Number' + k, srgb('#C9A76A') if metal else srgb('#F4F3EF'), rough=0.3 if metal else 0.45, metal=1.0 if metal else 0),
+        'Number': material('Number' + k, srgb('#F4F1E8'), rough=0.35 if metal else 0.45),
     }
 
 
@@ -403,22 +408,23 @@ def preview():
     court_plinth()
     hoop(hoop_materials())
 
-    off = figurine('Off', 'offense', figure_materials('navy'))
-    dfn = figurine('Def', 'defense', figure_materials('red'))
 
     # Level 3 freeze: pick and roll, the big has stepped up.
     pos = {'o1': (8, 26.5), 'o2': (-17, 20), 'o3': (22, 3.5), 'o4': (-22, 3.5), 'o5': (1.5, 19.5),
            'd1': (3, 29.2), 'd2': (-14, 18), 'd3': (18.5, 6), 'd4': (-14, 7.5), 'd5': (8.6, 24.3)}
     ball = pos['o1']
+    style = sys.argv[sys.argv.index('--style') + 1] if '--style' in sys.argv else 'mannequin'
     for k, p in pos.items():
+        n = int(k[1])
         if k[0] == 'o':
             face = facing(p, (0, 5.25)) if k != 'o1' else facing(p, pos['o5'])
-            place(off, *p, face)
+            fig = figurine(k, 'offense', figure_materials('navy', style, you=k == 'o1'), style, number=n)
         else:
             man = pos['o' + k[1]]
-            place(dfn, *p, facing(p, man if k != 'd5' else ball))
-    bpy.data.objects.remove(off)
-    bpy.data.objects.remove(dfn)
+            face = facing(p, man if k != 'd5' else ball)
+            fig = figurine(k, 'defense', figure_materials('red', style), style, number=n)
+        fig.location = (p[0], -p[1], 0)
+        fig.rotation_euler = (0, 0, face)
 
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.45, location=(ball[0] + 0.9, -(ball[1]) - 0.4, 2.2))
     assign(bpy.context.object, material('Ball', srgb('#C8662E'), rough=0.6))
@@ -445,7 +451,7 @@ def preview():
         cam.data.dof.focus_distance = (Vector((focus[0], -focus[1], 2.5)) - Vector(loc)).length
         cam.data.dof.aperture_fstop = 0.9 if name == 'broadcast' else 0.5
         scene.camera = cam
-        scene.render.filepath = str(PREVIEW_DIR / f'preview_{name}.png')
+        scene.render.filepath = str(PREVIEW_DIR / f'preview_{style}_{name}.png')
         bpy.ops.render.render(write_still=True)
         print('rendered', scene.render.filepath)
 
