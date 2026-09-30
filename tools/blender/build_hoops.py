@@ -118,6 +118,9 @@ def number_mesh(n, loc, rot, mat, size=0.62):
     bpy.ops.object.text_add(location=loc, rotation=rot)
     t = bpy.context.object
     t.data.body = str(n)
+    bold = Path('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf')
+    if bold.exists():
+        t.data.font = bpy.data.fonts.get('DejaVuSans-Bold') or bpy.data.fonts.load(str(bold))
     t.data.size = size
     t.data.extrude = 0.025
     t.data.align_x = 'CENTER'
@@ -186,7 +189,8 @@ def figurine(name, pose, mats, style='mannequin', number=None):
 
 
 # Satin metals: pewter for offense, bronze for defense, gold for "you".
-METAL_BODY = {'navy': '#AEB3BA', 'red': '#A0714A', 'gold': '#D9B46A'}
+# Value contrast reads at distance: light silver vs dark gunmetal vs gold.
+METAL_BODY = {'navy': '#C9CDD3', 'red': '#4B4E54', 'gold': '#D9B46A'}
 
 
 def figure_materials(team, style='mannequin', you=False):
@@ -195,8 +199,8 @@ def figure_materials(team, style='mannequin', you=False):
     metal = style == 'metal'
     body = METAL_BODY['gold' if you else ('red' if team == 'red' else 'navy')]
     return {
-        'Base': material('Base' + k, srgb('#14233D'), rough=0.28, coat=0.6),
-        'Trim': material('Trim' + k, srgb('#C9A76A'), rough=0.3, metal=1.0),
+        'Base': material('Base' + k, (team_c if team else srgb('#14233D')) if metal else srgb('#14233D'), rough=0.28, coat=0.6),
+        'Trim': material('Trim' + k, srgb('#E2BE72') if you else srgb('#C9A76A'), rough=0.3, metal=1.0),
         'Jersey': material('Jersey' + k, team_c, rough=0.18 if metal else 0.55, coat=0.9 if metal else 0),
         'Shorts': material('Shorts' + k, tuple(c * 0.55 for c in team_c), rough=0.2 if metal else 0.6, coat=0.9 if metal else 0),
         'Skin': material('Skin' + k, srgb(body) if metal else srgb('#E6D9C6'), rough=(0.3 if you else 0.42) if metal else 0.48, metal=1.0 if metal else 0),
@@ -372,6 +376,29 @@ def court_plinth():
     return f
 
 
+def emissive(name, color, strength):
+    m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
+    m.use_nodes = True
+    b = m.node_tree.nodes.get('Principled BSDF')
+    b.inputs['Base Color'].default_value = (*color, 1)
+    b.inputs['Emission Color'].default_value = (*color, 1)
+    b.inputs['Emission Strength'].default_value = strength
+    return m
+
+
+def ar_ring(pid, p, n):
+    """Broadcast-style tracking ring and floor number under a player."""
+    hue = '#F2C66D' if pid == 'o1' else ('#7FB2FF' if pid[0] == 'o' else '#FF7F70')
+    mat = emissive(f'AR_{hue}', srgb(hue), 4.0)
+    bpy.ops.mesh.primitive_torus_add(major_radius=1.85, minor_radius=0.08, location=(p[0], -p[1], 0.03))
+    ring = bpy.context.object
+    ring.scale = (1, 1, 0.25)
+    assign(ring, mat)
+    # Number on the floor, on the camera side of the ring, lying flat.
+    label = number_mesh(n, (p[0], -p[1] - 2.9, 0.02), (0, 0, 0), mat, size=1.25)
+    label.scale = (1, 1, 0.1)
+
+
 def place(obj, x, y, face):
     o = obj.copy()
     o.data = obj.data.copy()
@@ -425,6 +452,8 @@ def preview():
             fig = figurine(k, 'defense', figure_materials('red', style), style, number=n)
         fig.location = (p[0], -p[1], 0)
         fig.rotation_euler = (0, 0, face)
+        if '--ar' in sys.argv:
+            ar_ring(k, p, n)
 
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.45, location=(ball[0] + 0.9, -(ball[1]) - 0.4, 2.2))
     assign(bpy.context.object, material('Ball', srgb('#C8662E'), rough=0.6))
@@ -437,7 +466,7 @@ def preview():
     rim = bpy.context.object.data; rim.size = 20; rim.energy = 9000; rim.color = srgb('#BFD3FF')
 
     shots = {
-        'broadcast': ((0, -84, 44), (0, -14, 1.5), 42, (8, 26.5)),
+        'broadcast': ((0, -70, 32) if '--ar' in sys.argv else (0, -84, 44), (0, -15, 1.5), 42, (8, 26.5)),
         'freeze': ((21, -44, 11), (6.5, -23.5, 2.6), 55, (8, 26.5)),
     }
     PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
@@ -451,7 +480,7 @@ def preview():
         cam.data.dof.focus_distance = (Vector((focus[0], -focus[1], 2.5)) - Vector(loc)).length
         cam.data.dof.aperture_fstop = 0.9 if name == 'broadcast' else 0.5
         scene.camera = cam
-        scene.render.filepath = str(PREVIEW_DIR / f'preview_{style}_{name}.png')
+        scene.render.filepath = str(PREVIEW_DIR / f'preview_{style}{"_ar" if "--ar" in sys.argv else ""}_{name}.png')
         bpy.ops.render.render(write_still=True)
         print('rendered', scene.render.filepath)
 
