@@ -11,3 +11,4 @@ review/round-*
 review/pre-travel-final
 review/v1-final-product
 review/*.png
+__pycache__/
