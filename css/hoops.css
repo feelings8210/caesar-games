@@ -550,7 +550,7 @@
 
 .hp-view {
   position: absolute;
-  right: 14px; top: 14px;
+  left: 14px; bottom: 14px;
   padding: 8px 14px;
   border-radius: 999px;
   font: 650 13px/1.2 var(--font-cn);
@@ -569,3 +569,15 @@
   .hp-stat-rows .hp-stat-bar { grid-column: 1 / -1; grid-row: 2; }
   .hp-stat-trend { grid-column: 1 / -1; }
 }
+
+.hp-tabbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -6px 0 18px; }
+.hp-tabbar .hp-tabs { margin: 0; }
+.hp-voice-toggle {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font: 600 13px/1.2 var(--font-cn);
+  color: var(--ink-soft);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+.hp-voice-toggle.is-off { color: var(--ink-faint); }

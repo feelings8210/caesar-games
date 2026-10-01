@@ -94,6 +94,9 @@ const en = {
   'hoops.stats.worse': 'slipping',
   'hoops.view.player': 'Player view',
   'hoops.view.court': 'Full court',
+  'hoops.voice.on': 'Coach voice: on',
+  'hoops.readMoment': 'Read it through your eyes…',
+  'hoops.voice.off': 'Coach voice: off',
 
   /* app bar */
   'bar.soundOn': 'Sound on',
@@ -407,6 +410,9 @@ const zh = {
   'hoops.stats.worse': '有下滑',
   'hoops.view.player': '球员视角',
   'hoops.view.court': '全场视角',
+  'hoops.voice.on': '教练语音：开',
+  'hoops.readMoment': '用你的眼睛看清楚…',
+  'hoops.voice.off': '教练语音：关',
   'bar.soundOn': '声音开',
   'bar.soundOff': '声音关',
   'bar.home': '主页',

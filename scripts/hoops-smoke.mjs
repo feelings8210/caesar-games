@@ -47,7 +47,7 @@ try {
   await page.screenshot({ path: `${outDir}/01-menu.png` });
 
   const phase = () => page.getAttribute('#hoops-root', 'data-phase');
-  const waitPhase = (p, timeout = 12000) =>
+  const waitPhase = (p, timeout = 30000) =>
     page.waitForFunction(v => document.querySelector('#hoops-root').dataset.phase === v, p, { timeout });
 
   const levelCount = await page.locator('.hp-level').count();
@@ -60,7 +60,7 @@ try {
       const { LEVELS } = await import('./js/games/hoops/levels.js');
       return LEVELS[idx].options.findIndex(o => o.grade === 3);
     }, i);
-    await page.waitForTimeout(2600);   // POV hold, then the rise to the full view
+    await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled?.() ?? true, null, { timeout: 90000 });
     if (i === 0 || i === 6) await page.screenshot({ path: `${outDir}/${String(i + 2).padStart(2, '0')}-L${i + 1}-decide.png` });
     const point = await page.evaluate(i => window.caesarApp.hoops.court.targetClientPoint(i), best);
     if (!point) throw new Error(`level ${i + 1}: no target point (phase ${await phase()})`);
@@ -100,18 +100,19 @@ try {
   await page.click('.hp-read-start');
   report.read = [];
   for (let r = 0; r < 5; r++) {
-    await waitPhase('decide', 30000);
     if (r === 0) {
-      await page.waitForTimeout(500);
+      await waitPhase('read', 60000);
+      await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled(), null, { timeout: 90000 }).catch(() => {});
       await page.screenshot({ path: `${outDir}/25-read-pov.png` });
     }
-    await page.waitForTimeout(2600);   // POV hold, then the rise to the full view
+    await waitPhase('decide', 60000);
+    await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled?.() ?? true, null, { timeout: 90000 });
     if (r === 1 && await page.isVisible('.hp-view')) {
       await page.click('.hp-view');
-      await page.waitForTimeout(1200);
+      await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled?.() ?? true, null, { timeout: 90000 });
       await page.screenshot({ path: `${outDir}/26-read-player-view.png` });
       await page.click('.hp-view');
-      await page.waitForTimeout(2200);
+      await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled?.() ?? true, null, { timeout: 90000 });
     }
     const pick = await page.evaluate(last => {
       const opts = window.caesarApp.hoops.level.options;
@@ -142,7 +143,7 @@ try {
   report.court = await page.getAttribute('#hoops-root', 'data-court');
   await page.waitForTimeout(1300);
   await page.screenshot({ path: `${outDir}/21-L2-decide-zh.png` });
-  await page.waitForTimeout(1300);
+  await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled?.() ?? true, null, { timeout: 90000 });
   const shootIdx = await page.evaluate(() => window.caesarApp.hoops.level.options.findIndex(o => o.kind === 'shoot'));
   const [wx, wy] = await page.evaluate(i => window.caesarApp.hoops.court.targetClientPoint(i), shootIdx);
   await page.mouse.click(wx, wy);

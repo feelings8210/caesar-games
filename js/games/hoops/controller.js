@@ -9,7 +9,7 @@
  */
 
 import { CourtView } from './court.js';
-import { hoopsAudio as sfx } from './audio.js';
+import { hoopsAudio as sfx, voiceEnabled, setVoiceEnabled, stopVoice } from './audio.js';
 import { CHAPTER, LEVELS } from './levels.js';
 import { FAMILIES, TAGS, pickRound } from './families.js';
 import { recordRead, readSummary, tagAccuracy, bestStreak, saveBestStreak } from './stats.js';
@@ -18,6 +18,14 @@ import { sounds } from '../../engine/sound.js';
 
 const PROGRESS_KEY = 'caesar_hoops_progress_v1';
 const wait = ms => new Promise(r => setTimeout(r, ms));
+const pad2 = n => String(n).padStart(2, '0');
+const pickOf = list => list[Math.floor(Math.random() * list.length)];
+
+/** Voice line for a level's rule — variants reuse their chapter twin's line. */
+function ruleVoice(lvl) {
+  const i = LEVELS.findIndex(l => l.rule.en === lvl.rule.en);
+  return i >= 0 ? `level_${pad2(i + 1)}_rule` : null;
+}
 const L = obj => (obj ? obj[getLocale()] ?? obj.en : '');
 
 function readProgress() {
@@ -79,11 +87,14 @@ export class HoopsGame {
             <span class="hp-rank-stars"></span>
           </div>
         </header>
+        <div class="hp-tabbar">
         <nav class="hp-tabs" role="tablist">
           <button type="button" class="hp-tab" data-tab="chapter" role="tab"></button>
           <button type="button" class="hp-tab" data-tab="read" role="tab"></button>
           <button type="button" class="hp-tab" data-tab="stats" role="tab"></button>
         </nav>
+        <button type="button" class="hp-voice-toggle"></button>
+        </div>
         <div class="hp-tabpane" data-pane="chapter"><div class="hp-levels"></div></div>
         <div class="hp-tabpane" data-pane="read">
           <div class="hp-read-card">
@@ -161,6 +172,11 @@ export class HoopsGame {
       this.render();
     }));
     this.$('.hp-read-start').addEventListener('click', () => { sounds.tap(); this.startRead(); });
+    this.$('.hp-voice-toggle').addEventListener('click', () => {
+      sounds.tap();
+      setVoiceEnabled(!voiceEnabled());
+      this.render();
+    });
     this.$('.hp-view').addEventListener('click', () => {
       sounds.tap();
       this.pov = !this.pov;
@@ -199,6 +215,9 @@ export class HoopsGame {
     this.court?.cancel();
     this.court?.setFrozen(false);
     this.court?.sleep?.();
+    stopVoice();
+    sfx.muffle(false);
+    sfx.stopCrowd();
     cancelAnimationFrame(this._timerRaf);
     this.view = 'menu';
     this.phase = 'idle';
@@ -224,6 +243,9 @@ export class HoopsGame {
 
   _renderMenu() {
     const tab = this.menuTab;
+    const vt = this.$('.hp-voice-toggle');
+    vt.textContent = t(voiceEnabled() ? 'hoops.voice.on' : 'hoops.voice.off');
+    vt.classList.toggle('is-off', !voiceEnabled());
     this.$$('.hp-tab').forEach(b => {
       b.classList.toggle('is-on', b.dataset.tab === tab);
       b.setAttribute('aria-selected', String(b.dataset.tab === tab));
@@ -324,6 +346,8 @@ export class HoopsGame {
     cancelAnimationFrame(this._timerRaf);
     await this._ensureCourt();
     if (flow !== this.flow) return;
+    sfx.preload().then(() => { if (this.view === 'play') sfx.startCrowd(); });
+    stopVoice();
     this.current = lvl;
     this.view = 'play';
     this.choice = null;
@@ -345,6 +369,7 @@ export class HoopsGame {
     card.querySelector('span').textContent = cardTop;
     card.querySelector('strong').textContent = L(lvl.title);
     card.classList.add('is-on');
+    sfx.voice(this.mode === 'read' ? 'cue_watch' : `level_${pad2(this.index + 1)}_title`, getLocale());
     await wait(1100);
     if (flow !== this.flow) return;
     card.classList.remove('is-on');
@@ -356,14 +381,24 @@ export class HoopsGame {
     if (!done || flow !== this.flow) return;
     this.freezeSnap = this.court.snapshot();
     this.freezeClock = this.clock;
+    sfx.freeze();
+    sfx.muffle(true);
+    this.pov = false;
+    this.court.setFrozen(true);
+    if (this.court.povHold) {
+      // The read: see it through the player's eyes before the clock starts.
+      this._setPhase('read');
+      await wait(this.court.povHold);
+      if (flow !== this.flow) return;
+      this.court.setShot('decide');
+      await wait(450);
+      if (flow !== this.flow) return;
+    }
     this._enterDecide(flow);
   }
 
   _enterDecide(flow) {
     const lvl = this.level;
-    sfx.freeze();
-    this.pov = false;
-    this.court.setFrozen(true);
     this._setPhase('decide');
 
     // ?hoopsDecide=N stretches the window for slow software-GL test browsers.
@@ -396,6 +431,7 @@ export class HoopsGame {
     if (this.phase !== 'decide') return;
     const flow = this.flow;
     cancelAnimationFrame(this._timerRaf);
+    sfx.muffle(false);
     const lvl = this.level;
     const elapsed = forcedElapsed ?? (performance.now() - this.decideStart) / 1000;
     const opt = lvl.options[i] || null;
@@ -445,6 +481,7 @@ export class HoopsGame {
     this.$('.hp-hud').classList.toggle('is-cue', lvl.cue.at === 'clock');
     this.$$('.hp-verdict .hp-stars i').forEach(s => s.classList.remove('is-on'));
     this._setPhase('review');
+    this._coach(opt, flow);
     for (let s = 0; s < this.stars; s++) {
       await wait(200);
       if (flow !== this.flow) return;
@@ -453,8 +490,29 @@ export class HoopsGame {
     }
   }
 
+  /** Coach voice after a decision: a reaction, then the rule to remember. */
+  async _coach(opt, flow) {
+    const lvl = this.level;
+    const g = opt ? opt.grade : -1;
+    const lines = [
+      g === 3 ? pickOf(['react_best_1', 'react_best_2', 'react_best_3'])
+        : g === 1 ? pickOf(['react_ok_1', 'react_ok_2'])
+        : g === 0 ? pickOf(['react_bad_1', 'react_bad_2']) : 'react_slow'
+    ];
+    if (this.mode === 'read' && this.readOver && this.newBest) lines.push('rank_up');
+    if (g !== 3) lines.push(ruleVoice(lvl));
+    if (this.mode === 'chapter' && this.index === LEVELS.length - 1 && g >= 1) lines.push('chapter_done');
+    for (const id of lines) {
+      if (flow !== this.flow || this.phase !== 'review') return;
+      await sfx.voice(id, getLocale());
+      await wait(150);
+    }
+  }
+
   async demoBest() {
     const flow = ++this.flow;
+    stopVoice();
+    sfx.voice('show_best', getLocale());
     const lvl = this.level;
     const best = lvl.options.find(o => o.grade === 3);
     this.court.restore(this.freezeSnap);
@@ -522,9 +580,10 @@ export class HoopsGame {
     this.court?.setYouLabel(t('hoops.you'));
     this._renderHud();
 
-    const on = { title: 'watch', intro: 'watch', demo: 'watch', outcome: 'watch', decide: 'decide', review: 'review' }[p];
+    const on = { title: 'watch', intro: 'watch', read: 'watch', demo: 'watch', outcome: 'watch', decide: 'decide', review: 'review' }[p];
     this.$$('.hp-phase').forEach(n => n.classList.toggle('is-on', n.classList.contains(`hp-${on}`)));
     if (p === 'outcome') this.$('.hp-watch-text').textContent = t('hoops.watchResult');
+    if (p === 'read') this.$('.hp-watch-text').textContent = t('hoops.readMoment');
 
     if (p === 'decide') this.court.showTargets(lvl.options, lvl.you);
 
