@@ -11,7 +11,7 @@
  * discards every older cache in one pass.
  */
 
-const BUILD_VERSION = 'v2.4.0';
+const BUILD_VERSION = 'v2.6.0';
 const CACHE = `caesar-games-${BUILD_VERSION}`;
 
 const PRECACHE = [
@@ -53,18 +53,19 @@ const PRECACHE = [
   './js/games/hoops/playbook.js',
   './js/games/hoops/playbook-mode.js',
   './js/games/hoops/court3d.js',
+  './js/games/hoops/arena3d.js',
+  './js/games/hoops/courtdesign.js',
+  './js/games/hoops/athlete3d.js',
   './js/vendor/three/three.core.min.js',
   './js/vendor/three/three.module.min.js',
   './js/vendor/three/addons/GLTFLoader.js',
   './js/vendor/three/addons/BufferGeometryUtils.js',
   './js/vendor/three/addons/SkeletonUtils.js',
   './js/vendor/three/addons/RoomEnvironment.js',
-  './assets/hoops/figurines.glb',
-  './assets/hoops/hoop.glb',
+  './assets/hoops/athlete.glb',
+  './assets/hoops/hoop2.glb',
   './assets/hoops/court_lines.png',
   './js/vendor/three/addons/HDRLoader.js',
-  './assets/hoops/env/arena_a.jpg',
-  './assets/hoops/env/arena_b.jpg',
   './assets/hoops/env/env_1k.hdr',
   './assets/hoops/env/wood_diff_1k.jpg',
   './assets/hoops/env/wood_nor_1k.jpg',
