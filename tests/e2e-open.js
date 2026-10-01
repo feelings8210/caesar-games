@@ -91,7 +91,7 @@ export async function runOpenE2E({ verbose = false } = {}) {
     equal($$('[data-game-type]').length, 4, 'game count');
     ['junqi','xiangqi','chess','gomoku'].forEach(type =>
       ok(visible($(`[data-game-type="${type}"]`)), `${type} visible`));
-    ok($('.makers-mark').textContent.includes('Since 2026'), 'maker line preserved');
+    ok($('.makers-mark').textContent.includes('© 2026'), 'maker line preserved');
   });
 
   await test('English and Simplified Chinese localize shared Home', async () => {

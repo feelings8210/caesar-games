@@ -1,0 +1,24 @@
+Copyright (c) 2026 Caesar Games (github.com/feelings8210). All rights reserved.
+
+This repository is public so that it can be viewed. It is not open source.
+
+No license is granted to copy, modify, distribute, sublicense, sell, or
+otherwise use this software, its game content (levels, scenarios, teaching
+text, rules and designs), or its original artwork, models and audio, in
+whole or in part, without prior written permission from the copyright
+holder.
+
+Third-party components included here keep their own licenses:
+
+- three.js: MIT License, see js/vendor/three/LICENSE
+- chess.js: BSD 2-Clause License, see js/vendor/chessjs/LICENSE
+  and docs/THIRD_PARTY_LICENSES.md
+- Hoops IQ sound effects, wood textures and environment light: CC0
+  (public domain), listed with their sources in assets/hoops/CREDITS.md
+- Hoops IQ coach voice: generated with Qwen3-TTS, listed in
+  assets/hoops/CREDITS.md
+
+版权所有 © 2026 Caesar Games，保留所有权利。本仓库公开仅供查看，并非开源软件。
+未经版权人书面许可，不得复制、修改、分发、转授权、出售或以其他方式使用本软件、
+其游戏内容（关卡、情景、教学文字、规则与设计）及其原创美术、模型和音频的全部或部分。
+第三方组件按各自许可证授权，见上文。

@@ -166,7 +166,7 @@ export async function runE2E({ verbose = false } = {}) {
     ok(isVisible($('#btn-games')), 'Games must be visible');
     ok(isVisible($('#btn-learn')), 'Learn must be visible');
     ok(isVisible($('.home-mark')), 'CD mark must be visible');
-    ok($('.makers-mark').textContent.includes('Since 2026'), 'makers mark present');
+    ok($('.makers-mark').textContent.includes('© 2026'), 'makers mark present');
   });
 
   await T('Continue is hidden when there is nothing to continue', async () => {
