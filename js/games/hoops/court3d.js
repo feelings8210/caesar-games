@@ -1128,6 +1128,18 @@ export class Court3D extends BeatRunner {
       this.cueRing.scale.setScalar(1 + Math.sin(t * 3) * 0.05);
     }
 
+    // In the player view, anyone right in front of the lens turns see-through.
+    const pov = this.shot === 'pov';
+    for (const p of Object.values(this.players)) {
+      let goal = 1;
+      if (pov && p.id !== this.you) {
+        const d = Math.hypot(p.root.position.x - this.camera.position.x, p.root.position.z - this.camera.position.z);
+        goal = d < 7 ? 0.22 : d < 11 ? 0.22 + (d - 7) / 4 * 0.78 : 1;
+      }
+      p.fade = damp(p.fade ?? 1, goal, 8, dt);
+      p.athlete.setOpacity(p.fade > 0.99 ? 1 : p.fade);
+    }
+
     this.renderer.render(this.scene, this.camera);
     this._layoutLabels();
   }

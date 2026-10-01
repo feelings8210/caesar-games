@@ -64,7 +64,7 @@ class Athlete {
     this.root = cloneSkinned(kit.template);
     this.root.traverse(o => {
       if (!o.isMesh) return;
-      o.material = materialFor(o.material.name);
+      o.material = materialFor(o.material.name).clone();   // own copy, so one figure can fade
       o.castShadow = true;
       o.receiveShadow = true;
       o.frustumCulled = false;           // skinned bounds lag behind the pose
@@ -72,11 +72,12 @@ class Athlete {
     for (const d of kit.decals) {
       const bone = this.root.getObjectByName(d.bone);
       if (!bone || !numberMat) continue;
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(d.size, d.size), numberMat);
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(d.size, d.size), numberMat.clone());
       d.local.decompose(m.position, m.quaternion, m.scale);
       bone.add(m);
     }
     this.ballSocket = this.root.getObjectByName('socket_ball');
+    this.opacity = 1;
 
     this.mixer = new THREE.AnimationMixer(this.root);
     this.actions = {};
@@ -129,6 +130,21 @@ class Athlete {
   }
 
   update(dt) { this.mixer.update(dt); }
+
+  /** Fade the whole figure (the player view looks through anyone in the way). */
+  setOpacity(a) {
+    if (Math.abs(a - this.opacity) < 0.01) return;
+    this.opacity = a;
+    const solid = a >= 0.99;
+    this.root.traverse(o => {
+      if (!o.isMesh) return;
+      if (o.material.transparent !== !solid) o.material.needsUpdate = true;
+      o.material.transparent = !solid;
+      o.material.opacity = a;
+      o.material.depthWrite = solid;
+      o.castShadow = solid;
+    });
+  }
 
   ballPosition(out) {
     if (!this.ballSocket) return null;
