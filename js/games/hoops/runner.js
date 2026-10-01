@@ -14,6 +14,8 @@
 import { hoopsAudio as sfx } from './audio.js';
 
 export const HOOP = [0, 5.25];
+/** Review aid: ?hoopsSpeed=0.2 plays every beat in slow motion. */
+export const PLAY_SPEED = (typeof location !== 'undefined' && Number(new URLSearchParams(location.search).get('hoopsSpeed'))) || 1;
 
 export const lerp = (a, b, e) => a + (b - a) * e;
 export const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -96,7 +98,7 @@ export class BeatRunner {
 
   _beat(b, token, slow) {
     return new Promise(resolve => {
-      const ms = (b.ms || 600) * (slow ? 1.7 : 1);
+      const ms = (b.ms || 600) * (slow ? 1.7 : 1) / PLAY_SPEED;
       const ease = slow ? easeOut : b.ease === 'linear' ? (x => x) : easeInOut;
       const tracks = {};
       for (const [id, dest] of Object.entries(b.move || {})) {

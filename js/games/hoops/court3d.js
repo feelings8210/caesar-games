@@ -13,7 +13,7 @@ import * as THREE from '../../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../../vendor/three/addons/GLTFLoader.js';
 import { RoomEnvironment } from '../../vendor/three/addons/RoomEnvironment.js';
 import { HDRLoader } from '../../vendor/three/addons/HDRLoader.js';
-import { BeatRunner, HOOP, dist, lerp } from './runner.js';
+import { BeatRunner, HOOP, PLAY_SPEED, dist, lerp } from './runner.js';
 import { buildArena } from './arena3d.js';
 import { drawCourt, tintedMark } from './courtdesign.js';
 import { AthleteKit, STRIDE } from './athlete3d.js';
@@ -1074,7 +1074,7 @@ export class Court3D extends BeatRunner {
       p.yaw += angleDelta(p.yaw, goalYaw) * (1 - Math.exp(-9 * dt));
       p.root.rotation.y = p.yaw;
       this._pickLoop(p);
-      if (!this.frozen) p.athlete.update(dt);
+      if (!this.frozen) p.athlete.update(dt * PLAY_SPEED);
     }
     if (this.ball.holder && !this.ball.flight && this.players[this.ball.holder]?.speed < 2.5) this._renderBall(0);
 
