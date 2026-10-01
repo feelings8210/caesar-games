@@ -106,11 +106,25 @@ def build_athlete(out_path):
         if o != mannequin:
             bpy.data.objects.remove(o, do_unlink=True)
 
-    # Delete everything below neck on mannequin (keep only smooth egg head above Z = 1.54 m)
+    # Delete robotic collar/joint faces and keep only smooth egg head above Z = 1.58 m
     bm_m = bmesh.new()
     bm_m.from_mesh(mannequin.data)
-    to_delete = [v for v in bm_m.verts if v.co.z < 1.54]
-    bmesh.ops.delete(bm_m, geom=to_delete, context='VERTS')
+    to_del_f = [f for f in bm_m.faces if f.material_index == 1]
+    bmesh.ops.delete(bm_m, geom=to_del_f, context='FACES')
+    head_faces = [f for f in bm_m.faces if any(v.co.z > 1.70 for v in f.verts)]
+    island = set()
+    stack = [head_faces[0]]
+    island.add(head_faces[0])
+    while stack:
+        cur = stack.pop()
+        for e in cur.edges:
+            for nxt in e.link_faces:
+                if nxt not in island:
+                    island.add(nxt)
+                    stack.append(nxt)
+    bmesh.ops.delete(bm_m, geom=[f for f in bm_m.faces if f not in island], context='FACES')
+    geom = bm_m.verts[:] + bm_m.edges[:] + bm_m.faces[:]
+    bmesh.ops.bisect_plane(bm_m, geom=geom, plane_co=(0, 0, 1.58), plane_no=(0, 0, -1), clear_outer=True)
     bm_m.to_mesh(mannequin.data)
     bm_m.free()
 
@@ -133,11 +147,12 @@ def build_athlete(out_path):
     if not arm.animation_data:
         arm.animation_data_create()
 
-    # In body, delete head above neck (Z >= 1.54 m)
+    # WELD UBC FIRST! Eliminates all 1988 boundary edges along UV seams, preventing decimate cracks
     bm_b = bmesh.new()
     bm_b.from_mesh(body.data)
-    to_delete = [v for v in bm_b.verts if v.co.z >= 1.54]
-    bmesh.ops.delete(bm_b, geom=to_delete, context='VERTS')
+    bmesh.ops.remove_doubles(bm_b, verts=bm_b.verts, dist=0.001)
+    to_del = [v for v in bm_b.verts if (v.co.z >= 1.56 and (v.co.x**2 + v.co.y**2) < 0.18**2) or v.co.z >= 1.62]
+    bmesh.ops.delete(bm_b, geom=to_del, context='VERTS')
     bm_b.to_mesh(body.data)
     bm_b.free()
 
@@ -148,11 +163,15 @@ def build_athlete(out_path):
     bpy.context.view_layer.objects.active = body
     bpy.ops.object.join()
 
-    # Weld neck seam
-    bpy.ops.object.mode_set(mode='EDIT')
-    bpy.ops.mesh.select_all(action='SELECT')
-    bpy.ops.mesh.remove_doubles(threshold=0.015)
-    bpy.ops.object.mode_set(mode='OBJECT')
+    # Bridge boundary loops between neck and egg head to create 100% seamless, smooth connection
+    bm_b = bmesh.new()
+    bm_b.from_mesh(body.data)
+    neck_boundary = [e for e in bm_b.edges if e.is_boundary and 1.54 <= e.verts[0].co.z <= 1.60 and (e.verts[0].co.x**2 + e.verts[0].co.y**2) < 0.18**2]
+    if neck_boundary:
+        bmesh.ops.bridge_loops(bm_b, edges=neck_boundary)
+    bmesh.ops.remove_doubles(bm_b, verts=bm_b.verts, dist=0.015)
+    bm_b.to_mesh(body.data)
+    bm_b.free()
 
     # Decimate base body slightly to keep total budget well within 8000 triangles
     mod_dec = body.modifiers.new('Decimate', 'DECIMATE')
@@ -180,6 +199,14 @@ def build_athlete(out_path):
     arm.scale = (scale_fac, scale_fac, scale_fac)
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
 
+    # Clean crew sock cut on body: exact horizontal plane cut at Z = 0.50 ft
+    bm_body = bmesh.new()
+    bm_body.from_mesh(body.data)
+    geom = bm_body.verts[:] + bm_body.edges[:] + bm_body.faces[:]
+    bmesh.ops.bisect_plane(bm_body, geom=geom, plane_co=(0, 0, 0.50), plane_no=(0, 0, 1), clear_outer=False)
+    bm_body.to_mesh(body.data)
+    bm_body.free()
+
     # 4. Create independent Jersey mesh
     jersey_mesh = body.data.copy()
     jersey_obj = bpy.data.objects.new('Jersey', jersey_mesh)
@@ -189,20 +216,88 @@ def build_athlete(out_path):
 
     bm_j = bmesh.new()
     bm_j.from_mesh(jersey_mesh)
+    # Bottom waist cut
     geom = bm_j.verts[:] + bm_j.edges[:] + bm_j.faces[:]
     bmesh.ops.bisect_plane(bm_j, geom=geom, plane_co=(0, 0, 3.32), plane_no=(0, 0, -1), clear_outer=True)
+    # Armhole cuts: bisect at X = +-0.54
     geom = bm_j.verts[:] + bm_j.edges[:] + bm_j.faces[:]
-    bmesh.ops.bisect_plane(bm_j, geom=geom, plane_co=(0, 0, 5.35), plane_no=(0, 0, 1), clear_outer=True)
+    bmesh.ops.bisect_plane(bm_j, geom=geom, plane_co=(0.54, 0, 0), plane_no=(1, 0, 0), clear_outer=True)
     geom = bm_j.verts[:] + bm_j.edges[:] + bm_j.faces[:]
-    bmesh.ops.bisect_plane(bm_j, geom=geom, plane_co=(0.68, 0, 0), plane_no=(1, 0, 0), clear_outer=True)
-    geom = bm_j.verts[:] + bm_j.edges[:] + bm_j.faces[:]
-    bmesh.ops.bisect_plane(bm_j, geom=geom, plane_co=(-0.68, 0, 0), plane_no=(-1, 0, 0), clear_outer=True)
-    neck_verts = [v for v in bm_j.verts if (v.co.x**2 + (v.co.y - 0.05)**2) < 0.28**2 and v.co.z > 4.90]
-    bmesh.ops.delete(bm_j, geom=neck_verts, context='VERTS')
-    for v in bm_j.verts:
-        v.co += v.normal * 0.045
+    bmesh.ops.bisect_plane(bm_j, geom=geom, plane_co=(-0.54, 0, 0), plane_no=(-1, 0, 0), clear_outer=True)
     bm_j.to_mesh(jersey_mesh)
     bm_j.free()
+
+    # Clean neckline cutter: cylinder centered at (0, -0.06, 6.0), radius 0.22, tilted forward 15 deg
+    bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=0.22, depth=3.0, location=(0, -0.06, 6.0))
+    neck_cutter = bpy.context.object
+    neck_cutter.rotation_euler = (math.radians(15), 0, 0)
+    mod = jersey_obj.modifiers.new('Bool', 'BOOLEAN')
+    mod.operation = 'DIFFERENCE'
+    mod.object = neck_cutter
+    mod.solver = 'EXACT'
+    bpy.context.view_layer.objects.active = jersey_obj
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.data.objects.remove(neck_cutter, do_unlink=True)
+
+    # Clean jersey mesh
+    bm_j = bmesh.new()
+    bm_j.from_mesh(jersey_mesh)
+    del_verts = [v for v in bm_j.verts if v.co.z > 5.50 or abs(v.co.x) > 0.65]
+    bmesh.ops.delete(bm_j, geom=del_verts, context='VERTS')
+    loose_verts = [v for v in bm_j.verts if not v.link_faces]
+    bmesh.ops.delete(bm_j, geom=loose_verts, context='VERTS')
+
+    islands = []
+    visited = set()
+    for f in bm_j.faces:
+        if f in visited: continue
+        island = []
+        stack = [f]
+        visited.add(f)
+        while stack:
+            cur = stack.pop()
+            island.append(cur)
+            for e in cur.edges:
+                for nxt in e.link_faces:
+                    if nxt not in visited:
+                        visited.add(nxt)
+                        stack.append(nxt)
+        islands.append(island)
+
+    if islands:
+        largest = max(islands, key=len)
+        to_remove = [f for f in set(bm_j.faces) if f not in largest]
+        bmesh.ops.delete(bm_j, geom=to_remove, context='FACES')
+
+    # Normal offset
+    for v in bm_j.verts:
+        v.co += v.normal * 0.045
+
+    # Pull neckline edge inward slightly to hug neck base tightly
+    neck_edge_verts = [v for v in bm_j.verts if v.is_boundary and v.co.z > 5.15 and abs(v.co.x) < 0.30]
+    for v in neck_edge_verts:
+        dx = -v.co.x
+        dy = -0.06 - v.co.y
+        r = (dx*dx + dy*dy)**0.5
+        if r > 0.01:
+            v.co.x += (dx / r) * 0.025
+            v.co.y += (dy / r) * 0.025
+
+    bm_j.to_mesh(jersey_mesh)
+    bm_j.free()
+
+    # Transfer vertex group weights from body to ensure new neckline vertices deform naturally with spine
+    mod_dt = jersey_obj.modifiers.new('DataTransfer', 'DATA_TRANSFER')
+    mod_dt.object = body
+    mod_dt.use_vert_data = True
+    mod_dt.data_types_verts = {'VGROUP_WEIGHTS'}
+    mod_dt.vert_mapping = 'NEAREST'
+    bpy.context.view_layer.objects.active = jersey_obj
+    bpy.ops.object.datalayout_transfer(modifier=mod_dt.name)
+    bpy.ops.object.modifier_apply(modifier=mod_dt.name)
+    vg_nb = jersey_obj.vertex_groups.get('neutral_bone')
+    if vg_nb:
+        jersey_obj.vertex_groups.remove(vg_nb)
 
     mod_sol_j = jersey_obj.modifiers.new('Solidify', 'SOLIDIFY')
     mod_sol_j.thickness = 0.015
@@ -231,7 +326,7 @@ def build_athlete(out_path):
             if r > 0.001:
                 v.co.x += (dx / r) * 0.05 * fac
                 v.co.y += (dy / r) * 0.05 * fac
-        v.co += v.normal * 0.045
+    v.co += v.normal * 0.045
     bm_s.to_mesh(shorts_mesh)
     bm_s.free()
 
@@ -240,10 +335,12 @@ def build_athlete(out_path):
     mod_sol_s.offset = 1.0
 
     # 6. Delete covered body skin underneath kit to eliminate poke-through
+    # Torso: covered under jersey from 3.35 to 5.05 ft and |x| < 0.40 (neck and upper chest remain solid!)
+    # Thigh: covered deep inside pelvis from 2.70 to 3.35 ft (legs remain completely continuous!)
     bm_body = bmesh.new()
     bm_body.from_mesh(body.data)
-    torso_del = [v for v in bm_body.verts if 3.35 < v.co.z < 5.15 and abs(v.co.x) < 0.65]
-    thigh_del = [v for v in bm_body.verts if 2.30 < v.co.z <= 3.35]
+    torso_del = [v for v in bm_body.verts if 3.35 < v.co.z < 5.05 and abs(v.co.x) < 0.40]
+    thigh_del = [v for v in bm_body.verts if 2.70 < v.co.z <= 3.35 and (v.co.x**2 + v.co.y**2) < 0.25**2]
     bmesh.ops.delete(bm_body, geom=torso_del + thigh_del, context='VERTS')
     bm_body.to_mesh(body.data)
     bm_body.free()
@@ -259,7 +356,7 @@ def build_athlete(out_path):
     body.data.materials.append(mat_shoe) # slot 1: Shoe
     for p in body.data.polygons:
         p_zs = [body.data.vertices[vi].co.z for vi in p.vertices]
-        p.material_index = 1 if max(p_zs) < 0.55 else 0
+        p.material_index = 1 if max(p_zs) <= 0.5001 else 0
 
     jersey_obj.data.materials.clear()
     jersey_obj.data.materials.append(mat_jersey)
@@ -411,9 +508,9 @@ def build_athlete(out_path):
     arm_poses = [
         (0,  (20, 0, -25), (45, 0, 0), (-20, 0, 0),   (20, 0, 25), (45, 0, 0), (-20, 0, 0)),
         (6,  (25, 10, -35), (60, 0, 0), (-25, 0, 0),  (25, -10, 35), (60, 0, 0), (-25, 0, 0)),
-        (16, (25, 25, -88), (95, -25, 0), (-45, 10, 0), (50, 0, 65), (0, 0, 75), (0, 0, 0)),
-        (20, (35, 30, -90), (45, -15, 0), (70, 0, 0),  (45, 0, 60), (0, 0, 70), (0, 0, 0)),
-        (24, (35, 30, -90), (45, -15, 0), (70, 0, 0),  (40, 0, 55), (0, 0, 60), (0, 0, 0)),
+        (16, (25, 25, -88), (95, -25, 0), (-45, 10, 0), (30, -15, 55), (60, 0, 25), (15, 0, -15)),
+        (20, (35, 30, -90), (45, -15, 0), (70, 0, 0),  (30, -15, 55), (60, 0, 25), (15, 0, -15)),
+        (24, (35, 30, -90), (45, -15, 0), (70, 0, 0),  (25, -15, 50), (50, 0, 20), (10, 0, -10)),
         (28, (25, 15, -60), (55, 0, 0), (30, 0, 0),   (30, 0, 40), (30, 0, 30), (0, 0, 0)),
         (33, (20, 0, -25), (45, 0, 0), (-20, 0, 0),   (20, 0, 25), (45, 0, 0), (-20, 0, 0))
     ]
@@ -612,14 +709,19 @@ def build_athlete(out_path):
     # Set default action to Idle
     set_act(arm, canonical_actions['Idle'])
 
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode='POSE')
     for pb in arm.pose.bones:
         pb.custom_shape = None
+    bpy.ops.object.mode_set(mode='OBJECT')
 
     # Clean up any leftover objects that are not part of athlete.glb
     allowed_objects = {'Armature', 'SuperHero_Male', 'Jersey', 'Shorts', 'Base', 'socket_ball', 'socket_num_front', 'socket_num_back'}
     for o in list(bpy.data.objects):
         if o.name not in allowed_objects:
             bpy.data.objects.remove(o, do_unlink=True)
+    if 'Icosphere' in bpy.data.meshes:
+        bpy.data.meshes.remove(bpy.data.meshes['Icosphere'])
     for m in list(bpy.data.meshes):
         if m.users == 0:
             bpy.data.meshes.remove(m)
@@ -1136,7 +1238,7 @@ def render_previews(out_dir):
     # Import athlete v2.1
     bpy.ops.import_scene.gltf(filepath=str(MODELS_DIR / 'athlete.glb'))
     arm_src = [o for o in bpy.data.objects if o.type == 'ARMATURE'][0]
-    char_meshes = [o for o in bpy.data.objects if o.type == 'MESH' and o.name != 'Base' and 'Floor' not in o.name and 'Court' not in o.name and 'Stage' not in o.name and 'Hoop' not in o.name and 'Stands' not in o.name and 'Plinth' not in o.name and 'Rim' not in o.name and 'Bracket' not in o.name and 'Backboard' not in o.name and 'Frame' not in o.name and 'Stand' not in o.name and 'Pad' not in o.name]
+    char_meshes = [o for o in bpy.data.objects if o.type == 'MESH' and any(n in o.name for n in ['SuperHero_Male', 'Jersey', 'Shorts'])]
     base_src = bpy.data.objects.get('Base')
 
     off_jersey = make_material('Off_Jersey', NAVY_COLOR[:3], rough=0.45, metal=0.05)
@@ -1279,7 +1381,7 @@ def render_previews(out_dir):
 
     bpy.ops.import_scene.gltf(filepath=str(MODELS_DIR / 'athlete.glb'))
     arm_src = [o for o in bpy.data.objects if o.type == 'ARMATURE'][0]
-    char_meshes = [o for o in bpy.data.objects if o.type == 'MESH' and o.name != 'Base' and 'Floor' not in o.name]
+    char_meshes = [o for o in bpy.data.objects if o.type == 'MESH' and any(n in o.name for n in ['SuperHero_Male', 'Jersey', 'Shorts'])]
     base_src = bpy.data.objects.get('Base')
 
     mat_skin_off = make_material('SkinOff', WARM_SILVER[:3], rough=0.28, metal=0.9)
@@ -1419,7 +1521,7 @@ def render_previews(out_dir):
 
     bpy.ops.import_scene.gltf(filepath=str(MODELS_DIR / 'athlete.glb'))
     arm_src = [o for o in bpy.data.objects if o.type == 'ARMATURE'][0]
-    char_meshes = [o for o in bpy.data.objects if o.type == 'MESH' and o.name != 'Base' and 'Floor' not in o.name]
+    char_meshes = [o for o in bpy.data.objects if o.type == 'MESH' and any(n in o.name for n in ['SuperHero_Male', 'Jersey', 'Shorts'])]
     base_src = bpy.data.objects.get('Base')
 
     mat_skin_off = make_material('SkinOff', WARM_SILVER[:3], rough=0.28, metal=0.9)
@@ -1524,7 +1626,141 @@ def render_previews(out_dir):
     print(f"Rendered {side_path} ({os.path.getsize(side_path):,} bytes)")
 
     # --------------------------------------------------------------------------
-    # Preview 4: hoop.jpg (Macro close-up matching hoop_detail.jpg)
+    # Preview 4: athlete_close.jpg (TASK-06c: Close-up of 3 poses: Idle, Sprint, Shot)
+    # --------------------------------------------------------------------------
+    reset()
+    scene = bpy.context.scene
+    scene.render.engine = 'BLENDER_EEVEE'
+    scene.render.resolution_x = 1280
+    scene.render.resolution_y = 890
+    scene.render.image_settings.file_format = 'JPEG'
+    scene.render.image_settings.quality = 90
+
+    world = bpy.data.worlds.new('Studio_World_Close')
+    scene.world = world
+    world.use_nodes = True
+    bg = world.node_tree.nodes.get('Background')
+    if bg:
+        bg.inputs['Color'].default_value = (0.78, 0.78, 0.80, 1.0)
+        bg.inputs['Strength'].default_value = 0.9
+
+    bpy.ops.mesh.primitive_plane_add(size=200, location=(0, 0, 0))
+    assign_material(bpy.context.object, make_material('StudioFloor', (0.80, 0.80, 0.82), rough=0.55))
+
+    bpy.ops.import_scene.gltf(filepath=str(MODELS_DIR / 'athlete.glb'))
+    arm_src = [o for o in bpy.data.objects if o.type == 'ARMATURE'][0]
+    char_meshes = [o for o in bpy.data.objects if o.type == 'MESH' and any(n in o.name for n in ['SuperHero_Male', 'Jersey', 'Shorts'])]
+    base_src = bpy.data.objects.get('Base')
+
+    mat_skin_off = make_material('SkinOff', WARM_SILVER[:3], rough=0.28, metal=0.9)
+    mat_skin_def = make_material('SkinDef', BRONZE_COLOR[:3], rough=0.28, metal=0.9)
+    mat_j_off = make_material('JOff', NAVY_COLOR[:3], rough=0.45, metal=0.05)
+    mat_j_def = make_material('JDef', RED_COLOR[:3], rough=0.45, metal=0.05)
+    mat_gold = make_material('GoldTrim', GOLD_COLOR[:3], rough=0.25, metal=0.95)
+    mat_ball = make_material('BallMat', srgb('#D46020'), rough=0.4, metal=0.05)
+    mat_shoe = make_material('ShoeWhite', (0.9, 0.9, 0.92), rough=0.35)
+
+    close_poses = [
+        ('Idle', 'Idle', 0, False),
+        ('Sprint', 'Sprint', 8, False),
+        ('Shot', 'Shot', 18, False)
+    ]
+    spacing = 2.2
+    start_x = -((len(close_poses) - 1) * spacing) / 2.0
+
+    for idx, (label, act_name, frame_num, is_defense) in enumerate(close_poses):
+        cur_x = start_x + idx * spacing
+        act = bpy.data.actions.get(act_name)
+        if act:
+            arm_src.animation_data.action = act
+            scene.frame_set(frame_num)
+            bpy.context.view_layer.update()
+
+        for m_src in char_meshes:
+            bpy.ops.object.select_all(action='DESELECT')
+            m_src.select_set(True)
+            bpy.context.view_layer.objects.active = m_src
+            bpy.ops.object.duplicate()
+            dup = bpy.context.active_object
+            for mod in list(dup.modifiers):
+                if mod.type == 'ARMATURE':
+                    bpy.ops.object.modifier_apply(modifier=mod.name)
+            bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+            dup.rotation_mode = 'XYZ'
+            dup.rotation_euler = (0, 0, 0)
+            dup.location = (cur_x, 0, 0)
+            dup.data = dup.data.copy()
+
+            if 'Jersey' in m_src.name:
+                dup.data.materials[0] = mat_j_def if is_defense else mat_j_off
+            elif 'Shorts' in m_src.name:
+                dup.data.materials[0] = mat_j_def if is_defense else mat_j_off
+            else:
+                if len(dup.data.materials) >= 1:
+                    dup.data.materials[0] = mat_skin_def if is_defense else mat_skin_off
+                if len(dup.data.materials) >= 2:
+                    dup.data.materials[1] = mat_shoe
+
+        if base_src:
+            bpy.ops.object.select_all(action='DESELECT')
+            base_src.select_set(True)
+            bpy.context.view_layer.objects.active = base_src
+            bpy.ops.object.duplicate()
+            dup_base = bpy.context.active_object
+            dup_base.rotation_mode = 'XYZ'
+            dup_base.rotation_euler = (0, 0, 0)
+            dup_base.location = (cur_x, 0, 0)
+            dup_base.data = dup_base.data.copy()
+            dup_base.data.materials[0] = mat_j_def if is_defense else mat_j_off
+            dup_base.data.materials[1] = mat_gold
+
+        if label == 'Shot':
+            bpy.ops.mesh.primitive_uv_sphere_add(radius=0.45, location=(cur_x - 0.15, -0.30, 7.65))
+            assign_material(bpy.context.object, mat_ball)
+
+    # Remove source templates
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in [arm_src, base_src] + char_meshes:
+        if o: bpy.data.objects.remove(o, do_unlink=True)
+
+    # Studio lighting for close-up
+    bpy.ops.object.light_add(type='AREA', location=(3, -8, 8))
+    key = bpy.context.object
+    key.data.energy = 4500
+    key.data.size = 8
+    key.data.color = (1.0, 0.98, 0.95)
+    aim_object(key, (0, 0, 4.0))
+
+    bpy.ops.object.light_add(type='AREA', location=(-6, -7, 6))
+    fill = bpy.context.object
+    fill.data.energy = 2500
+    fill.data.size = 10
+    fill.data.color = (0.92, 0.95, 1.0)
+    aim_object(fill, (0, 0, 4.0))
+
+    bpy.ops.object.light_add(type='AREA', location=(0, 6, 8))
+    rim = bpy.context.object
+    rim.data.energy = 3200
+    rim.data.size = 12
+    rim.data.color = (1.0, 0.96, 0.90)
+    aim_object(rim, (0, 0, 4.0))
+
+    # Camera facing chest at distance 8 ft
+    cam_loc = Vector((0.0, -8.0, 4.0))
+    cam_target = Vector((0.0, 0.0, 4.0))
+    bpy.ops.object.camera_add(location=cam_loc)
+    cam = bpy.context.object
+    aim_object(cam, cam_target)
+    cam.data.lens = 21
+    scene.camera = cam
+
+    close_path = out_dir / 'athlete_close.jpg'
+    scene.render.filepath = str(close_path)
+    bpy.ops.render.render(write_still=True)
+    print(f"Rendered {close_path} ({os.path.getsize(close_path):,} bytes)")
+
+    # --------------------------------------------------------------------------
+    # Preview 5: hoop.jpg (Macro close-up matching hoop_detail.jpg)
     # --------------------------------------------------------------------------
     hoop_path = out_dir / 'hoop.jpg'
     if not hoop_path.exists():
