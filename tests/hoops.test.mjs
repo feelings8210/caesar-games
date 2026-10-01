@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { CHAPTER, LEVELS, VARIANTS } from '../js/games/hoops/levels.js';
 import { FAMILIES, TAGS, mirrorLevel, pickRound } from '../js/games/hoops/families.js';
+import { CATEGORIES, PLAYS, stateBefore, stepDiagram, stepTasks, rolesOf } from '../js/games/hoops/playbook.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -139,6 +140,58 @@ test('round picker returns a playable, tightening round', () => {
   for (let i = 0; i < 40; i++) {
     const r = pickRound({ streak: i, rng });
     assert.ok(r.family && r.options.length && r.decide >= 2.5, 'round shape');
+  }
+});
+
+test('playbook plays are complete, bilingual and on the floor', () => {
+  const ids = new Set();
+  const inBounds = ([x, y], where) => {
+    assert.ok(Number.isFinite(x) && Number.isFinite(y), `${where} not a point`);
+    assert.ok(Math.abs(x) <= 27 && y >= -3 && y <= 49.5, `${where} out of bounds: ${x},${y}`);
+  };
+  for (const p of PLAYS) {
+    assert.ok(!ids.has(p.id), `duplicate play ${p.id}`);
+    ids.add(p.id);
+    assert.ok(CATEGORIES.some(c => c.id === p.category), `${p.id} category`);
+    bilingual(p.title, `${p.id} title`);
+    bilingual(p.sub, `${p.id} sub`);
+    assert.ok(p.steps.length >= 2, `${p.id} needs steps`);
+    const players = Object.keys(p.setup).filter(k => /^[od]\d$/.test(k));
+    for (const k of players) inBounds(p.setup[k], `${p.id} setup ${k}`);
+    assert.ok(players.includes(p.setup.ball), `${p.id} ball holder`);
+    let drawn = 0;
+    p.steps.forEach((s, n) => {
+      const at = `${p.id} step ${n + 1}`;
+      bilingual(s.say, `${at} say`);
+      assert.ok(s.beats.length, `${at} beats`);
+      for (const b of s.beats) {
+        assert.ok(b.ms > 0, `${at} ms`);
+        for (const [id, path] of Object.entries(b.move || {})) {
+          assert.ok(players.includes(id), `${at} moves unknown ${id}`);
+          (Array.isArray(path[0]) ? path : [path]).forEach(pt => inBounds(pt, `${at} ${id}`));
+        }
+        if (b.pass) assert.ok(players.includes(b.pass), `${at} passes to unknown ${b.pass}`);
+        for (const id of [b.screen].flat().filter(Boolean)) assert.ok(players.includes(id), `${at} screen ${id}`);
+        if (b.call) assert.ok(players.includes(b.call[0]), `${at} call ${b.call[0]}`);
+      }
+      const before = stateBefore(p, n);
+      assert.ok(players.includes(before.holder), `${at} ball before`);
+      for (const [k, pt] of Object.entries(before.pos)) inBounds(pt, `${at} ${k} before`);
+      const marks = stepDiagram(p, n);
+      drawn += marks.length;
+      for (const m of marks) m.pts.forEach(pt => assert.ok(pt.every(Number.isFinite), `${at} mark point`));
+    });
+    assert.ok(drawn >= p.steps.length - 1, `${p.id} diagrams`);
+    const roles = rolesOf(p);
+    assert.ok(roles.length >= 2, `${p.id} offers roles`);
+    for (const r of roles) {
+      const total = p.steps.reduce((sum, _, n) => sum + stepTasks(p, n, r).length, 0);
+      assert.ok(total > 0, `${p.id} role ${r} has something to do`);
+    }
+  }
+  for (const c of CATEGORIES) {
+    bilingual(c.title, `category ${c.id}`);
+    assert.ok(PLAYS.some(p => p.category === c.id), `category ${c.id} has plays`);
   }
 });
 

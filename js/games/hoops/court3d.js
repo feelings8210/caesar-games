@@ -350,6 +350,7 @@ export class Court3D extends BeatRunner {
     this.cancel();
     this.resetState(setup);
     this.you = you;
+    this._lean = null;
     if (!this.loaded) { this._pending = [setup, you]; return; }
     for (const p of Object.values(this.players)) this.scene.remove(p.root, p.ring);
     this.players = {};
@@ -358,6 +359,7 @@ export class Court3D extends BeatRunner {
     this._clearFx();
     this.clearMarkers();
     this.clearCue();
+    this.clearDiagram();
 
     for (const id of Object.keys(this.pos)) {
       const side = id[0];
@@ -581,27 +583,32 @@ export class Court3D extends BeatRunner {
     return new THREE.Vector3(target.x, target.y + Math.sin(a) * distance, target.z + Math.cos(a) * distance);
   }
 
-  /** Where "you" would be looking: the rim with the ball, else the ball. */
+  /** Where "you" would look to read the play: the middle of the action,
+   *  i.e. every other player plus the rim (weighted double), so the whole
+   *  read stays in frame wherever you stand or whichever way you just ran. */
   _povLook() {
-    const holder = this.ball.holder;
-    if (holder === this.you) return new THREE.Vector3(HOOP[0], 7.5, HOOP[1]);
-    if (holder && this.pos[holder]) return new THREE.Vector3(this.pos[holder][0], 3.4, this.pos[holder][1]);
-    return this.ballMesh ? this.ballMesh.position.clone() : new THREE.Vector3(0, 3, 20);
+    const at = this.pos[this.you] || [0, 20];
+    let sx = HOOP[0] * 2, sz = HOOP[1] * 2, n = 2;
+    for (const [id, p] of Object.entries(this.pos)) {
+      if (id === this.you || !/^[od]\d$/.test(id)) continue;
+      sx += p[0]; sz += p[1]; n++;
+    }
+    let dx = sx / n - at[0], dz = sz / n - at[1];
+    if (Math.hypot(dx, dz) < 2) { dx = HOOP[0] - at[0]; dz = HOOP[1] - at[1]; }
+    const len = Math.hypot(dx, dz) || 1;
+    return new THREE.Vector3(at[0] + dx / len * 30, 3.2, at[1] + dz / len * 30);
   }
 
   setShot(name, snap = false, user = false) {
     if (user) this._userShot = true;
     this.shot = name;
     const g = this.goal;
-    if (name === 'broadcast') {
-      g.target.set(0, 1.5, 17);
-      g.pos.copy(this._orbit(g.target, 31, this._fit(24.5)));
-      g.k = 2.2;
-    } else if (name === 'decide') {
-      g.target.set(0, 0, 20);
+    if (name === 'broadcast' || name === 'decide') {
+      // One calm game camera for watching and deciding: the freeze never moves it.
       // Sidelines near the camera spread wider than the middle; fit with margin.
-      g.pos.copy(this._orbit(g.target, 52, this._fit(31)));
-      g.k = 4.5;
+      g.target.set(0, 0.5, 19);
+      g.pos.copy(this._orbit(g.target, 42, this._fit(29)));
+      g.k = 2.4;
     } else if (name === 'push') {
       // Look at "you" from the middle of the floor so the read sits centre frame.
       const at = this.pos[this.you] || [0, 20];
@@ -616,9 +623,9 @@ export class Court3D extends BeatRunner {
       const dir = new THREE.Vector2(look.x - at[0], look.z - at[1]);
       if (dir.lengthSq() < 1e-4) dir.set(0, -1);
       dir.normalize();
-      g.pos.set(at[0] - dir.x * 1.6, 5.7, at[1] - dir.y * 1.6);
+      g.pos.set(at[0] - dir.x * 2.6, 6.6, at[1] - dir.y * 2.6);
       g.target.copy(look);
-      g.k = 4.2;
+      g.k = 2.6;
     }
     this.fovGoal = name === 'pov' ? 66 : (this.baseFov || 38);
     const me = this.players[this.you];
@@ -631,12 +638,8 @@ export class Court3D extends BeatRunner {
     this.frozen = !!on;
     this.el.classList.toggle('is-frozen', this.frozen);
     clearTimeout(this._shotTimer);
-    if (this.frozen && !was) {
-      // Drop to the player's eyes; the controller rises to 'decide' after the read.
-      this.setShot('pov');
-    } else if (!this.frozen && was) {
-      this.setShot('broadcast');
-    }
+    // The camera stays put on the freeze; player view is the learner's choice.
+    if (!this.frozen && was && this.shot === 'pov') this.setShot('broadcast');
   }
 
   setTimer(fraction) {
@@ -756,6 +759,117 @@ export class Court3D extends BeatRunner {
   clearCue() { if (this.cueRing) { this.scene.remove(this.cueRing); this.cueRing = null; this.cueId = null; } }
 
   /* ---------------------------------------------------------------- *
+   * Play diagrams (playbook): flat ribbons on the floor
+   * ---------------------------------------------------------------- */
+
+  /** Resample a polyline every `step` feet. */
+  _resample(pts, step = 0.5) {
+    const out = [pts[0]];
+    for (let i = 1; i < pts.length; i++) {
+      const [ax, az] = pts[i - 1];
+      const [bx, bz] = pts[i];
+      const L = Math.hypot(bx - ax, bz - az);
+      const n = Math.max(1, Math.round(L / step));
+      for (let k = 1; k <= n; k++) out.push([ax + (bx - ax) * k / n, az + (bz - az) * k / n]);
+    }
+    return out;
+  }
+
+  _ribbonGeo(pts, width, y = 0.1) {
+    const pos = [];
+    const idx = [];
+    pts.forEach((p, i) => {
+      const a = pts[Math.max(0, i - 1)];
+      const b = pts[Math.min(pts.length - 1, i + 1)];
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const nx = (-(b[1] - a[1]) / L) * width / 2;
+      const nz = ((b[0] - a[0]) / L) * width / 2;
+      pos.push(p[0] + nx, y, p[1] + nz, p[0] - nx, y, p[1] - nz);
+      if (i) { const k = (i - 1) * 2; idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); }
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    return g;
+  }
+
+  _diagramMat(color, opacity = 0.95) {
+    return new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
+  }
+
+  /** marks: [{ type: 'cut'|'dribble'|'pass'|'screen', team: 'o'|'d', pts: [[x, y], ...], hint? }] */
+  showDiagram(marks) {
+    this.clearDiagram();
+    const group = new THREE.Group();
+    for (const m of marks) {
+      if (!m.pts || m.pts.length < 2) continue;
+      const color = m.hint ? GOLD : m.type === 'pass' ? 0xFFFFFF : m.team === 'd' ? 0xFF8F80 : 0xF6E3BC;
+      const mat = this._diagramMat(color);
+      let pts = this._resample(m.pts, 0.4);
+      const total = pts.reduce((s, p, i) => s + (i ? Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) : 0), 0);
+      if (total < 0.8) continue;
+      // Stop short of the end so the head sits on the line.
+      const end = pts[pts.length - 1];
+      const pre = pts[Math.max(0, pts.length - 4)];
+      const dir = [end[0] - pre[0], end[1] - pre[1]];
+      const dl = Math.hypot(dir[0], dir[1]) || 1;
+      const ux = dir[0] / dl, uz = dir[1] / dl;
+      const trim = m.type === 'screen' ? 0 : 1.0;
+      while (pts.length > 2 && Math.hypot(pts[pts.length - 1][0] - end[0], pts[pts.length - 1][1] - end[1]) < trim) pts.pop();
+      if (trim) pts.push([end[0] - ux * trim, end[1] - uz * trim]);
+
+      if (m.type === 'pass') {
+        // Dashes: 0.9 ft on, 0.6 ft off.
+        let run = [];
+        let acc = 0;
+        for (let i = 0; i < pts.length; i++) {
+          if (i) acc += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+          const on = (acc % 1.5) < 0.9;
+          if (on) run.push(pts[i]);
+          if ((!on || i === pts.length - 1) && run.length > 1) { group.add(new THREE.Mesh(this._ribbonGeo(run, 0.28), mat)); run = []; }
+          if (!on) run = [];
+        }
+      } else if (m.type === 'dribble') {
+        const zig = pts.map((p, i) => {
+          if (i === 0 || i === pts.length - 1) return p;
+          const a = pts[i - 1], b = pts[i + 1];
+          const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+          const off = (i % 2 ? 1 : -1) * 0.35;
+          return [p[0] - (b[1] - a[1]) / L * off, p[1] + (b[0] - a[0]) / L * off];
+        });
+        group.add(new THREE.Mesh(this._ribbonGeo(zig, 0.22), mat));
+      } else {
+        group.add(new THREE.Mesh(this._ribbonGeo(pts, 0.3), mat));
+      }
+
+      if (m.type === 'screen') {
+        // The T: a bar across the end of the screener's path.
+        const bar = [[end[0] - uz * 1.1, end[1] + ux * 1.1], [end[0] + uz * 1.1, end[1] - ux * 1.1]];
+        group.add(new THREE.Mesh(this._ribbonGeo(bar, 0.36), mat));
+      } else {
+        const head = new THREE.BufferGeometry();
+        const tip = [end[0], end[1]];
+        const base = [end[0] - ux * 1.4, end[1] - uz * 1.4];
+        head.setAttribute('position', new THREE.Float32BufferAttribute([
+          tip[0], 0.11, tip[1],
+          base[0] - uz * 0.75, 0.11, base[1] + ux * 0.75,
+          base[0] + uz * 0.75, 0.11, base[1] - ux * 0.75
+        ], 3));
+        group.add(new THREE.Mesh(head, mat));
+      }
+    }
+    this.diagram = group;
+    this.scene.add(group);
+  }
+
+  clearDiagram() {
+    if (!this.diagram) return;
+    this.scene.remove(this.diagram);
+    this.diagram.traverse(o => o.geometry?.dispose());
+    this.diagram = null;
+  }
+
+  /* ---------------------------------------------------------------- *
    * Input helpers
    * ---------------------------------------------------------------- */
 
@@ -801,7 +915,6 @@ export class Court3D extends BeatRunner {
   }
 
   /** How long the player-eye read is held before the clock starts. */
-  get povHold() { return 1200; }
 
   /** True once the camera has reached its shot (used by tests). */
   cameraSettled() {
@@ -816,6 +929,12 @@ export class Court3D extends BeatRunner {
     const r = this._rect();
     const [x, y] = this._project(v);
     return [r.left + x, r.top + y];
+  }
+
+  courtClientPoint([x, y]) {
+    const r = this._rect();
+    const [sx, sy] = this._project(new THREE.Vector3(x, 0.1, y));
+    return [r.left + sx, r.top + sy];
   }
 
   actorClientPoint(id) {
@@ -874,7 +993,8 @@ export class Court3D extends BeatRunner {
   }
 
   _tick(now) {
-    const dt = Math.min(0.1, (now - this._last) / 1000);
+    // rAF timestamps can trail performance.now(); never let time run backwards.
+    const dt = Math.max(0, Math.min(0.1, (now - this._last) / 1000));
     this._last = now;
     if (!this.loaded) return;
     const t = now / 1000;
@@ -900,9 +1020,13 @@ export class Court3D extends BeatRunner {
     // Camera: damped toward the current shot; follow the ball in play.
     const g = this.goal;
     const target = g.target.clone();
-    if (this.shot === 'broadcast' && this.ballMesh) {
-      target.x = lerp(target.x, this.ballMesh.position.x, 0.3);
-      target.z = lerp(target.z, this.ballMesh.position.z, 0.2);
+    if ((this.shot === 'broadcast' || this.shot === 'decide') && this.ballMesh) {
+      // A gentle lean toward the ball, never a chase — and frozen means frozen.
+      const bp = this.ballMesh.position;
+      if (!this.frozen && Number.isFinite(bp.x) && Number.isFinite(bp.z)) this._lean = [bp.x * 0.12, (bp.z - target.z) * 0.08];
+      const [lx, lz] = this._lean || [0, 0];
+      target.x += lx;
+      target.z += lz;
     }
     for (const k of ['x', 'y', 'z']) {
       this.cam.pos[k] = damp(this.cam.pos[k], g.pos[k], g.k, dt);
@@ -910,6 +1034,14 @@ export class Court3D extends BeatRunner {
     }
     const fov = damp(this.camera.fov, this.fovGoal || this.baseFov || 38, 3.5, dt);
     if (Math.abs(fov - this.camera.fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
+    if (![this.cam.pos.x, this.cam.pos.y, this.cam.pos.z, this.cam.target.x, this.cam.target.y, this.cam.target.z].every(Number.isFinite)) {
+      if (!this._nanReported) { this._nanReported = true; console.error('Hoops IQ camera: non-finite', JSON.stringify({ pos: this.cam.pos, target: this.cam.target, ball: this.ballMesh?.position, holder: this.ball.holder, shot: this.shot })); }
+      this.cam.pos.copy(this.goal.pos);
+      this.cam.target.copy(this.goal.target);
+    }
+    // The look-at point always stays over the table.
+    this.cam.target.x = Math.max(-30, Math.min(30, this.cam.target.x));
+    this.cam.target.z = Math.max(-15, Math.min(70, this.cam.target.z));
     this.camera.position.copy(this.cam.pos);
     this.camera.lookAt(this.cam.target);
 
@@ -954,11 +1086,14 @@ export class Court3D extends BeatRunner {
       el.style.transform = `translate(${x.toFixed(1)}px, ${(y + dy).toFixed(1)}px) translate(-50%, -50%)`;
       el.style.visibility = z < 1 ? 'visible' : 'hidden';
     };
+    const pov = this.shot === 'pov';
     for (const [id, chip] of Object.entries(this.labels)) {
       const [x, z] = this.pos[id];
       place(chip, new THREE.Vector3(x, 0.1, z + 2.6));
+      if (pov && id === this.you) chip.style.visibility = 'hidden';
     }
-    if (this.youTag && this.pos[this.you]) {
+    if (this.youTag) this.youTag.style.display = pov ? 'none' : '';
+    if (!pov && this.youTag && this.pos[this.you]) {
       const [x, z] = this.pos[this.you];
       place(this.youTag, new THREE.Vector3(x, 6.4, z));
     }

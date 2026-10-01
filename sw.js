@@ -11,7 +11,7 @@
  * discards every older cache in one pass.
  */
 
-const BUILD_VERSION = 'v2.3.1';
+const BUILD_VERSION = 'v2.4.0';
 const CACHE = `caesar-games-${BUILD_VERSION}`;
 
 const PRECACHE = [
@@ -50,6 +50,8 @@ const PRECACHE = [
   './js/games/hoops/runner.js',
   './js/games/hoops/families.js',
   './js/games/hoops/stats.js',
+  './js/games/hoops/playbook.js',
+  './js/games/hoops/playbook-mode.js',
   './js/games/hoops/court3d.js',
   './js/vendor/three/three.core.min.js',
   './js/vendor/three/three.module.min.js',
