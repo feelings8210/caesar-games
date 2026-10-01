@@ -47,7 +47,7 @@ try {
   await page.screenshot({ path: `${outDir}/01-menu.png` });
 
   const phase = () => page.getAttribute('#hoops-root', 'data-phase');
-  const waitPhase = (p, timeout = 12000) =>
+  const waitPhase = (p, timeout = 30000) =>
     page.waitForFunction(v => document.querySelector('#hoops-root').dataset.phase === v, p, { timeout });
 
   const levelCount = await page.locator('.hp-level').count();
@@ -60,7 +60,7 @@ try {
       const { LEVELS } = await import('./js/games/hoops/levels.js');
       return LEVELS[idx].options.findIndex(o => o.grade === 3);
     }, i);
-    await page.waitForTimeout(1300);   // let the freeze camera settle
+    await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled?.() ?? true, null, { timeout: 90000 });
     if (i === 0 || i === 6) await page.screenshot({ path: `${outDir}/${String(i + 2).padStart(2, '0')}-L${i + 1}-decide.png` });
     const point = await page.evaluate(i => window.caesarApp.hoops.court.targetClientPoint(i), best);
     if (!point) throw new Error(`level ${i + 1}: no target point (phase ${await phase()})`);
@@ -93,13 +93,57 @@ try {
   // Wrong read, then the demo of the best read (level 2, Chinese UI).
   await page.waitForSelector('.hoops[data-view="menu"]');
   await page.screenshot({ path: `${outDir}/20-menu-complete.png` });
+
+  // Read & React: four best reads, then a deliberate wrong one ends the run.
+  await page.click('.hp-tab[data-tab="read"]');
+  await page.screenshot({ path: `${outDir}/24-read-menu.png` });
+  await page.click('.hp-read-start');
+  report.read = [];
+  for (let r = 0; r < 5; r++) {
+    if (r === 0) {
+      await waitPhase('read', 60000);
+      await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled(), null, { timeout: 90000 }).catch(() => {});
+      await page.screenshot({ path: `${outDir}/25-read-pov.png` });
+    }
+    await waitPhase('decide', 60000);
+    await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled?.() ?? true, null, { timeout: 90000 });
+    if (r === 1 && await page.isVisible('.hp-view')) {
+      await page.click('.hp-view');
+      await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled?.() ?? true, null, { timeout: 90000 });
+      await page.screenshot({ path: `${outDir}/26-read-player-view.png` });
+      await page.click('.hp-view');
+      await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled?.() ?? true, null, { timeout: 90000 });
+    }
+    const pick = await page.evaluate(last => {
+      const opts = window.caesarApp.hoops.level.options;
+      return last ? opts.findIndex(o => o.grade === 0) : opts.findIndex(o => o.grade === 3);
+    }, r === 4);
+    const pt = await page.evaluate(i => window.caesarApp.hoops.court.targetClientPoint(i), pick);
+    if (!pt) throw new Error(`read round ${r + 1}: no target point (phase ${await phase()})`);
+    await page.mouse.click(pt[0], pt[1]);
+    await waitPhase('review', 30000);
+    await page.waitForTimeout(600);
+    report.read.push(await page.evaluate(() => {
+      const h = window.caesarApp.hoops;
+      return { family: h.level.family, variant: h.level.id, mirrored: !!h.level.mirrored, streak: h.streak, over: h.readOver,
+        summary: document.querySelector('.hp-summary').textContent, title: document.querySelector('.hp-title').textContent };
+    }));
+    if (r === 3) await page.screenshot({ path: `${outDir}/27-read-review.png` });
+    if (r < 4) await page.click('.hp-next');
+  }
+  await page.screenshot({ path: `${outDir}/28-read-over.png` });
+  await page.click('.hp-back');
+  await page.click('.hp-tab[data-tab="stats"]');
+  report.statsRows = await page.locator('.hp-stat-rows li').count();
+  await page.screenshot({ path: `${outDir}/29-stats.png` });
+  await page.click('.hp-tab[data-tab="chapter"]');
   await page.click('#btn-language');
   await page.click('.hp-level[data-index="1"]');
   await waitPhase('decide');
   report.court = await page.getAttribute('#hoops-root', 'data-court');
   await page.waitForTimeout(1300);
   await page.screenshot({ path: `${outDir}/21-L2-decide-zh.png` });
-  await page.waitForTimeout(1300);
+  await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled?.() ?? true, null, { timeout: 90000 });
   const shootIdx = await page.evaluate(() => window.caesarApp.hoops.level.options.findIndex(o => o.kind === 'shoot'));
   const [wx, wy] = await page.evaluate(i => window.caesarApp.hoops.court.targetClientPoint(i), shootIdx);
   await page.mouse.click(wx, wy);

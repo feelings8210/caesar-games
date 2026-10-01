@@ -20,10 +20,25 @@ export const CHAPTER = {
   sub: T('十个比赛瞬间：看清楚，定格，做决定。', 'Ten game moments. Watch, freeze, decide.')
 };
 
+/* Shared openings: variants of one family look identical until the read. */
+const CATCH_START = { ms: 800, move: { o1: [2, 28.5], d1: [1.8, 25], o2: [17.5, 17.5], d2: [15, 16.6] }, sfx: 'squeak' };
+const CATCH_SPOT = [20.5, 25.5];
+const CATCH_LABEL = T('亮手要球', 'Show hands');
+const DRIVE_START = [
+  { ms: 450, move: { o1: [-1.5, 28.5], d1: [-1.4, 25.2] } },
+  { ms: 850, move: { o1: [[4, 24], [7, 15.5]], d1: [[3, 22], [5, 18]] }, sfx: 'squeak' }
+];
+const PNR_START = { ms: 800, move: { o5: [1.2, 27.2], d5: [2.4, 22] }, call: ['o5', T('掩护！', 'Screen!')] };
+const PNR_DRIVE = [8, 11];
+const PNR_DRIVE_LABEL = T('突破篮下', 'Drive to the rim');
+const PNR_SHOOT_LABEL = T('急停投篮', 'Pull-up');
+const BREAK_START = { ms: 900, move: { o1: [0, 32], o2: [12.5, 29], d1: [0, 17], d2: [3.5, 41] }, ease: 'linear' };
+
 export const LEVELS = [
   /* 1 ------------------------------------------------------------- */
   {
     id: 'backdoor',
+    tag: 'catch',
     title: T('反跑', 'Backdoor'),
     concept: T('被绕前防守时', 'Beating the overplay'),
     you: 'o2',
@@ -33,10 +48,7 @@ export const LEVELS = [
       d1: [-3.5, 26.5], d2: [14, 15.5], d3: [-19, 6], d4: [-14.5, 19.5], d5: [-7, 16],
       ball: 'o1'
     },
-    intro: [
-      { ms: 900, move: { o1: [2, 28.5], d1: [1.8, 25], o2: [[18, 19], [18.6, 22]], d2: [[15.8, 19], [15.6, 23]] }, sfx: 'squeak' },
-      { ms: 700, move: { o2: [19, 23], d2: [16.2, 24.2] } }
-    ],
+    intro: [CATCH_START, { ms: 750, move: { o2: [19, 23], d2: [16.2, 24.2] } }],
     prompt: T('你是 2 号，想在侧翼接球，但防守人贴在你和球之间。', 'You are #2. You want the ball on the wing, but your defender is between you and the ball.'),
     cue: { at: 'd2', text: T('他的手和脚都堵在传球路线上——他身后到篮下是空的。', 'His hand and foot are in the passing lane — the space behind him to the rim is empty.') },
     options: [
@@ -51,12 +63,12 @@ export const LEVELS = [
         ]
       },
       {
-        kind: 'spot', at: [21.5, 28], label: T('继续往外要球', 'Fight out wider'), grade: 0, end: 'turnover',
+        kind: 'spot', at: CATCH_SPOT, label: CATCH_LABEL, grade: 0, end: 'turnover',
         result: T('传球被断！', 'Pass stolen!'),
-        why: T('你往外跑，他也跟着堵在路线上。控卫硬传，正好传到他手里。', 'You drift out, he stays in the lane. The forced pass goes straight to him.'),
+        why: T('你停在原地要球，他就站在传球路线上。控卫一传，正好传到他手里。', 'You stopped and asked for it — he is sitting in the passing lane. The pass goes straight to him.'),
         play: [
-          { ms: 620, move: { o2: [21.5, 28], d2: [18.4, 27.8] } },
-          { ms: 460, pass: 'd2', move: { d2: [16.5, 28.5] } },
+          { ms: 520, move: { o2: CATCH_SPOT, d2: [17.8, 25.8] } },
+          { ms: 460, pass: 'd2', move: { d2: [16.5, 26.5] } },
           { ms: 760, move: { d2: [9, 43], o2: [16, 36] }, sfx: 'squeak' }
         ]
       },
@@ -76,6 +88,7 @@ export const LEVELS = [
   /* 2 ------------------------------------------------------------- */
   {
     id: 'drive-kick',
+    tag: 'help-read',
     title: T('突破分球', 'Drive & kick'),
     concept: T('读补防', 'Reading the help'),
     you: 'o1',
@@ -86,8 +99,7 @@ export const LEVELS = [
       ball: 'o1'
     },
     intro: [
-      { ms: 450, move: { o1: [-1.5, 28.5], d1: [-1.4, 25.2] } },
-      { ms: 850, move: { o1: [[4, 24], [7, 15.5]], d1: [[3, 22], [5, 18]], d3: [13, 8.5] }, sfx: 'squeak' },
+      ...DRIVE_START,
       { ms: 550, move: { o1: [7, 13], d1: [5.2, 16.2], d3: [9, 10], d5: [-2, 7] } }
     ],
     prompt: T('你突破过了自己的防守人，正冲进三秒区。', 'You beat your man and you are attacking the lane.'),
@@ -136,6 +148,7 @@ export const LEVELS = [
   /* 3 ------------------------------------------------------------- */
   {
     id: 'pnr-roll',
+    tag: 'pnr',
     title: T('挡拆：顺下', 'Pick & roll: the roll'),
     concept: T('大个子扑出来时', 'When the big steps up'),
     you: 'o1',
@@ -146,7 +159,7 @@ export const LEVELS = [
       ball: 'o1'
     },
     intro: [
-      { ms: 800, move: { o5: [1.2, 27.2], d5: [2.5, 22] }, call: ['o5', T('掩护！', 'Screen!')] },
+      PNR_START,
       { ms: 700, move: { o1: [[2, 31], [6, 27]], d1: [[-0.5, 28.4], [0.8, 29.4]], d5: [5.8, 24.6] }, sfx: 'squeak' },
       { ms: 600, move: { o1: [8, 26.5], d5: [8.6, 24.3], o5: [1.5, 19.5], d1: [3, 29.2], d4: [-14, 7.5] } }
     ],
@@ -163,7 +176,7 @@ export const LEVELS = [
         ]
       },
       {
-        kind: 'shoot', label: T('急停三分', 'Pull-up three'), grade: 0, end: 'miss',
+        kind: 'shoot', label: PNR_SHOOT_LABEL, grade: 0, end: 'miss',
         result: T('被干扰，没进。', 'Contested — no good.'),
         why: T('大个子就在你面前举着手，这是全场最难的一投。', 'The big is right in your face with a hand up. It is the hardest shot on the floor.'),
         play: [
@@ -172,13 +185,19 @@ export const LEVELS = [
         ]
       },
       {
-        kind: 'spot', at: [14, 23.5], label: T('继续往边线运', 'Keep dribbling wide'), grade: 0, end: 'turnover',
+        kind: 'spot', at: PNR_DRIVE, label: PNR_DRIVE_LABEL, grade: 0, end: 'turnover',
         result: T('被包夹，传球被断！', 'Trapped — pass stolen!'),
-        why: T('往边线跑正中防守下怀：边线就像第三个防守人，你被两个人夹住了。', 'Going wide plays into the trap: the sideline is a third defender and two players close on you.'),
+        why: T('大个子扑出来就是为了堵你突破。往他身上冲，正好被两个人夹住。', 'The big stepped up precisely to stop your drive. Attack into him and two defenders trap you.'),
         play: [
-          { ms: 620, move: { o1: [14, 23.5], d5: [12.8, 21.8], d1: [15, 26.5] }, sfx: 'squeak', call: ['o1', T('被包夹！', 'Trapped!')] },
+          { ms: 600, move: { o1: [11, 23], d5: [10.2, 21.4], d1: [11.8, 25.2] }, sfx: 'squeak', call: ['o1', T('被包夹！', 'Trapped!')] },
           { ms: 600, pass: 'd3', move: { d3: [17, 11] } }
         ]
+      },
+      {
+        kind: 'pass', to: 'o2', grade: 1, end: 'neutral',
+        result: T('安全转移，但错过了 4 打 3。', 'Safe swing — but you passed up a 4-on-3.'),
+        why: T('两个人在防你，场上就是 4 打 3。转移不算错，可最快的机会是顺下的 5 号。', 'Two defenders on you makes it 4-on-3. The swing is fine, but the quickest chance was #5 rolling.'),
+        play: [{ ms: 800, pass: 'o2', move: { d2: [-15, 19] } }]
       }
     ],
     rule: T('大个子扑出来，就找顺下。', 'Big steps up? Hit the roller.')
@@ -187,6 +206,7 @@ export const LEVELS = [
   /* 4 ------------------------------------------------------------- */
   {
     id: 'pnr-drop',
+    tag: 'pnr',
     title: T('挡拆：急停', 'Pick & roll: pull-up'),
     concept: T('大个子退后时', 'When the big drops'),
     you: 'o1',
@@ -197,7 +217,7 @@ export const LEVELS = [
       ball: 'o1'
     },
     intro: [
-      { ms: 800, move: { o5: [1.2, 27.2], d5: [2, 20] }, call: ['o5', T('掩护！', 'Screen!')] },
+      PNR_START,
       { ms: 700, move: { o1: [[2, 31], [5.5, 26]], d1: [[-0.5, 28.4], [0.5, 29.8]], d5: [2, 15] }, sfx: 'squeak' },
       { ms: 600, move: { o1: [6, 22], o5: [1.5, 19], d5: [1.8, 13], d1: [3.2, 27.5] } }
     ],
@@ -205,7 +225,7 @@ export const LEVELS = [
     cue: { at: 'd5', text: T('大个子退在罚球线下面护框，你和他之间有一大片空地。', 'The big sank below the free-throw line to guard the rim — there is open space between you and him.') },
     options: [
       {
-        kind: 'shoot', label: T('急停跳投', 'Pull-up jumper'), grade: 3, end: 'score',
+        kind: 'shoot', label: PNR_SHOOT_LABEL, grade: 3, end: 'score',
         result: T('急停跳投，命中！', 'Pull-up — splash!'),
         why: T('他退后是为了挡顺下和上篮，那就在他面前出手。这是一个没人干扰的中投。', 'He sits back to stop the roll and the layup — so shoot in front of him. It is an uncontested jumper.'),
         play: [
@@ -213,11 +233,11 @@ export const LEVELS = [
         ]
       },
       {
-        kind: 'spot', at: [3, 9.5], label: T('突到篮下', 'Drive to the rim'), grade: 0, end: 'miss',
+        kind: 'spot', at: PNR_DRIVE, label: PNR_DRIVE_LABEL, grade: 0, end: 'miss',
         result: T('被大个子封盖！', 'Blocked by the big!'),
         why: T('你正好冲进了他在等你的地方。', 'You drove straight into the spot he was waiting in.'),
         play: [
-          { ms: 580, move: { o1: [3, 10], d5: [2.2, 8.4] }, sfx: 'squeak' },
+          { ms: 580, move: { o1: [7.4, 11.4], d5: [5.6, 9.8] }, sfx: 'squeak' },
           { ms: 500, shot: 'block' },
           { ms: 450, ball: 'd5' }
         ]
@@ -230,6 +250,12 @@ export const LEVELS = [
           { ms: 450, pass: 'o5', move: { o5: [1.2, 16.5] } },
           { ms: 450, move: { d5: [1.4, 13.5], d1: [4, 24] } }
         ]
+      },
+      {
+        kind: 'pass', to: 'o2', grade: 1, end: 'neutral',
+        result: T('安全转移，但放掉了空位中投。', 'Safe swing — but you gave up an open jumper.'),
+        why: T('大个子退后，你面前就是空位。转移不算错，可最好的出手机会就在你手里。', 'With the big back, the space in front of you is open. The swing is fine, but the best shot was yours.'),
+        play: [{ ms: 800, pass: 'o2', move: { d2: [-15, 19] } }]
       }
     ],
     rule: T('大个子退后，就在他面前出手。', 'Big drops back? Shoot in front of him.')
@@ -238,6 +264,7 @@ export const LEVELS = [
   /* 5 ------------------------------------------------------------- */
   {
     id: 'switch',
+    tag: 'pnr',
     title: T('换防错位', 'Switch mismatch'),
     concept: T('小防大的机会', 'Little guy on a big'),
     you: 'o1',
@@ -248,7 +275,7 @@ export const LEVELS = [
       ball: 'o1'
     },
     intro: [
-      { ms: 800, move: { o5: [1.2, 27.2], d5: [2.5, 23.5] }, call: ['o5', T('掩护！', 'Screen!')] },
+      PNR_START,
       { ms: 700, move: { o1: [[2, 31], [6, 27.5]], d5: [5.6, 24.8], d1: [1.2, 25] }, call: ['d5', T('换！', 'Switch!')], sfx: 'squeak' },
       { ms: 750, move: { o1: [7, 26.5], d5: [7, 23.6], o5: [[1.5, 20], [4, 8.2]], d1: [[1.8, 20], [3.5, 6.7]], d4: [-13.5, 8] } }
     ],
@@ -265,11 +292,11 @@ export const LEVELS = [
         ]
       },
       {
-        kind: 'spot', at: [11, 13], label: T('突破大个子', 'Drive past the big'), grade: 1, end: 'neutral',
+        kind: 'spot', at: PNR_DRIVE, label: PNR_DRIVE_LABEL, grade: 1, end: 'neutral',
         result: T('突进去了，但协防到了，只能分出来。', 'You got by — then the help came and you had to kick it out.'),
         why: T('后卫打大个子也是错位，可突破需要时间，协防已经到位。最近、最快的是内线那个错位。', 'Guard vs big is a mismatch too, but a drive takes time and the help arrives. The closest, fastest mismatch was in the post.'),
         play: [
-          { ms: 720, move: { o1: [11, 13.5], d5: [9.6, 15.6], d4: [-1, 8.5] }, sfx: 'squeak' },
+          { ms: 720, move: { o1: [8.6, 12.6], d5: [8.2, 14.6], d4: [-1, 8.5] }, sfx: 'squeak' },
           { ms: 620, pass: 'o3', move: { d3: [19.5, 5] } }
         ]
       },
@@ -281,6 +308,15 @@ export const LEVELS = [
           { ms: 760, pass: 'o2' },
           { ms: 650, move: { d1: [2.5, 20], d5: [3.5, 8.5] }, call: ['d5', T('换回来！', 'Switch back!')] }
         ]
+      },
+      {
+        kind: 'shoot', label: PNR_SHOOT_LABEL, grade: 1, end: 'miss',
+        result: T('大个子伸手干扰，没进。', 'The big gets a hand up — no good.'),
+        why: T('后卫投大个子不算错，但他够高、够长。更稳的是把球喂给内线的错位。', 'A guard shooting over a big is not crazy, but he is long. The safer edge is the mismatch inside.'),
+        play: [
+          { ms: 800, shot: 'miss', move: { d5: [7.2, 25] } },
+          { ms: 480, ball: 'd1', move: { d1: [2.6, 7.4] } }
+        ]
       }
     ],
     rule: T('换防出错位，第一时间喂进去。', 'Switch creates a mismatch? Feed it fast.')
@@ -289,6 +325,7 @@ export const LEVELS = [
   /* 6 ------------------------------------------------------------- */
   {
     id: 'two-on-one',
+    tag: 'advantage',
     title: T('快攻二打一', '2-on-1 break'),
     concept: T('让防守人先做选择', 'Make the defender choose'),
     you: 'o1',
@@ -298,7 +335,7 @@ export const LEVELS = [
       ball: 'o1'
     },
     intro: [
-      { ms: 900, move: { o1: [0, 32], o2: [12.5, 29], d1: [0, 17], d2: [3.5, 41] }, ease: 'linear' },
+      BREAK_START,
       { ms: 650, move: { o1: [0, 23.5], o2: [9.5, 19.5], d1: [0.6, 19.5], d2: [2.6, 33] } }
     ],
     prompt: T('快攻，二打一。唯一的防守人在罚球线等你。', 'Fast break, two on one. Their only defender is waiting at the free-throw line.'),
@@ -314,7 +351,7 @@ export const LEVELS = [
         ]
       },
       {
-        kind: 'spot', at: [0.4, 9], label: T('硬冲篮下', 'Bull to the rim'), grade: 0, end: 'turnover',
+        kind: 'spot', at: [0.4, 9], label: T('突到篮下', 'Drive to the rim'), grade: 0, end: 'turnover',
         result: T('撞人犯规！', 'Charge!'),
         why: T('他已经站好位置，你直接撞上去就是进攻犯规。二打一还单干，白送了机会。', 'He had position; running through him is an offensive foul. Going alone on a 2-on-1 throws the advantage away.'),
         play: [
@@ -338,6 +375,7 @@ export const LEVELS = [
   /* 7 ------------------------------------------------------------- */
   {
     id: 'help-side',
+    tag: 'help-defense',
     title: T('弱侧协防', 'Help-side defense'),
     concept: T('防守站位', 'Where to stand'),
     you: 'd4',
@@ -396,6 +434,7 @@ export const LEVELS = [
   /* 8 ------------------------------------------------------------- */
   {
     id: 'closeout',
+    tag: 'closeout',
     title: T('扑防', 'Closeout'),
     concept: T('补防之后回位', 'Recovering to a shooter'),
     you: 'd3',
@@ -450,6 +489,7 @@ export const LEVELS = [
   /* 9 ------------------------------------------------------------- */
   {
     id: 'box-out',
+    tag: 'rebound',
     title: T('卡位', 'Box out'),
     concept: T('先找人，再找球', 'Body before ball'),
     you: 'd4',
@@ -505,6 +545,7 @@ export const LEVELS = [
   /* 10 ------------------------------------------------------------ */
   {
     id: 'last-shot',
+    tag: 'clock',
     title: T('最后一攻', 'Last possession'),
     concept: T('时间和比分', 'Clock and score'),
     you: 'o1',
@@ -554,4 +595,175 @@ export const LEVELS = [
     ],
     rule: T('平分最后一攻：先耗时间，最后几秒出手。', 'Tied, last shot: burn the clock, strike late.')
   }
+];
+
+/* ------------------------------------------------------------------ *
+ * Extra variants for Read & React. Each shares its family's opening and
+ * option set with a chapter level; only the defense's choice differs.
+ * ------------------------------------------------------------------ */
+
+const base = id => LEVELS.find(l => l.id === id);
+const derive = (id, over) => ({ ...base(id), ...over, variantOf: id });
+
+export const VARIANTS = [
+  derive('backdoor', {
+    id: 'catch-sag',
+    title: T('接球就投', 'Catch & shoot'),
+    concept: T('防守退后时', 'When the defender sags'),
+    intro: [CATCH_START, { ms: 750, move: { o2: [19, 23], d2: [15.6, 19.2] } }],
+    prompt: T('你是 2 号，在侧翼准备接球。读你的防守人，做出选择。', 'You are #2, getting open on the wing. Read your defender and make the call.'),
+    cue: { at: 'd2', text: T('他退到你和篮筐之间，离你一大步——接球就有投篮空间。', 'He sagged between you and the rim, a full step off — the catch is open for a shot.') },
+    options: [
+      {
+        kind: 'spot', at: [4, 7], label: T('反跑篮下', 'Backdoor cut'), grade: 0, end: 'neutral',
+        result: T('反跑被堵住，没法传球。', 'Cut cut off — no pass.'),
+        why: T('他本来就站在你和篮筐之间，往篮下跑等于跑进他怀里。', 'He was already between you and the rim — cutting just runs you into him.'),
+        play: [
+          { ms: 600, move: { o2: [[17, 19], [8, 10]], d2: [[14, 16], [9, 11.5]] }, sfx: 'squeak' },
+          { ms: 500, move: { o2: [5, 7.5], d2: [5.6, 9] } }
+        ]
+      },
+      {
+        kind: 'spot', at: CATCH_SPOT, label: CATCH_LABEL, grade: 3, end: 'score',
+        result: T('接球就投，三分命中！', 'Catch and shoot — three is good!'),
+        why: T('他退后保护篮下，就给了你投篮的空间。脚站好、手亮出来，接球直接出手。', 'He backed off to protect the rim and gave you room. Feet set, hands up, catch and shoot.'),
+        play: [
+          { ms: 420, move: { o2: CATCH_SPOT } },
+          { ms: 480, pass: 'o2', move: { d2: [17.6, 21.5] } },
+          { ms: 850, shot: 'make', move: { d2: [19.4, 24] } }
+        ]
+      },
+      {
+        kind: 'spot', at: [10, 29], label: T('拉高接球', 'Come high'), grade: 1, end: 'neutral',
+        result: T('接到了，但放掉了一个空位投篮。', 'Caught it — but you gave up an open shot.'),
+        why: T('能接到球，可他让出来的投篮空间被浪费了，你也离篮筐更远。', 'You got the ball, but wasted the room he gave you and drifted away from the rim.'),
+        play: [
+          { ms: 650, move: { o2: [10, 29], d2: [10, 25] } },
+          { ms: 420, pass: 'o2' }
+        ]
+      }
+    ],
+    rule: T('防守退后，接球就投。', 'Defender sags? Catch and shoot.')
+  }),
+
+  derive('drive-kick', {
+    id: 'drive-weak',
+    title: T('突破分球：弱侧', 'Drive & kick: weak side'),
+    intro: [...DRIVE_START, { ms: 550, move: { o1: [7, 13], d1: [5.2, 16.2], d2: [2.6, 12], d5: [-2, 7] } }],
+    cue: { at: 'd2', text: T('2 号的防守人从弱侧扑过来补你——弱侧侧翼空了。', "#2's defender rushed over from the weak side — the far wing is open.") },
+    options: [
+      {
+        kind: 'pass', to: 'o3', grade: 1, end: 'neutral',
+        result: T('球到了底角，但他有人防。', 'Ball in the corner — but he is guarded.'),
+        why: T('底角的防守人一直守着。真正空的是 2 号，他的防守人来补你了。', 'The corner defender never left. The open man was #2, whose defender came to help.'),
+        play: [{ ms: 520, pass: 'o3', move: { d3: [20, 4.6] } }]
+      },
+      {
+        kind: 'shoot', label: T('上篮', 'Finish'), grade: 0, end: 'miss',
+        result: T('被封盖！', 'Blocked!'),
+        why: T('弱侧的补防和大个子一起堵在篮下，硬上就是撞墙。', 'The weak-side helper and the big are both at the rim. Forcing it means running into a wall.'),
+        play: [
+          { ms: 320, move: { o1: [5, 9.5], d2: [4.6, 8.4], d5: [1.5, 7] } },
+          { ms: 520, shot: 'block' },
+          { ms: 450, ball: 'd5', move: { d5: [3, 9] } }
+        ]
+      },
+      {
+        kind: 'pass', to: 'o2', grade: 3, end: 'score',
+        result: T('分给弱侧，三分命中！', 'Kick to the weak side — three is good!'),
+        why: T('补防的人从弱侧来，他的人就空了。这一传要跨过半场，传得又快又平。', 'The help came from the weak side, so his man is open. It is a long pass — make it quick and flat.'),
+        play: [
+          { ms: 650, pass: 'o2', move: { d2: [-9, 15], o1: [7.5, 12] } },
+          { ms: 800, shot: 'make', move: { d2: [-14.5, 18.5] } }
+        ]
+      },
+      {
+        kind: 'pass', to: 'o5', grade: 0, end: 'turnover',
+        result: T('传球被碰掉！', 'Deflected!'),
+        why: T('传给篮下要穿过 5 号的防守人，他就站在路线上。', 'The pass to the block goes right through the big defender standing in the lane.'),
+        play: [
+          { ms: 420, pass: 'd5', move: { d5: [-1, 7.5] } },
+          { ms: 600, move: { d5: [-3, 16] } }
+        ]
+      }
+    ]
+  }),
+
+  derive('drive-kick', {
+    id: 'drive-none',
+    title: T('突破：没人补防', 'Drive: no help'),
+    intro: [...DRIVE_START, { ms: 550, move: { o1: [7, 13], d1: [5.2, 16.2], d5: [-3.6, 7] } }],
+    cue: { at: 'd5', text: T('篮下的大个子守着自己的人，没人来补你——路是空的。', 'The big stayed home on his man. Nobody is helping — the lane is open.') },
+    options: [
+      {
+        kind: 'pass', to: 'o3', grade: 1, end: 'neutral',
+        result: T('安全，但放弃了一个上篮。', 'Safe — but you passed up a layup.'),
+        why: T('没有人补防，篮下是空的。分球没错，可最好的机会是你自己。', 'No help came and the rim is open. Passing is fine, but the best chance was yours.'),
+        play: [{ ms: 520, pass: 'o3' }]
+      },
+      {
+        kind: 'shoot', label: T('上篮', 'Finish'), grade: 3, end: 'score',
+        result: T('没人补防，轻松上篮！', 'No help — easy layup!'),
+        why: T('防守人都守着自己的人，没人来补，那就自己终结。', 'Everyone stayed with their man. Nobody helped, so finish it yourself.'),
+        play: [
+          { ms: 350, move: { o1: [4.5, 8.5], d1: [5.5, 12] } },
+          { ms: 520, shot: 'make', move: { o1: [2.6, 6.5] } }
+        ]
+      },
+      {
+        kind: 'pass', to: 'o2', grade: 1, end: 'neutral',
+        result: T('安全转移，但错过了上篮。', 'Safe swing — but you missed the layup.'),
+        why: T('没人来堵你，转移只是把机会让掉了。', 'Nobody stopped you; swinging it just gave the chance away.'),
+        play: [{ ms: 700, pass: 'o2', move: { d2: [-15.5, 19.5] } }]
+      },
+      {
+        kind: 'pass', to: 'o5', grade: 0, end: 'turnover',
+        result: T('传球被碰掉！', 'Deflected!'),
+        why: T('5 号的防守人就站在他和你之间。', "#5's defender is standing right between you."),
+        play: [
+          { ms: 420, pass: 'd5', move: { d5: [-2, 7.5] } },
+          { ms: 600, move: { d5: [-3, 16] } }
+        ]
+      }
+    ],
+    rule: T('没人补防，就自己终结。', 'No help? Finish it yourself.')
+  }),
+
+  derive('two-on-one', {
+    id: 'break-stay',
+    title: T('快攻：他不扑你', 'Break: he stays home'),
+    prompt: T('快攻，二打一，只有一个防守人。', 'Fast break, two on one, one defender back.'),
+    concept: T('让防守人先做选择', 'Make the defender choose'),
+    intro: [BREAK_START, { ms: 650, move: { o1: [0, 23.5], o2: [9.5, 19.5], d1: [3.6, 14], d2: [2.6, 33] } }],
+    cue: { at: 'd1', text: T('他退后守着传球路线，没有扑你——你面前是空的。', 'He dropped back to guard the pass and did not come at you — the way is open.') },
+    options: [
+      {
+        kind: 'pass', to: 'o2', grade: 0, end: 'turnover',
+        result: T('传球被断！', 'Pass picked off!'),
+        why: T('他守的就是传球路线，就等你传。', 'He was sitting on the passing lane, waiting for exactly that pass.'),
+        play: [
+          { ms: 420, pass: 'd1', move: { d1: [5.4, 16.4] } },
+          { ms: 600, move: { d1: [6, 30] }, sfx: 'squeak' }
+        ]
+      },
+      {
+        kind: 'spot', at: [0.4, 9], label: T('突到篮下', 'Drive to the rim'), grade: 3, end: 'score',
+        result: T('他不扑，你就上篮！', 'He stays home — you finish!'),
+        why: T('他选择防传球，那你就自己打。一路运到篮下，拿最稳的两分。', 'He chose to guard the pass, so take it yourself — all the way to the rim for the surest two.'),
+        play: [
+          { ms: 620, move: { o1: [[0.3, 15], [0.5, 9]], d1: [2.8, 11.5] }, sfx: 'squeak' },
+          { ms: 520, shot: 'make', move: { o1: [0.6, 6.6] } }
+        ]
+      },
+      {
+        kind: 'shoot', label: T('急停跳投', 'Pull-up'), grade: 1, end: 'miss',
+        result: T('投了，没进。', 'Shot up — no good.'),
+        why: T('没人防你，本该打到篮下拿上篮，而不是投中距离。', 'Nobody was on you — you should have gone all the way for the layup, not a jumper.'),
+        play: [
+          { ms: 800, shot: 'miss' },
+          { ms: 450, ball: 'd1', move: { d1: [1, 9] } }
+        ]
+      }
+    ]
+  })
 ];

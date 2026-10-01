@@ -10,7 +10,18 @@
 
 import { sounds } from '../../engine/sound.js';
 
+const MEDIA = new URL('../../../assets/hoops/', import.meta.url).href;
+// Recorded variants per cue (deliver/sfx, all CC0 — see assets/hoops/CREDITS.md).
+const SAMPLES = { dribble: 4, squeak: 4, catch: 3, pass: 2, swish: 3, rim: 3, backboard: 2, block: 2, whistle: 2, buzzer: 1, cheer: 3, groan: 2 };
+const VOICE_KEY = 'caesar_hoops_voice';
+
 let bus = null;
+const bank = {};                 // cue -> AudioBuffer[]
+const voiceCache = new Map();    // url -> Promise<AudioBuffer|null>
+let preloading = null;
+let crowd = null;                // { src, gain }
+let voiceNow = null;
+const lastPick = {};
 
 function ready(cue) {
   const ctx = sounds._ready(`hoops.${cue}`);
@@ -20,8 +31,17 @@ function ready(cue) {
 }
 
 function buildBus(ctx) {
+  // out → muffle (low-pass, closes on the freeze) → master, plus a hall send.
   const out = ctx.createGain();
-  out.connect(sounds.master);
+  const muffle = ctx.createBiquadFilter();
+  muffle.type = 'lowpass';
+  muffle.frequency.value = 20000;
+  muffle.Q.value = 0.5;
+  out.connect(muffle);
+  muffle.connect(sounds.master);
+  const voice = ctx.createGain();
+  voice.gain.value = 1.15;
+  voice.connect(sounds.master);
 
   // A generated impulse: dense early reflections, ~1.3 s decaying tail.
   const seconds = 1.3;
@@ -38,8 +58,8 @@ function buildBus(ctx) {
   tone.frequency.value = 4200;
   const wet = ctx.createGain();
   wet.gain.value = 0.2;
-  out.connect(verb); verb.connect(tone); tone.connect(wet); wet.connect(sounds.master);
-  return { ctx, out };
+  muffle.connect(verb); verb.connect(tone); tone.connect(wet); wet.connect(sounds.master);
+  return { ctx, out, muffle, voice };
 }
 
 const vary = (v, amt = 0.06) => v * (1 + (Math.random() * 2 - 1) * amt);
@@ -89,10 +109,131 @@ function tone(ctx, t, { type = 'sine', freq = 440, to = null, gain = 0.1, attack
   return osc;
 }
 
+/** One recorded variant, never the same one twice in a row; false if not loaded. */
+function sample(ctx, name, gain = 0.7, rate = 1) {
+  const list = bank[name];
+  if (!list?.length) return false;
+  let i = Math.floor(Math.random() * list.length);
+  if (list.length > 1 && i === lastPick[name]) i = (i + 1) % list.length;
+  lastPick[name] = i;
+  const src = ctx.createBufferSource();
+  src.buffer = list[i];
+  src.playbackRate.value = rate * (1 + (Math.random() * 2 - 1) * 0.035);
+  const g = ctx.createGain();
+  g.gain.value = gain;
+  src.connect(g); g.connect(bus.out);
+  src.start();
+  return true;
+}
+
+async function fetchBuffer(ctx, url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.arrayBuffer();
+    return await ctx.decodeAudioData(data);
+  } catch { return null; }
+}
+
+export function voiceEnabled() {
+  try { return localStorage.getItem(VOICE_KEY) !== 'off'; } catch { return true; }
+}
+
+export function setVoiceEnabled(on) {
+  try { localStorage.setItem(VOICE_KEY, on ? 'on' : 'off'); } catch { /* private mode */ }
+  if (!on) stopVoice();
+}
+
+export function stopVoice() {
+  try { voiceNow?.stop(); } catch { /* already ended */ }
+  voiceNow = null;
+}
+
+function setCrowdLevel(level, seconds = 0.4) {
+  if (!crowd || !bus) return;
+  const now = bus.ctx.currentTime;
+  crowd.gain.gain.cancelScheduledValues(now);
+  crowd.gain.gain.setTargetAtTime(sounds.isMuted ? 0 : level, now, seconds / 3);
+}
+
 export const hoopsAudio = {
+  /** Load every recorded cue once; synthesized cues cover the gap until then. */
+  preload() {
+    if (preloading) return preloading;
+    const ctx = sounds._ensure?.();
+    if (!ctx) return Promise.resolve();
+    preloading = Promise.all(Object.entries(SAMPLES).map(async ([name, n]) => {
+      const files = Array.from({ length: n }, (_, i) => `${MEDIA}sfx/${name}_${String(i + 1).padStart(2, '0')}.mp3`);
+      const bufs = (await Promise.all(files.map(f => fetchBuffer(ctx, f)))).filter(Boolean);
+      if (bufs.length) bank[name] = bufs;
+    })).then(async () => {
+      bank.crowd = [await fetchBuffer(ctx, `${MEDIA}sfx/crowd_loop.mp3`)].filter(Boolean);
+    });
+    return preloading;
+  },
+
+  /** A low arena murmur under the play, while the court is on screen. */
+  startCrowd() {
+    const ctx = ready('crowd');
+    if (!ctx || crowd || !bank.crowd?.length) return;
+    const src = ctx.createBufferSource();
+    src.buffer = bank.crowd[0];
+    src.loop = true;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    src.connect(gain); gain.connect(bus.out);
+    src.start();
+    crowd = { src, gain };
+    setCrowdLevel(0.16, 1.2);
+    // The app's sound switch only gates new cues; keep the bed in step with it.
+    crowd.watch = setInterval(() => setCrowdLevel(voiceNow ? 0.05 : 0.16, 0.3), 600);
+  },
+
+  stopCrowd() {
+    if (!crowd) return;
+    clearInterval(crowd.watch);
+    const c = crowd;
+    crowd = null;
+    try {
+      c.gain.gain.setTargetAtTime(0, c.src.context.currentTime, 0.15);
+      c.src.stop(c.src.context.currentTime + 0.6);
+    } catch { /* context gone */ }
+  },
+
+  /** Time slows: the room closes in, then opens again on the decision. */
+  muffle(on) {
+    if (!bus) return;
+    const f = bus.muffle.frequency;
+    const now = bus.ctx.currentTime;
+    f.cancelScheduledValues(now);
+    f.setValueAtTime(f.value, now);
+    f.exponentialRampToValueAtTime(on ? 720 : 20000, now + (on ? 0.35 : 0.25));
+    setCrowdLevel(on ? 0.09 : 0.16);
+  },
+
+  /** Coach line in the current language; resolves when it finishes. */
+  async voice(id, locale) {
+    if (!id || !voiceEnabled()) return;
+    const ctx = ready(`voice.${id}`);
+    if (!ctx) return;
+    const url = `${MEDIA}voice/${locale === 'zh' ? 'zh' : 'en'}/${id}.mp3`;
+    if (!voiceCache.has(url)) voiceCache.set(url, fetchBuffer(ctx, url));
+    const buf = await voiceCache.get(url);
+    if (!buf || sounds.isMuted || !voiceEnabled()) return;
+    stopVoice();
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(bus.voice);
+    voiceNow = src;
+    setCrowdLevel(0.05, 0.2);
+    await new Promise(res => { src.onended = res; src.start(); });
+    if (voiceNow === src) { voiceNow = null; setCrowdLevel(0.16, 0.6); }
+  },
+
   /** Leather on hardwood: a low pitched thump with a small slap on top. */
   dribble(level = 1) {
     const ctx = ready('dribble'); if (!ctx) return;
+    if (sample(ctx, 'dribble', 0.75 * level)) return;
     const t = ctx.currentTime;
     tone(ctx, t, { freq: vary(105, .08), to: 52, gain: 0.42 * level, decay: 0.12 });
     noise(ctx, t, { type: 'lowpass', freq: 650, gain: 0.26 * level, decay: 0.035 });
@@ -102,6 +243,7 @@ export const hoopsAudio = {
   /** Rubber on a clean floor — a fast chirp with a bright edge. */
   squeak() {
     const ctx = ready('squeak'); if (!ctx) return;
+    if (sample(ctx, 'squeak', 0.45)) return;
     const t = ctx.currentTime;
     const f = vary(1650, .12);
     const osc = tone(ctx, t, { type: 'triangle', freq: f, to: f * 1.45, gain: 0.045, attack: 0.02, decay: 0.11 });
@@ -116,6 +258,7 @@ export const hoopsAudio = {
 
   pass() {
     const ctx = ready('pass'); if (!ctx) return;
+    if (sample(ctx, 'pass', 0.6)) return;
     const t = ctx.currentTime;
     noise(ctx, t, { freq: 2200, q: 1.2, gain: 0.08, decay: 0.02 });
     noise(ctx, t, { freq: 520, to: 1700, q: 0.8, gain: 0.07, attack: 0.05, decay: 0.16 });
@@ -123,6 +266,7 @@ export const hoopsAudio = {
 
   catch() {
     const ctx = ready('catch'); if (!ctx) return;
+    if (sample(ctx, 'catch', 0.7)) return;
     const t = ctx.currentTime;
     noise(ctx, t, { freq: 1300, q: 0.9, gain: 0.22, decay: 0.025 });
     tone(ctx, t, { freq: 190, to: 120, gain: 0.2, decay: 0.06 });
@@ -138,6 +282,7 @@ export const hoopsAudio = {
   /** Nothing but net: a soft airy "shhk". */
   swish() {
     const ctx = ready('swish'); if (!ctx) return;
+    if (sample(ctx, 'swish', 0.85)) return;
     const t = ctx.currentTime;
     noise(ctx, t, { type: 'highpass', freq: 3300, gain: 0.2, attack: 0.012, decay: 0.26 });
     noise(ctx, t + 0.04, { freq: 6200, q: 1.8, gain: 0.08, attack: 0.01, decay: 0.18 });
@@ -147,6 +292,7 @@ export const hoopsAudio = {
   /** Iron: inharmonic partials ringing out, plus the backboard behind it. */
   rim() {
     const ctx = ready('rim'); if (!ctx) return;
+    if (sample(ctx, Math.random() < 0.3 && bank.backboard ? 'backboard' : 'rim', 0.7)) return;
     const t = ctx.currentTime;
     const base = vary(470, .05);
     [[1, .09, .55], [2.37, .06, .4], [3.9, .045, .3], [5.7, .03, .2], [8.1, .015, .14]]
@@ -157,6 +303,7 @@ export const hoopsAudio = {
 
   block() {
     const ctx = ready('block'); if (!ctx) return;
+    if (sample(ctx, 'block', 0.75)) return;
     const t = ctx.currentTime;
     noise(ctx, t, { freq: 1100, q: 0.8, gain: 0.34, decay: 0.05 });
     tone(ctx, t, { freq: 210, to: 140, gain: 0.2, decay: 0.07 });
@@ -165,6 +312,7 @@ export const hoopsAudio = {
   /** Referee's pea whistle — the pea gives it the trill. */
   whistle() {
     const ctx = ready('whistle'); if (!ctx) return;
+    if (sample(ctx, 'whistle', 0.55)) return;
     const t = ctx.currentTime;
     const dur = 0.42;
     const osc = ctx.createOscillator();
@@ -186,6 +334,7 @@ export const hoopsAudio = {
   /** A crowd rising: three vowel bands, scattered applause, a few shouts. */
   cheer(size = 1) {
     const ctx = ready('cheer'); if (!ctx) return;
+    if (sample(ctx, 'cheer', 0.55 * size)) return;
     const t = ctx.currentTime;
     [650, 1250, 2500].forEach((f, i) =>
       noise(ctx, t, { freq: f, q: 0.9, gain: (0.05 - i * 0.012) * size, attack: 0.3, hold: 0.6, decay: 1.1 }));
@@ -203,6 +352,7 @@ export const hoopsAudio = {
 
   groan() {
     const ctx = ready('groan'); if (!ctx) return;
+    if (sample(ctx, 'groan', 0.55)) return;
     const t = ctx.currentTime;
     noise(ctx, t, { freq: 560, to: 300, q: 1.1, gain: 0.07, attack: 0.18, hold: 0.2, decay: 0.8 });
     tone(ctx, t, { type: 'sawtooth', freq: 170, to: 118, gain: 0.014, attack: 0.15, hold: 0.2, decay: 0.7, filter: 700 });
@@ -210,6 +360,7 @@ export const hoopsAudio = {
 
   buzzer() {
     const ctx = ready('buzzer'); if (!ctx) return;
+    if (sample(ctx, 'buzzer', 0.5)) return;
     const t = ctx.currentTime;
     tone(ctx, t, { type: 'sawtooth', freq: 196, gain: 0.07, attack: 0.01, hold: 0.8, decay: 0.08, filter: 1500 });
     tone(ctx, t, { type: 'square', freq: 207.5, gain: 0.04, attack: 0.01, hold: 0.8, decay: 0.08, filter: 1200 });
