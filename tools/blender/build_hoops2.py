@@ -1,24 +1,22 @@
-"""Hoops IQ 3D Assets v2 - Procedural Build Script for Blender 5.x.
+"""Hoops IQ 3D Assets v2.1 - Procedural Build Script for Blender 5.x.
 
-This script creates and exports the v2 3D models according to TASK-06 (AC_fusion_1 concept):
-  1. assets/hoops/models2/athlete.glb - Rigged, animated basketball player figurine
+This script creates and exports the v2.1 3D models according to TASK-06b:
+  1. assets/hoops/models2/athlete.glb - Rigged, animated basketball player figurine (v2.1 overhaul):
+       - Smooth muscular UBC body (SuperHero_Male) + smooth sculpted egg head (CC0 1.0)
+       - Independent Jersey and Shorts meshes with clean boundary loops and Solidify thickness
+       - Covered torso and thigh skin deleted to completely prevent poke-through and save triangles
+       - Total triangles strictly <= 8,000 (relaxed budget)
+       - Per-frame exact grounding: every grounded action has lowest foot vertex at Z = 0.00..0.05 ft
+       - Sprint and Jog flight phase apex <= 0.60 ft
+       - Authentic basketball Jump Shot (Shot) with gather, elevation to forehead set point, wrist snap
+       - Upright defensive stance (DefStance, DefSlideL/R, BoxOut) with straight spine and wide arms
   2. assets/hoops/models2/hoop2.glb   - Basketball hoop & cantilever stanchion
   3. assets/hoops/models2/stage.glb   - Black lacquer plinth & architectural stands
   4. assets/hoops/models2/previews/  - Eevee preview renders:
        - broadcast.jpg (game broadcast view with stage, hoop, temporary floor, 10 players)
        - athlete_poses.jpg (6 poses side-by-side on light grey background)
+       - athlete_side.jpg (NEW: 6 poses in pure side profile, camera height 3 ft, showing floor contact)
        - hoop.jpg (macro close-up matching hoop_detail.jpg)
-
-Source Downloads & Local Paths (All assets are CC0 Public Domain):
-  - Quaternius Universal Animation Library [Standard]:
-      Source: https://quaternius.itch.io/universal-animation-library
-      Local:  /private/tmp/quaternius/ual1/Universal Animation Library[Standard]/
-  - Quaternius Universal Animation Library 2 [Standard]:
-      Source: https://quaternius.itch.io/universal-animation-library-2
-      Local:  /private/tmp/quaternius/ual2/Universal Animation Library 2[Standard]/
-  - Quaternius Universal Base Characters [Standard]:
-      Source: https://quaternius.itch.io/universal-base-characters
-      Local:  /private/tmp/quaternius/ubc/Universal Base Characters[Standard]/
 
 Coordinates & Units:
   - 1 unit = 1 foot
@@ -35,12 +33,13 @@ from pathlib import Path
 
 import bpy
 import bmesh
-from mathutils import Vector, Euler, Matrix
+from mathutils import Vector, Euler, Matrix, Quaternion
 
 ROOT = Path(__file__).resolve().parents[2]
 MODELS_DIR = ROOT / 'assets' / 'hoops' / 'models2'
 PREVIEWS_DIR = MODELS_DIR / 'previews'
 
+UBC_GLTF = Path('/private/tmp/quaternius/ubc/Universal Base Characters[Standard]/Base Characters/Godot - UE/Superhero_Male_FullBody.gltf')
 UAL1_GLB = Path('/private/tmp/quaternius/ual1/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard.glb')
 UAL1_RM_GLB = Path('/private/tmp/quaternius/ual1/Universal Animation Library[Standard]/Unreal-Godot/UAL1_Standard_RM.glb')
 UAL2_GLB = Path('/private/tmp/quaternius/ual2/Universal Animation Library 2[Standard]/Unreal-Godot/UAL2_Standard.glb')
@@ -89,150 +88,33 @@ def assign_material(obj, mat):
 
 
 # ==============================================================================
-# 1. ATHLETE BUILDER (athlete.glb)
+# 1. ATHLETE BUILDER (athlete.glb v2.1)
 # ==============================================================================
 
 def build_athlete(out_path):
-    """Build and export athlete.glb with rigged animations, materials, sockets, and base."""
+    """Build and export athlete.glb v2.1 matching TASK-06b specifications."""
     reset()
+    if not UBC_GLTF.exists():
+        raise FileNotFoundError(f"Missing UBC source at {UBC_GLTF}")
     if not UAL1_GLB.exists():
         raise FileNotFoundError(f"Missing UAL1 source at {UAL1_GLB}")
 
-    # Import base model & rig from UAL1
+    # 1. Import UAL1 first to obtain actions and egg head geometry
     bpy.ops.import_scene.gltf(filepath=str(UAL1_GLB))
-    arm = bpy.data.objects.get('Armature')
-    mesh_obj = bpy.data.objects.get('Mannequin')
-    
-    # Remove any extra objects (e.g. icosphere)
+    mannequin = [o for o in bpy.data.objects if o.name.startswith('Mannequin')][0]
     for o in list(bpy.data.objects):
-        if o not in [arm, mesh_obj]:
+        if o != mannequin:
             bpy.data.objects.remove(o, do_unlink=True)
 
-    # Calculate scale factor so standing height is exactly 6.6 feet (2.012 m)
-    z_coords = [v.co.z for v in mesh_obj.data.vertices]
-    orig_h = max(z_coords) - min(z_coords)
-    scale_fac = 6.6 / orig_h  # approx 3.6091
+    # Delete everything below neck on mannequin (keep only smooth egg head above Z = 1.54 m)
+    bm_m = bmesh.new()
+    bm_m.from_mesh(mannequin.data)
+    to_delete = [v for v in bm_m.verts if v.co.z < 1.54]
+    bmesh.ops.delete(bm_m, geom=to_delete, context='VERTS')
+    bm_m.to_mesh(mannequin.data)
+    bm_m.free()
 
-    # Scale armature and apply scale
-    bpy.ops.object.select_all(action='DESELECT')
-    arm.select_set(True)
-    mesh_obj.select_set(True)
-    bpy.context.view_layer.objects.active = arm
-    
-    # Scale armature
-    arm.scale = (scale_fac, scale_fac, scale_fac)
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-
-    # Decimate mesh to stay strictly within polygon budget (<= 5000 triangles)
-    # Target ~4200 triangles
-    poly_count = len(mesh_obj.data.polygons)
-    target_ratio = 4200.0 / (poly_count * 2.0)
-    target_ratio = min(1.0, max(0.2, target_ratio))
-    
-    mod_dec = mesh_obj.modifiers.new('Decimate', 'DECIMATE')
-    mod_dec.ratio = target_ratio
-    bpy.context.view_layer.objects.active = mesh_obj
-    bpy.ops.object.modifier_move_to_index(modifier=mod_dec.name, index=0)
-    bpy.ops.object.modifier_apply(modifier=mod_dec.name)
-
-    # Setup materials on mesh: Skin, Jersey, Shorts, Shoe
-    mat_skin = make_material('Skin', WARM_SILVER[:3], rough=0.35, metal=0.85)
-    mat_jersey = make_material('Jersey', NAVY_COLOR[:3], rough=0.6, metal=0.0)
-    mat_shorts = make_material('Shorts', NAVY_COLOR[:3], rough=0.6, metal=0.0)
-    mat_shoe = make_material('Shoe', (0.9, 0.9, 0.9), rough=0.4, metal=0.1)
-
-    mesh_obj.data.materials.clear()
-    mesh_obj.data.materials.append(mat_skin)    # Slot 0: Skin
-    mesh_obj.data.materials.append(mat_jersey)  # Slot 1: Jersey
-    mesh_obj.data.materials.append(mat_shorts)  # Slot 2: Shorts
-    mesh_obj.data.materials.append(mat_shoe)    # Slot 3: Shoe
-
-    # Partition polygons based on vertex weights and vertical positions
-    vg_names = {vg.index: vg.name for vg in mesh_obj.vertex_groups}
-    v_mat_slot = []
-    
-    for v in mesh_obj.data.vertices:
-        if not v.groups:
-            v_mat_slot.append(0)
-            continue
-        top_g = max(v.groups, key=lambda g: g.weight).group
-        bname = vg_names.get(top_g, '')
-        z = v.co.z
-
-        if bname in ['Head', 'neck_01'] or 'arm' in bname or 'hand' in bname or any(f in bname for f in ['index', 'middle', 'ring', 'pinky', 'thumb']):
-            slot = 0 # Skin
-        elif bname in ['clavicle_l', 'clavicle_r', 'spine_03', 'spine_02', 'spine_01']:
-            slot = 1 # Jersey
-        elif bname == 'pelvis':
-            slot = 2 # Shorts
-        elif bname in ['thigh_l', 'thigh_r']:
-            # Knees are around z = 2.0 ft on the 6.6 ft athlete
-            slot = 2 if z > 2.2 else 0
-        elif bname in ['calf_l', 'calf_r']:
-            slot = 0 if z > 0.55 else 3 # lower shin / shoe
-        elif bname in ['foot_l', 'foot_r', 'ball_l', 'ball_r']:
-            slot = 3 # Shoe
-        else:
-            slot = 0 # Skin
-        v_mat_slot.append(slot)
-
-    for p in mesh_obj.data.polygons:
-        # Pick dominant slot
-        slots = [v_mat_slot[vi] for vi in p.vertices]
-        p.material_index = max(set(slots), key=slots.count)
-
-    # ---------------- Sockets (Empty nodes parented to bones) -----------------
-    # socket_ball: right hand palm
-    s_ball = bpy.data.objects.new('socket_ball', None)
-    bpy.context.collection.objects.link(s_ball)
-    s_ball.parent = arm
-    s_ball.parent_type = 'BONE'
-    s_ball.parent_bone = 'hand_r'
-    s_ball.location = (0.0, -0.05, 0.12)
-
-    # socket_num_front: chest jersey surface + 0.02 ft
-    s_front = bpy.data.objects.new('socket_num_front', None)
-    bpy.context.collection.objects.link(s_front)
-    s_front.parent = arm
-    s_front.parent_type = 'BONE'
-    s_front.parent_bone = 'spine_03'
-    s_front.location = (0.0, -0.45, 0.05) # front is -Y
-
-    # socket_num_back: back jersey surface + 0.02 ft
-    s_back = bpy.data.objects.new('socket_num_back', None)
-    bpy.context.collection.objects.link(s_back)
-    s_back.parent = arm
-    s_back.parent_type = 'BONE'
-    s_back.parent_bone = 'spine_03'
-    s_back.location = (0.0, 0.45, 0.05)  # back is +Y
-
-    # ---------------- Separate Base Object -----------------
-    # Base disc: radius 1.35 ft, thickness 0.16 ft, top at Z = 0
-    bpy.ops.mesh.primitive_cylinder_add(vertices=48, radius=1.35, depth=0.16, location=(0, 0, -0.08))
-    base_obj = bpy.context.object
-    base_obj.name = 'Base'
-    
-    mat_base = make_material('Base', NAVY_COLOR[:3], rough=0.2, metal=0.1)
-    mat_trim = make_material('Trim', GOLD_COLOR[:3], rough=0.25, metal=0.95)
-    base_obj.data.materials.append(mat_base)
-    base_obj.data.materials.append(mat_trim)
-
-    # Assign Trim to side cylinder quads, Base to top/bottom caps
-    for p in base_obj.data.polygons:
-        if abs(p.normal.z) < 0.2:
-            p.material_index = 1 # Trim
-        else:
-            p.material_index = 0 # Base
-
-    # Bevel modifier on top rim
-    mod_b = base_obj.modifiers.new('Bevel', 'BEVEL')
-    mod_b.width = 0.025
-    mod_b.segments = 2
-    mod_b.limit_method = 'ANGLE'
-
-    # ---------------- Actions Configuration -----------------
-    # We require 14 canonical actions matching TASK-06 Section 3.1
-    # Load any extra required actions from UAL2 (e.g. Idle_FoldArms_Loop for Screen, Yes for Celebrate)
+    # 2. Import extra actions from UAL2 (Unreal-Godot)
     if UAL2_GLB.exists():
         curr_objs = set(bpy.data.objects)
         bpy.ops.import_scene.gltf(filepath=str(UAL2_GLB))
@@ -240,42 +122,507 @@ def build_athlete(out_path):
             if o not in curr_objs:
                 bpy.data.objects.remove(o, do_unlink=True)
 
+    # 3. Import UBC character (Superhero_Male)
+    bpy.ops.import_scene.gltf(filepath=str(UBC_GLTF))
+    for o in list(bpy.data.objects):
+        if o != mannequin and (o.name in ['Eyebrows', 'Eyes', 'Camera', 'Light', 'Cube', 'Icosphere'] or o.name.startswith('Icosphere')):
+            bpy.data.objects.remove(o, do_unlink=True)
+
+    arm = bpy.data.objects['Armature']
+    body = bpy.data.objects['SuperHero_Male']
+    if not arm.animation_data:
+        arm.animation_data_create()
+
+    # In body, delete head above neck (Z >= 1.54 m)
+    bm_b = bmesh.new()
+    bm_b.from_mesh(body.data)
+    to_delete = [v for v in bm_b.verts if v.co.z >= 1.54]
+    bmesh.ops.delete(bm_b, geom=to_delete, context='VERTS')
+    bm_b.to_mesh(body.data)
+    bm_b.free()
+
+    # Join mannequin egg head to body
+    bpy.ops.object.select_all(action='DESELECT')
+    mannequin.select_set(True)
+    body.select_set(True)
+    bpy.context.view_layer.objects.active = body
+    bpy.ops.object.join()
+
+    # Weld neck seam
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.mesh.remove_doubles(threshold=0.015)
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    # Decimate base body slightly to keep total budget well within 8000 triangles
+    mod_dec = body.modifiers.new('Decimate', 'DECIMATE')
+    mod_dec.ratio = 0.45
+    bpy.context.view_layer.objects.active = body
+    bpy.ops.object.modifier_apply(modifier=mod_dec.name)
+
+    # Athletic proportions adjustment: broaden shoulders 5%, lengthen legs 4%
+    for v in body.data.vertices:
+        if 1.30 <= v.co.z <= 1.55:
+            v.co.x *= 1.05
+        if v.co.z < 0.95:
+            v.co.z = 0.95 - (0.95 - v.co.z) * 1.04
+
+    # Calculate scale factor so standing height is exactly 6.6 feet (2.012 m)
+    z_coords = [v.co.z for v in body.data.vertices]
+    orig_h = max(z_coords) - min(z_coords)
+    scale_fac = 6.6 / orig_h  # approx 3.627
+
+    # Scale armature and apply scale
+    bpy.ops.object.select_all(action='DESELECT')
+    arm.select_set(True)
+    body.select_set(True)
+    bpy.context.view_layer.objects.active = arm
+    arm.scale = (scale_fac, scale_fac, scale_fac)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+
+    # 4. Create independent Jersey mesh
+    jersey_mesh = body.data.copy()
+    jersey_obj = bpy.data.objects.new('Jersey', jersey_mesh)
+    bpy.context.collection.objects.link(jersey_obj)
+    mod_arm_j = jersey_obj.modifiers.new('Armature', 'ARMATURE')
+    mod_arm_j.object = arm
+
+    bm_j = bmesh.new()
+    bm_j.from_mesh(jersey_mesh)
+    geom = bm_j.verts[:] + bm_j.edges[:] + bm_j.faces[:]
+    bmesh.ops.bisect_plane(bm_j, geom=geom, plane_co=(0, 0, 3.32), plane_no=(0, 0, -1), clear_outer=True)
+    geom = bm_j.verts[:] + bm_j.edges[:] + bm_j.faces[:]
+    bmesh.ops.bisect_plane(bm_j, geom=geom, plane_co=(0, 0, 5.35), plane_no=(0, 0, 1), clear_outer=True)
+    geom = bm_j.verts[:] + bm_j.edges[:] + bm_j.faces[:]
+    bmesh.ops.bisect_plane(bm_j, geom=geom, plane_co=(0.68, 0, 0), plane_no=(1, 0, 0), clear_outer=True)
+    geom = bm_j.verts[:] + bm_j.edges[:] + bm_j.faces[:]
+    bmesh.ops.bisect_plane(bm_j, geom=geom, plane_co=(-0.68, 0, 0), plane_no=(-1, 0, 0), clear_outer=True)
+    neck_verts = [v for v in bm_j.verts if (v.co.x**2 + (v.co.y - 0.05)**2) < 0.28**2 and v.co.z > 4.90]
+    bmesh.ops.delete(bm_j, geom=neck_verts, context='VERTS')
+    for v in bm_j.verts:
+        v.co += v.normal * 0.045
+    bm_j.to_mesh(jersey_mesh)
+    bm_j.free()
+
+    mod_sol_j = jersey_obj.modifiers.new('Solidify', 'SOLIDIFY')
+    mod_sol_j.thickness = 0.015
+    mod_sol_j.offset = 1.0
+
+    # 5. Create independent Shorts mesh
+    shorts_mesh = body.data.copy()
+    shorts_obj = bpy.data.objects.new('Shorts', shorts_mesh)
+    bpy.context.collection.objects.link(shorts_obj)
+    mod_arm_s = shorts_obj.modifiers.new('Armature', 'ARMATURE')
+    mod_arm_s.object = arm
+
+    bm_s = bmesh.new()
+    bm_s.from_mesh(shorts_mesh)
+    geom = bm_s.verts[:] + bm_s.edges[:] + bm_s.faces[:]
+    bmesh.ops.bisect_plane(bm_s, geom=geom, plane_co=(0, 0, 3.40), plane_no=(0, 0, 1), clear_outer=True)
+    geom = bm_s.verts[:] + bm_s.edges[:] + bm_s.faces[:]
+    bmesh.ops.bisect_plane(bm_s, geom=geom, plane_co=(0, 0, 2.25), plane_no=(0, 0, -1), clear_outer=True)
+    for v in bm_s.verts:
+        sign = 1.0 if v.co.x > 0 else -1.0
+        if v.co.z < 2.60:
+            fac = (2.60 - v.co.z) / 0.35
+            dx = v.co.x - sign * 0.40
+            dy = v.co.y - 0.05
+            r = (dx*dx + dy*dy)**0.5
+            if r > 0.001:
+                v.co.x += (dx / r) * 0.05 * fac
+                v.co.y += (dy / r) * 0.05 * fac
+        v.co += v.normal * 0.045
+    bm_s.to_mesh(shorts_mesh)
+    bm_s.free()
+
+    mod_sol_s = shorts_obj.modifiers.new('Solidify', 'SOLIDIFY')
+    mod_sol_s.thickness = 0.015
+    mod_sol_s.offset = 1.0
+
+    # 6. Delete covered body skin underneath kit to eliminate poke-through
+    bm_body = bmesh.new()
+    bm_body.from_mesh(body.data)
+    torso_del = [v for v in bm_body.verts if 3.35 < v.co.z < 5.15 and abs(v.co.x) < 0.65]
+    thigh_del = [v for v in bm_body.verts if 2.30 < v.co.z <= 3.35]
+    bmesh.ops.delete(bm_body, geom=torso_del + thigh_del, context='VERTS')
+    bm_body.to_mesh(body.data)
+    bm_body.free()
+
+    # Materials setup
+    mat_skin = make_material('Skin', WARM_SILVER[:3], rough=0.35, metal=0.85)
+    mat_jersey = make_material('Jersey', NAVY_COLOR[:3], rough=0.6, metal=0.0)
+    mat_shorts = make_material('Shorts', NAVY_COLOR[:3], rough=0.6, metal=0.0)
+    mat_shoe = make_material('Shoe', (0.9, 0.9, 0.9), rough=0.4, metal=0.1)
+
+    body.data.materials.clear()
+    body.data.materials.append(mat_skin) # slot 0: Skin
+    body.data.materials.append(mat_shoe) # slot 1: Shoe
+    for p in body.data.polygons:
+        p_zs = [body.data.vertices[vi].co.z for vi in p.vertices]
+        p.material_index = 1 if max(p_zs) < 0.55 else 0
+
+    jersey_obj.data.materials.clear()
+    jersey_obj.data.materials.append(mat_jersey)
+
+    shorts_obj.data.materials.clear()
+    shorts_obj.data.materials.append(mat_shorts)
+
+    # 7. Sockets
+    s_ball = bpy.data.objects.new('socket_ball', None)
+    bpy.context.collection.objects.link(s_ball)
+    s_ball.parent = arm
+    s_ball.parent_type = 'BONE'
+    s_ball.parent_bone = 'hand_r'
+    s_ball.location = (0.0, -0.05, 0.12)
+
+    s_front = bpy.data.objects.new('socket_num_front', None)
+    bpy.context.collection.objects.link(s_front)
+    s_front.parent = arm
+    s_front.parent_type = 'BONE'
+    s_front.parent_bone = 'spine_03'
+    s_front.location = (0.0, -0.45, 0.05)
+
+    s_back = bpy.data.objects.new('socket_num_back', None)
+    bpy.context.collection.objects.link(s_back)
+    s_back.parent = arm
+    s_back.parent_type = 'BONE'
+    s_back.parent_bone = 'spine_03'
+    s_back.location = (0.0, 0.45, 0.05)
+
+    # 8. Base
+    bpy.ops.mesh.primitive_cylinder_add(vertices=48, radius=1.35, depth=0.16, location=(0, 0, -0.08))
+    base_obj = bpy.context.object
+    base_obj.name = 'Base'
+    mat_base = make_material('Base', NAVY_COLOR[:3], rough=0.2, metal=0.1)
+    mat_trim = make_material('Trim', GOLD_COLOR[:3], rough=0.25, metal=0.95)
+    base_obj.data.materials.append(mat_base)
+    base_obj.data.materials.append(mat_trim)
+    for p in base_obj.data.polygons:
+        p.material_index = 1 if abs(p.normal.z) < 0.2 else 0
+
+    # 9. Set up canonical actions
     action_map = {
         'Idle': 'Idle_Loop',
-        'TripleThreat': 'Pistol_Idle_Loop',   # athletic ready stance with hands at hip
-        'Dribble': 'Spell_Simple_Idle_Loop',  # rhythmic hand pumping motion
+        'TripleThreat': 'Pistol_Idle_Loop',
+        'Dribble': 'Spell_Simple_Idle_Loop',
         'Jog': 'Jog_Fwd_Loop',
         'Sprint': 'Sprint_Loop',
-        'DefStance': 'Crouch_Idle_Loop',      # wide low defensive posture
-        'DefSlideL': 'Crouch_Fwd_Loop',       # active low defensive crouch slide
+        'DefStance': 'Crouch_Idle_Loop',
+        'DefSlideL': 'Crouch_Fwd_Loop',
         'DefSlideR': 'Crouch_Fwd_Loop',
-        'Screen': 'Idle_FoldArms_Loop',       # arms crossed on chest
-        'BoxOut': 'Crouch_Idle_Loop',         # low wide box out stance
-        'Pass': 'Punch_Cross',                # quick arm extension forward (~15f)
-        'Catch': 'Interact',                  # hands forward pulling in (~12f)
-        'Shot': 'Jump_Start',                 # jump shot off ground with upward extension
-        'Celebrate': 'Yes'                    # fist-pump celebrate
+        'Screen': 'Idle_FoldArms_Loop',
+        'BoxOut': 'Crouch_Idle_Loop',
+        'Pass': 'Punch_Cross',
+        'Catch': 'Interact',
+        'Shot': None, # Built below
+        'Celebrate': 'Yes'
     }
 
     canonical_actions = {}
     for canon_name, src_name in action_map.items():
-        src_act = bpy.data.actions.get(src_name)
-        if not src_act:
-            # Fallback to Idle_Loop if not found
-            src_act = bpy.data.actions.get('Idle_Loop')
-        
-        # Make a copy for this action
+        if canon_name == 'Shot':
+            shot_act = bpy.data.actions.new('Shot')
+            shot_act.slots.new('OBJECT', 'Armature')
+            canonical_actions['Shot'] = shot_act
+            continue
+        src_act = bpy.data.actions.get(src_name) or bpy.data.actions.get('Idle_Loop')
         new_act = src_act.copy()
         new_act.name = canon_name
         canonical_actions[canon_name] = new_act
 
-    # Clean up non-canonical actions from blend data so only the 14 actions exist
+    # Clean unneeded actions
     for a in list(bpy.data.actions):
         if a.name not in canonical_actions:
             bpy.data.actions.remove(a, do_unlink=True)
 
-    # Set default active action to Idle
-    arm.animation_data.action = canonical_actions.get('Idle')
+    def set_act(arm_obj, act_obj):
+        arm_obj.animation_data.action = act_obj
+        if not act_obj.slots:
+            act_obj.slots.new('OBJECT', 'Armature')
+        arm_obj.animation_data.action_slot = act_obj.slots[0]
+
+    # 10. Scale location curves
+    for act_name, act in canonical_actions.items():
+        if act_name == 'Shot': continue
+        for l in act.layers:
+            for s in l.strips:
+                for cb in s.channelbags:
+                    for fc in cb.fcurves:
+                        if 'location' in fc.data_path:
+                            for kp in fc.keyframe_points:
+                                kp.co[1] *= scale_fac
+
+    # 11. Build authentic Jump Shot action (Shot)
+    shot_act = canonical_actions['Shot']
+    set_act(arm, shot_act)
+
+    def kf_rot(bname, deg, f):
+        pb = arm.pose.bones.get(bname)
+        if not pb: return
+        pb.rotation_mode = 'QUATERNION'
+        q = Euler((math.radians(deg[0]), math.radians(deg[1]), math.radians(deg[2])), 'XYZ').to_quaternion()
+        pb.rotation_quaternion = q
+        pb.keyframe_insert('rotation_quaternion', frame=f)
+
+    def kf_loc(bname, loc, f):
+        pb = arm.pose.bones.get(bname)
+        if not pb: return
+        pb.location = loc
+        pb.keyframe_insert('location', frame=f)
+
+    root_curve = [
+        (0, (0, 0, 0)),
+        (6, (0, 0, -0.35)),
+        (11, (0, 0, 0.05)),
+        (16, (0, 0, 1.65)),
+        (19, (0, 0, 1.60)),
+        (24, (0, 0, 0.90)),
+        (28, (0, 0, 0.00)),
+        (30, (0, 0, -0.15)),
+        (33, (0, 0, 0.00))
+    ]
+    for f, loc in root_curve:
+        kf_loc('root', loc, f)
+
+    for f in [0, 6, 11, 16, 19, 24, 28, 33]:
+        pitch = -5 if f in [16, 19] else (5 if f == 6 else 0)
+        kf_rot('spine_01', (pitch, 0, 0), f)
+        kf_rot('spine_02', (pitch, 0, 0), f)
+        kf_rot('spine_03', (pitch, 0, 0), f)
+        kf_rot('Head', (15, 0, 0), f)
+
+    leg_poses = [
+        (0,  (10, 0, 0), (-20, 0, 0), (10, 0, 0)),
+        (6,  (35, 0, 0), (-65, 0, 0), (30, 0, 0)),
+        (11, (5, 0, 0),  (-10, 0, 0), (5, 0, 0)),
+        (16, (5, 0, 0),  (-15, 0, 0), (-25, 0, 0)),
+        (19, (5, 0, 0),  (-15, 0, 0), (-25, 0, 0)),
+        (24, (10, 0, 0), (-25, 0, 0), (-10, 0, 0)),
+        (28, (15, 0, 0), (-35, 0, 0), (20, 0, 0)),
+        (30, (30, 0, 0), (-55, 0, 0), (25, 0, 0)),
+        (33, (10, 0, 0), (-20, 0, 0), (10, 0, 0))
+    ]
+    for f, th, ca, ft in leg_poses:
+        for side in ['_l', '_r']:
+            kf_rot('thigh' + side, th, f)
+            kf_rot('calf' + side, ca, f)
+            kf_rot('foot' + side, ft, f)
+
+    arm_poses = [
+        (0,  (20, 0, -25), (45, 0, 0), (-20, 0, 0),   (20, 0, 25), (45, 0, 0), (-20, 0, 0)),
+        (6,  (25, 10, -35), (60, 0, 0), (-25, 0, 0),  (25, -10, 35), (60, 0, 0), (-25, 0, 0)),
+        (16, (25, 25, -88), (95, -25, 0), (-45, 10, 0), (50, 0, 65), (0, 0, 75), (0, 0, 0)),
+        (20, (35, 30, -90), (45, -15, 0), (70, 0, 0),  (45, 0, 60), (0, 0, 70), (0, 0, 0)),
+        (24, (35, 30, -90), (45, -15, 0), (70, 0, 0),  (40, 0, 55), (0, 0, 60), (0, 0, 0)),
+        (28, (25, 15, -60), (55, 0, 0), (30, 0, 0),   (30, 0, 40), (30, 0, 30), (0, 0, 0)),
+        (33, (20, 0, -25), (45, 0, 0), (-20, 0, 0),   (20, 0, 25), (45, 0, 0), (-20, 0, 0))
+    ]
+    for f, ur, lr, hr, ul, ll, hl in arm_poses:
+        kf_rot('upperarm_r', ur, f)
+        kf_rot('lowerarm_r', lr, f)
+        kf_rot('hand_r', hr, f)
+        kf_rot('upperarm_l', ul, f)
+        kf_rot('lowerarm_l', ll, f)
+        kf_rot('hand_l', hl, f)
+
+    # 12. Overhaul DefStance, DefSlideL, DefSlideR, BoxOut
+    q_spine = Euler((-math.radians(26), 0, 0), 'XYZ').to_quaternion()
+    q_head = Euler((math.radians(35), 0, 0), 'XYZ').to_quaternion()
+    q_arm_l = Euler((math.radians(15), math.radians(45), math.radians(40)), 'XYZ').to_quaternion()
+    q_arm_r = Euler((math.radians(15), -math.radians(45), -math.radians(40)), 'XYZ').to_quaternion()
+
+    for def_act_name in ['DefStance', 'DefSlideL', 'DefSlideR', 'BoxOut']:
+        act = canonical_actions[def_act_name]
+        set_act(arm, act)
+        for f in range(int(act.frame_range[0]), int(act.frame_range[1]) + 1):
+            bpy.context.scene.frame_set(f)
+            for b in ['spine_01', 'spine_02', 'spine_03']:
+                pb = arm.pose.bones[b]
+                pb.rotation_quaternion = q_spine @ pb.rotation_quaternion
+                pb.keyframe_insert('rotation_quaternion', frame=f)
+            for b in ['Head', 'neck_01']:
+                pb = arm.pose.bones[b]
+                pb.rotation_quaternion = q_head @ pb.rotation_quaternion
+                pb.keyframe_insert('rotation_quaternion', frame=f)
+            arm.pose.bones['upperarm_l'].rotation_quaternion = q_arm_l @ arm.pose.bones['upperarm_l'].rotation_quaternion
+            arm.pose.bones['upperarm_l'].keyframe_insert('rotation_quaternion', frame=f)
+            arm.pose.bones['upperarm_r'].rotation_quaternion = q_arm_r @ arm.pose.bones['upperarm_r'].rotation_quaternion
+            arm.pose.bones['upperarm_r'].keyframe_insert('rotation_quaternion', frame=f)
+
+    # 13. Auto-grounding all actions
+    grounded_actions = ['Idle', 'TripleThreat', 'Dribble', 'DefStance', 'DefSlideL', 'DefSlideR', 'Screen', 'BoxOut', 'Pass', 'Catch']
+    pb_root = arm.pose.bones['root']
+
+    # For grounded actions: initialize root to (0,0,0) then exact per-frame offset
+    for act_name in grounded_actions:
+        act = canonical_actions[act_name]
+        set_act(arm, act)
+        f_start = int(act.frame_range[0])
+        f_end = int(act.frame_range[1])
+
+        for f in range(f_start, f_end + 1):
+            pb_root.location = (0, 0, 0)
+            pb_root.keyframe_insert('location', frame=f)
+
+        bpy.context.view_layer.update()
+
+        z_base = []
+        for f in range(f_start, f_end + 1):
+            bpy.context.scene.frame_set(f)
+            bpy.context.view_layer.update()
+            deps = bpy.context.evaluated_depsgraph_get()
+            eo = body.evaluated_get(deps)
+            em = eo.to_mesh()
+            z_base.append(min((eo.matrix_world @ v.co).z for v in em.vertices))
+            eo.to_mesh_clear()
+
+        for f in range(f_start, f_end + 1):
+            delta = 0.018 - z_base[f - f_start]
+            pb_root.location = (0, 0, delta)
+            pb_root.keyframe_insert('location', frame=f)
+
+    # Celebrate: initialize root to (0,0,0) then ground
+    act = canonical_actions['Celebrate']
+    set_act(arm, act)
+    f_start = int(act.frame_range[0])
+    f_end = int(act.frame_range[1])
+    for f in range(f_start, f_end + 1):
+        pb_root.location = (0, 0, 0)
+        pb_root.keyframe_insert('location', frame=f)
+    bpy.context.view_layer.update()
+    z_base = []
+    for f in range(f_start, f_end + 1):
+        bpy.context.scene.frame_set(f)
+        bpy.context.view_layer.update()
+        deps = bpy.context.evaluated_depsgraph_get()
+        eo = body.evaluated_get(deps)
+        em = eo.to_mesh()
+        z_base.append(min((eo.matrix_world @ v.co).z for v in em.vertices))
+        eo.to_mesh_clear()
+    for f in range(f_start, f_end + 1):
+        delta = 0.018 - z_base[f - f_start]
+        pb_root.location = (0, 0, delta)
+        pb_root.keyframe_insert('location', frame=f)
+
+    # Jog and Sprint: plant foot to 0.018 ft, flight phase apex capped <= 0.52 ft
+    for act_name in ['Jog', 'Sprint']:
+        act = canonical_actions[act_name]
+        set_act(arm, act)
+        f_start = int(act.frame_range[0])
+        f_end = int(act.frame_range[1])
+
+        for f in range(f_start, f_end + 1):
+            pb_root.location = (0, 0, 0)
+            pb_root.keyframe_insert('location', frame=f)
+
+        bpy.context.view_layer.update()
+
+        zs = []
+        for f in range(f_start, f_end + 1):
+            bpy.context.scene.frame_set(f)
+            bpy.context.view_layer.update()
+            deps = bpy.context.evaluated_depsgraph_get()
+            eo = body.evaluated_get(deps)
+            em = eo.to_mesh()
+            zs.append(min((eo.matrix_world @ v.co).z for v in em.vertices))
+            eo.to_mesh_clear()
+
+        min_cycle = min(zs)
+        max_cycle = max(zs)
+        target_plant = 0.018
+        target_max = 0.52
+        for f in range(f_start, f_end + 1):
+            z_curr = zs[f - f_start]
+            rel = (z_curr - min_cycle) / (max_cycle - min_cycle) if max_cycle > min_cycle else 0.0
+            z_new = target_plant + rel * (target_max - target_plant)
+            delta = z_new - z_curr
+            pb_root.location = (0, 0, delta)
+            pb_root.keyframe_insert('location', frame=f)
+
+    # Shot: ground gather (0..6) and landing (30..33) to exact 0.018 ft, smooth parabolic flight apex (7..29)
+    act = canonical_actions['Shot']
+    set_act(arm, act)
+
+    # 1. Reset all frames to (0,0,0)
+    for f in range(34):
+        pb_root.location = (0, 0, 0)
+        pb_root.keyframe_insert('location', frame=f)
+
+    # Set LINEAR interpolation on root curves immediately
+    for l in act.layers:
+        for s in l.strips:
+            for cb in s.channelbags:
+                for fc in cb.fcurves:
+                    if 'root' in fc.data_path and 'location' in fc.data_path:
+                        for kp in fc.keyframe_points:
+                            kp.interpolation = 'LINEAR'
+
+    bpy.context.view_layer.update()
+
+    # 2. Measure z_base on each frame when root is (0,0,0)
+    z_base = []
+    for f in range(34):
+        bpy.context.scene.frame_set(f)
+        bpy.context.view_layer.update()
+        deps = bpy.context.evaluated_depsgraph_get()
+        eo = body.evaluated_get(deps)
+        em = eo.to_mesh()
+        z_base.append(min((eo.matrix_world @ v.co).z for v in em.vertices))
+        eo.to_mesh_clear()
+
+    # 3. Apply exact target Z
+    for f in range(34):
+        if f <= 6 or f >= 30:
+            z_target = 0.018
+        else:
+            t = (f - 6) / 24.0
+            z_target = 0.018 + 4.0 * 1.45 * t * (1.0 - t)
+        delta = z_target - z_base[f]
+        pb_root.location = (0, 0, delta)
+        pb_root.keyframe_insert('location', frame=f)
+
+    # Ensure all root curves across all actions are LINEAR
+    for act_name, a in canonical_actions.items():
+        for l in a.layers:
+            for s in l.strips:
+                for cb in s.channelbags:
+                    for fc in cb.fcurves:
+                        if 'root' in fc.data_path and 'location' in fc.data_path:
+                            for kp in fc.keyframe_points:
+                                kp.interpolation = 'LINEAR'
+
+    print("\n================== ACTION LOWEST Z VERIFICATION ==================")
+    for act_name in sorted(canonical_actions.keys()):
+        act = canonical_actions[act_name]
+        set_act(arm, act)
+        f_start = int(act.frame_range[0])
+        f_end = int(act.frame_range[1])
+        min_zs = []
+        for f in range(f_start, f_end + 1):
+            bpy.context.scene.frame_set(f)
+            bpy.context.view_layer.update()
+            deps = bpy.context.evaluated_depsgraph_get()
+            eo = body.evaluated_get(deps)
+            em = eo.to_mesh()
+            min_zs.append(min((eo.matrix_world @ v.co).z for v in em.vertices))
+            eo.to_mesh_clear()
+        print(f"  {act_name:15}: min={min(min_zs):.3f} ft, max={max(min_zs):.3f} ft (frames {f_start}..{f_end})")
+    print("==================================================================\n")
+
+    # Set default action to Idle
+    set_act(arm, canonical_actions['Idle'])
+
+    for pb in arm.pose.bones:
+        pb.custom_shape = None
+
+    # Clean up any leftover objects that are not part of athlete.glb
+    allowed_objects = {'Armature', 'SuperHero_Male', 'Jersey', 'Shorts', 'Base', 'socket_ball', 'socket_num_front', 'socket_num_back'}
+    for o in list(bpy.data.objects):
+        if o.name not in allowed_objects:
+            bpy.data.objects.remove(o, do_unlink=True)
+    for m in list(bpy.data.meshes):
+        if m.users == 0:
+            bpy.data.meshes.remove(m)
 
     # Export to GLB
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -288,11 +635,6 @@ def build_athlete(out_path):
         export_draco_mesh_compression_enable=False
     )
     print(f"Exported athlete.glb to {out_path} ({os.path.getsize(out_path):,} bytes)")
-
-
-# ==============================================================================
-# 2. BASKETBALL HOOP BUILDER (hoop2.glb)
-# ==============================================================================
 
 def build_hoop(out_path):
     """Build and export hoop2.glb in world coordinates matching hoop_detail.jpg."""
@@ -701,14 +1043,27 @@ def aim_object(obj, target_loc):
     obj.rotation_euler = direction.to_track_quat('-Z', 'Y').to_euler()
 
 
+
+
+# ==============================================================================
+# 4. PREVIEW RENDERS (Eevee Next)
+# ==============================================================================
+
+def aim_object(obj, target):
+    """Point an object (camera or light) at target coordinate."""
+    loc = obj.location
+    target = Vector(target)
+    direction = target - loc
+    rot_quat = direction.to_track_quat('-Z', 'Y')
+    obj.rotation_euler = rot_quat.to_euler()
+
+
 def render_previews(out_dir):
-    """Render 3 preview stills using Blender Eevee: broadcast.jpg, athlete_poses.jpg, hoop.jpg."""
+    """Render preview images: broadcast.jpg, athlete_poses.jpg, athlete_side.jpg, hoop.jpg."""
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # --------------------------------------------------------------------------
-    # Preview 1: broadcast.jpg
-    # Camera at (0, -62.5, 39.6), looking at (0, -19, 0.5), vertical FOV 38 deg.
-    # Stage + hoop2 + temporary maple floor + 10 athlete figurines (5 off, 5 def).
+    # Preview 1: broadcast.jpg (Game broadcast view with stage, hoop, 10 players)
     # --------------------------------------------------------------------------
     reset()
     scene = bpy.context.scene
@@ -730,14 +1085,14 @@ def render_previews(out_dir):
     bpy.ops.import_scene.gltf(filepath=str(MODELS_DIR / 'stage.glb'))
     bpy.ops.import_scene.gltf(filepath=str(MODELS_DIR / 'hoop2.glb'))
 
-    # Temporary maple court floor (X -25..25, Y 0..-50, raised to Z = 0.005..0.015 to prevent Z-fighting)
+    # Temporary maple court floor (X -25..25, Y 0..-50, raised to Z = 0.005)
     bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, -25.0, 0.005))
     floor_obj = bpy.context.object
     floor_obj.scale = (50.0, 50.0, 0.01)
     mat_floor = make_material('TempFloor', srgb('#DCBB8A'), rough=0.25, metal=0.02)
     assign_material(floor_obj, mat_floor)
 
-    # Painted court lines (Key, 3pt arc, free throw, center circle) raised to Z = 0.015
+    # Painted court lines raised to Z = 0.015
     mat_line = make_material('CourtLine', (0.98, 0.98, 0.98), rough=0.35)
     lines_mesh = bpy.data.meshes.new('CourtLines_Mesh')
     lines_obj = bpy.data.objects.new('CourtLines', lines_mesh)
@@ -745,7 +1100,7 @@ def render_previews(out_dir):
     assign_material(lines_obj, mat_line)
 
     bm = bmesh.new()
-    t = 0.167  # 2 inch line width
+    t = 0.167
     z_line = 0.015
 
     def add_ribbon_rect(x1, x2, y1, y2):
@@ -767,37 +1122,30 @@ def render_previews(out_dir):
             v4 = bm.verts.new((cx + r_in * math.cos(a2), cy + r_in * math.sin(a2), z_line))
             bm.faces.new((v1, v2, v3, v4))
 
-    # Perimeter boundary
     add_ribbon_rect(-25.0, 25.0, 0.0, -50.0)
-    # Key (16 ft wide X -8..8, 19 ft long Y 0..-19)
     add_ribbon_rect(-8.0, 8.0, 0.0, -19.0)
-    # Free throw circle (radius 6 ft at (0, -19))
     add_ribbon_arc(0, -19, 6.0, 0, math.pi * 2)
-    # Center circle at (0, -50)
     add_ribbon_arc(0, -50, 6.0, 0, math.pi)
-    # 3-Point arc: radius 23.75 from rim (0, -5.25), straight sidelines at X = +/-22 from Y=0 to -14
     bm.faces.new([bm.verts.new((-22.0 - t/2, 0, z_line)), bm.verts.new((-22.0 + t/2, 0, z_line)), bm.verts.new((-22.0 + t/2, -14, z_line)), bm.verts.new((-22.0 - t/2, -14, z_line))])
     bm.faces.new([bm.verts.new((22.0 - t/2, 0, z_line)), bm.verts.new((22.0 + t/2, 0, z_line)), bm.verts.new((22.0 + t/2, -14, z_line)), bm.verts.new((22.0 - t/2, -14, z_line))])
     a_corner = math.asin((14.0 - 5.25) / 23.75)
     add_ribbon_arc(0, -5.25, 23.75, -(math.pi / 2 + (math.pi/2 - a_corner)), -(math.pi / 2 - (math.pi/2 - a_corner)))
-
     bm.to_mesh(lines_mesh)
     bm.free()
 
-    # Import athlete
+    # Import athlete v2.1
     bpy.ops.import_scene.gltf(filepath=str(MODELS_DIR / 'athlete.glb'))
     arm_src = [o for o in bpy.data.objects if o.type == 'ARMATURE'][0]
-    mesh_src = [o for o in bpy.data.objects if o.type == 'MESH' and o.name.startswith('Mannequin')][0]
+    char_meshes = [o for o in bpy.data.objects if o.type == 'MESH' and o.name != 'Base' and 'Floor' not in o.name and 'Court' not in o.name and 'Stage' not in o.name and 'Hoop' not in o.name and 'Stands' not in o.name and 'Plinth' not in o.name and 'Rim' not in o.name and 'Bracket' not in o.name and 'Backboard' not in o.name and 'Frame' not in o.name and 'Stand' not in o.name and 'Pad' not in o.name]
     base_src = bpy.data.objects.get('Base')
 
-    # Team materials
     off_jersey = make_material('Off_Jersey', NAVY_COLOR[:3], rough=0.45, metal=0.05)
     def_jersey = make_material('Def_Jersey', RED_COLOR[:3], rough=0.45, metal=0.05)
     off_skin = make_material('Off_Skin', WARM_SILVER[:3], rough=0.28, metal=0.9)
     def_skin = make_material('Def_Skin', BRONZE_COLOR[:3], rough=0.28, metal=0.9)
     mat_gold = make_material('GoldTrim', GOLD_COLOR[:3], rough=0.25, metal=0.95)
+    mat_shoe = make_material('ShoeWhite', (0.9, 0.9, 0.92), rough=0.35)
 
-    # 10 Figurines positions & actions matching AC_fusion_1.jpg
     players = [
         ('o1', 'TripleThreat', 20, (0.0, -32.0), 0.0, True),     # Ball handler
         ('o2', 'TripleThreat', 15, (-17.0, -22.0), 0.4, True),   # Left wing
@@ -818,28 +1166,30 @@ def render_previews(out_dir):
             scene.frame_set(fnum)
             bpy.context.view_layer.update()
 
-        bpy.ops.object.select_all(action='DESELECT')
-        mesh_src.select_set(True)
-        bpy.context.view_layer.objects.active = mesh_src
-        bpy.ops.object.duplicate()
-        dup_mesh = bpy.context.active_object
-        dup_mesh.name = f'Player_{pid}'
-
-        for mod in list(dup_mesh.modifiers):
-            if mod.type == 'ARMATURE':
-                bpy.ops.object.modifier_apply(modifier=mod.name)
-
-        dup_mesh.location = (px, py, 0)
-        dup_mesh.rotation_euler = (0, 0, frot)
-
-        dup_mesh.data = dup_mesh.data.copy()
-        if len(dup_mesh.data.materials) >= 4:
-            skin_m = off_skin if is_off else def_skin
-            j_m = off_jersey if is_off else def_jersey
-            dup_mesh.data.materials[0] = skin_m
-            dup_mesh.data.materials[1] = j_m
-            dup_mesh.data.materials[2] = j_m
-            dup_mesh.data.materials[3] = make_material('ShoeWhite', (0.9, 0.9, 0.92), rough=0.35)
+        for m_src in char_meshes:
+            bpy.ops.object.select_all(action='DESELECT')
+            m_src.select_set(True)
+            bpy.context.view_layer.objects.active = m_src
+            bpy.ops.object.duplicate()
+            dup = bpy.context.active_object
+            for mod in list(dup.modifiers):
+                if mod.type == 'ARMATURE':
+                    bpy.ops.object.modifier_apply(modifier=mod.name)
+            dup.location = (px, py, 0)
+            dup.rotation_euler = (0, 0, frot)
+            dup.data = dup.data.copy()
+            
+            # Assign team materials
+            if 'Jersey' in m_src.name:
+                dup.data.materials[0] = off_jersey if is_off else def_jersey
+            elif 'Shorts' in m_src.name:
+                dup.data.materials[0] = off_jersey if is_off else def_jersey
+            else:
+                # Body mesh: slot 0 is skin, slot 1 is shoe
+                if len(dup.data.materials) >= 1:
+                    dup.data.materials[0] = off_skin if is_off else def_skin
+                if len(dup.data.materials) >= 2:
+                    dup.data.materials[1] = mat_shoe
 
         if base_src:
             bpy.ops.object.select_all(action='DESELECT')
@@ -849,21 +1199,19 @@ def render_previews(out_dir):
             dup_base = bpy.context.active_object
             dup_base.location = (px, py, 0)
             dup_base.data = dup_base.data.copy()
-            j_m = off_jersey if is_off else def_jersey
-            dup_base.data.materials[0] = j_m
+            dup_base.data.materials[0] = off_jersey if is_off else def_jersey
             dup_base.data.materials[1] = mat_gold
 
     # Remove source templates
     bpy.ops.object.select_all(action='DESELECT')
-    for o in [arm_src, mesh_src, base_src]:
-        if o:
-            bpy.data.objects.remove(o, do_unlink=True)
+    for o in [arm_src, base_src] + char_meshes:
+        if o: bpy.data.objects.remove(o, do_unlink=True)
 
     # Ball at top of key handler's hands
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.45, location=(0.0, -31.2, 4.8))
     assign_material(bpy.context.object, make_material('OrangeBall', srgb('#DE6B28'), rough=0.4, metal=0.05))
 
-    # Theatrical luxury museum lighting matching AC_fusion_1.jpg
+    # Lighting
     bpy.ops.object.light_add(type='SPOT', location=(0, -22, 32))
     spot = bpy.context.object
     spot.data.energy = 40000
@@ -876,14 +1224,12 @@ def render_previews(out_dir):
     key_l = bpy.context.object
     key_l.data.energy = 16000
     key_l.data.size = 14
-    key_l.data.color = (1.0, 0.94, 0.88)
     aim_object(key_l, (0, -22, 0))
 
     bpy.ops.object.light_add(type='AREA', location=(22, -18, 24))
     key_r = bpy.context.object
     key_r.data.energy = 16000
     key_r.data.size = 14
-    key_r.data.color = (1.0, 0.94, 0.88)
     aim_object(key_r, (0, -22, 0))
 
     bpy.ops.object.light_add(type='SPOT', location=(0, -8, 22))
@@ -891,10 +1237,9 @@ def render_previews(out_dir):
     spot_hoop.data.energy = 12000
     spot_hoop.data.spot_size = math.radians(50)
     spot_hoop.data.spot_blend = 0.5
-    spot_hoop.data.color = (0.95, 0.97, 1.0)
     aim_object(spot_hoop, (0, -5.25, 8.0))
 
-    # Camera: (0, -62.5, 39.6) looking at (0, -19, 0.5), vertical FOV 38 deg
+    # Camera
     cam_loc = Vector((0.0, -62.5, 39.6))
     cam_target = Vector((0.0, -19.0, 0.5))
     bpy.ops.object.camera_add(location=cam_loc)
@@ -921,7 +1266,6 @@ def render_previews(out_dir):
     scene.render.image_settings.file_format = 'JPEG'
     scene.render.image_settings.quality = 85
 
-    # Neutral studio world
     world = bpy.data.worlds.new('Studio_World')
     scene.world = world
     world.use_nodes = True
@@ -930,30 +1274,28 @@ def render_previews(out_dir):
         bg.inputs['Color'].default_value = (0.78, 0.78, 0.80, 1.0)
         bg.inputs['Strength'].default_value = 0.9
 
-    # Studio seamless floor
     bpy.ops.mesh.primitive_plane_add(size=200, location=(0, 0, 0))
     assign_material(bpy.context.object, make_material('StudioFloor', (0.80, 0.80, 0.82), rough=0.55))
 
-    # Import athlete
     bpy.ops.import_scene.gltf(filepath=str(MODELS_DIR / 'athlete.glb'))
     arm_src = [o for o in bpy.data.objects if o.type == 'ARMATURE'][0]
-    mesh_src = [o for o in bpy.data.objects if o.type == 'MESH' and o.name.startswith('Mannequin')][0]
+    char_meshes = [o for o in bpy.data.objects if o.type == 'MESH' and o.name != 'Base' and 'Floor' not in o.name]
     base_src = bpy.data.objects.get('Base')
 
-    # Materials for figures
     mat_skin_off = make_material('SkinOff', WARM_SILVER[:3], rough=0.28, metal=0.9)
     mat_skin_def = make_material('SkinDef', BRONZE_COLOR[:3], rough=0.28, metal=0.9)
     mat_j_off = make_material('JOff', NAVY_COLOR[:3], rough=0.45, metal=0.05)
     mat_j_def = make_material('JDef', RED_COLOR[:3], rough=0.45, metal=0.05)
     mat_gold = make_material('GoldTrim', GOLD_COLOR[:3], rough=0.25, metal=0.95)
     mat_ball = make_material('BallMat', srgb('#D46020'), rough=0.4, metal=0.05)
+    mat_shoe = make_material('ShoeWhite', (0.9, 0.9, 0.92), rough=0.35)
 
     poses = [
         ('Idle', 'Idle', 0, False, 0.0),
         ('TripleThreat', 'TripleThreat', 20, False, 0.0),
-        ('Sprint', 'Sprint', 8, False, 0.0),
-        ('DefSlideL', 'DefSlideL', 15, True, math.radians(-60)), # low athletic slide stance
-        ('Shot', 'Shot', 14, False, 0.0),                       # jump shot apex
+        ('Sprint', 'Sprint', 4, False, 0.0),
+        ('DefSlideL', 'DefSlideL', 15, True, math.radians(-50)),
+        ('Shot', 'Shot', 16, False, 0.0),
         ('BoxOut', 'BoxOut', 30, True, math.radians(-15))
     ]
     spacing = 3.3
@@ -961,35 +1303,36 @@ def render_previews(out_dir):
 
     for idx, (label, act_name, frame_num, is_defense, extra_rot) in enumerate(poses):
         cur_x = start_x + idx * spacing
-
         act = bpy.data.actions.get(act_name)
         if act:
             arm_src.animation_data.action = act
             scene.frame_set(frame_num)
             bpy.context.view_layer.update()
 
-        bpy.ops.object.select_all(action='DESELECT')
-        mesh_src.select_set(True)
-        bpy.context.view_layer.objects.active = mesh_src
-        bpy.ops.object.duplicate()
-        dup_mesh = bpy.context.active_object
-        dup_mesh.name = f'Posed_{label}'
+        for m_src in char_meshes:
+            bpy.ops.object.select_all(action='DESELECT')
+            m_src.select_set(True)
+            bpy.context.view_layer.objects.active = m_src
+            bpy.ops.object.duplicate()
+            dup = bpy.context.active_object
+            for mod in list(dup.modifiers):
+                if mod.type == 'ARMATURE':
+                    bpy.ops.object.modifier_apply(modifier=mod.name)
+            bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+            dup.rotation_mode = 'XYZ'
+            dup.rotation_euler = (0, 0, math.radians(-12) + extra_rot)
+            dup.location = (cur_x, 0, 0)
+            dup.data = dup.data.copy()
 
-        for mod in list(dup_mesh.modifiers):
-            if mod.type == 'ARMATURE':
-                bpy.ops.object.modifier_apply(modifier=mod.name)
-
-        dup_mesh.location = (cur_x, 0, 0)
-        dup_mesh.rotation_euler = (0, 0, math.radians(-12) + extra_rot)
-
-        dup_mesh.data = dup_mesh.data.copy()
-        if len(dup_mesh.data.materials) >= 4:
-            skin_m = mat_skin_def if is_defense else mat_skin_off
-            j_m = mat_j_def if is_defense else mat_j_off
-            dup_mesh.data.materials[0] = skin_m
-            dup_mesh.data.materials[1] = j_m
-            dup_mesh.data.materials[2] = j_m
-            dup_mesh.data.materials[3] = make_material('ShoeWhite', (0.9, 0.9, 0.92), rough=0.35)
+            if 'Jersey' in m_src.name:
+                dup.data.materials[0] = mat_j_def if is_defense else mat_j_off
+            elif 'Shorts' in m_src.name:
+                dup.data.materials[0] = mat_j_def if is_defense else mat_j_off
+            else:
+                if len(dup.data.materials) >= 1:
+                    dup.data.materials[0] = mat_skin_def if is_defense else mat_skin_off
+                if len(dup.data.materials) >= 2:
+                    dup.data.materials[1] = mat_shoe
 
         if base_src:
             bpy.ops.object.select_all(action='DESELECT')
@@ -997,26 +1340,27 @@ def render_previews(out_dir):
             bpy.context.view_layer.objects.active = base_src
             bpy.ops.object.duplicate()
             dup_base = bpy.context.active_object
+            bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+            dup_base.rotation_mode = 'XYZ'
+            dup_base.rotation_euler = (0, 0, math.radians(-12) + extra_rot)
             dup_base.location = (cur_x, 0, 0)
             dup_base.data = dup_base.data.copy()
-            j_m = mat_j_def if is_defense else mat_j_off
-            dup_base.data.materials[0] = j_m
+            dup_base.data.materials[0] = mat_j_def if is_defense else mat_j_off
             dup_base.data.materials[1] = mat_gold
 
         if label == 'Shot':
-            bpy.ops.mesh.primitive_uv_sphere_add(radius=0.45, location=(cur_x - 0.25, -0.4, 6.2))
+            bpy.ops.mesh.primitive_uv_sphere_add(radius=0.45, location=(cur_x - 0.24, -0.25, 7.55))
             assign_material(bpy.context.object, mat_ball)
         elif label == 'TripleThreat':
-            bpy.ops.mesh.primitive_uv_sphere_add(radius=0.45, location=(cur_x - 0.55, -1.45, 5.03))
+            bpy.ops.mesh.primitive_uv_sphere_add(radius=0.45, location=(cur_x - 0.69, -1.11, 5.08))
             assign_material(bpy.context.object, mat_ball)
 
     # Remove source templates
     bpy.ops.object.select_all(action='DESELECT')
-    for o in [arm_src, mesh_src, base_src]:
-        if o:
-            bpy.data.objects.remove(o, do_unlink=True)
+    for o in [arm_src, base_src] + char_meshes:
+        if o: bpy.data.objects.remove(o, do_unlink=True)
 
-    # Studio 3-point lighting
+    # Studio lighting
     bpy.ops.object.light_add(type='AREA', location=(6, -18, 14))
     key = bpy.context.object
     key.data.energy = 5000
@@ -1038,7 +1382,6 @@ def render_previews(out_dir):
     rim.data.color = (1.0, 0.96, 0.9)
     aim_object(rim, (0, 0, 3.5))
 
-    # Camera pulled back to frame all 6 athletes with generous margins
     cam_loc = Vector((0.0, -25.0, 4.4))
     cam_target = Vector((0.0, 0.0, 3.3))
     bpy.ops.object.camera_add(location=cam_loc)
@@ -1053,7 +1396,7 @@ def render_previews(out_dir):
     print(f"Rendered {poses_path} ({os.path.getsize(poses_path):,} bytes)")
 
     # --------------------------------------------------------------------------
-    # Preview 3: hoop.jpg (Macro close-up matching hoop_detail.jpg)
+    # Preview 3: athlete_side.jpg (NEW: 6 poses side-by-side, profile view, camera height 3 ft)
     # --------------------------------------------------------------------------
     reset()
     scene = bpy.context.scene
@@ -1063,82 +1406,202 @@ def render_previews(out_dir):
     scene.render.image_settings.file_format = 'JPEG'
     scene.render.image_settings.quality = 85
 
-    world = bpy.data.worlds.new('Hoop_World')
+    world = bpy.data.worlds.new('Studio_World_Side')
     scene.world = world
     world.use_nodes = True
     bg = world.node_tree.nodes.get('Background')
     if bg:
-        bg.inputs['Color'].default_value = (*srgb('#141210'), 1.0)
-        bg.inputs['Strength'].default_value = 0.7
+        bg.inputs['Color'].default_value = (0.78, 0.78, 0.80, 1.0)
+        bg.inputs['Strength'].default_value = 0.9
 
-    # Import stage and hoop2
-    bpy.ops.import_scene.gltf(filepath=str(MODELS_DIR / 'stage.glb'))
-    bpy.ops.import_scene.gltf(filepath=str(MODELS_DIR / 'hoop2.glb'))
+    bpy.ops.mesh.primitive_plane_add(size=200, location=(0, 0, 0))
+    assign_material(bpy.context.object, make_material('StudioFloor', (0.80, 0.80, 0.82), rough=0.55))
 
-    # For hoop_detail.jpg close-up: remove heavy bleacher stands behind hoop
-    # so glass transparency and clean cantilever profile are visible
-    for o in list(bpy.data.objects):
-        if 'Stands' in o.name or 'Crowd' in o.name:
-            bpy.data.objects.remove(o, do_unlink=True)
+    bpy.ops.import_scene.gltf(filepath=str(MODELS_DIR / 'athlete.glb'))
+    arm_src = [o for o in bpy.data.objects if o.type == 'ARMATURE'][0]
+    char_meshes = [o for o in bpy.data.objects if o.type == 'MESH' and o.name != 'Base' and 'Floor' not in o.name]
+    base_src = bpy.data.objects.get('Base')
 
-    # Warm luxury table surface under plinth
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, -5.0, -2.1))
-    table = bpy.context.object
-    table.scale = (80.0, 80.0, 0.2)
-    mat_table = make_material('WarmTable', srgb('#8B6B4D'), rough=0.38, metal=0.05)
-    assign_material(table, mat_table)
+    mat_skin_off = make_material('SkinOff', WARM_SILVER[:3], rough=0.28, metal=0.9)
+    mat_skin_def = make_material('SkinDef', BRONZE_COLOR[:3], rough=0.28, metal=0.9)
+    mat_j_off = make_material('JOff', NAVY_COLOR[:3], rough=0.45, metal=0.05)
+    mat_j_def = make_material('JDef', RED_COLOR[:3], rough=0.45, metal=0.05)
+    mat_gold = make_material('GoldTrim', GOLD_COLOR[:3], rough=0.25, metal=0.95)
+    mat_ball = make_material('BallMat', srgb('#D46020'), rough=0.4, metal=0.05)
+    mat_shoe = make_material('ShoeWhite', (0.9, 0.9, 0.92), rough=0.35)
 
-    # Enhance Glass material for EEVEE preview
-    glass_mat = bpy.data.materials.get('Glass')
-    if glass_mat and glass_mat.node_tree:
-        bsdf = glass_mat.node_tree.nodes.get('Principled BSDF')
-        if bsdf:
-            bsdf.inputs['Alpha'].default_value = 0.25
-            if 'Transmission Weight' in bsdf.inputs:
-                bsdf.inputs['Transmission Weight'].default_value = 0.85
-            bsdf.inputs['Roughness'].default_value = 0.04
-        glass_mat.blend_method = 'HASHED'
+    for idx, (label, act_name, frame_num, is_defense, extra_rot) in enumerate(poses):
+        cur_x = start_x + idx * spacing
+        act = bpy.data.actions.get(act_name)
+        if act:
+            arm_src.animation_data.action = act
+            scene.frame_set(frame_num)
+            bpy.context.view_layer.update()
 
-    # Rich museum studio lighting matching hoop_detail.jpg
-    bpy.ops.object.light_add(type='AREA', location=(-12.0, -18.0, 15.0))
+        for m_src in char_meshes:
+            bpy.ops.object.select_all(action='DESELECT')
+            m_src.select_set(True)
+            bpy.context.view_layer.objects.active = m_src
+            bpy.ops.object.duplicate()
+            dup = bpy.context.active_object
+            for mod in list(dup.modifiers):
+                if mod.type == 'ARMATURE':
+                    bpy.ops.object.modifier_apply(modifier=mod.name)
+            bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+            dup.rotation_mode = 'XYZ'
+            # Profile view: rotate 90 degrees around Z to face +X
+            dup.rotation_euler = (0, 0, math.radians(90))
+            dup.location = (cur_x, 0, 0)
+            dup.data = dup.data.copy()
+
+            if 'Jersey' in m_src.name:
+                dup.data.materials[0] = mat_j_def if is_defense else mat_j_off
+            elif 'Shorts' in m_src.name:
+                dup.data.materials[0] = mat_j_def if is_defense else mat_j_off
+            else:
+                if len(dup.data.materials) >= 1:
+                    dup.data.materials[0] = mat_skin_def if is_defense else mat_skin_off
+                if len(dup.data.materials) >= 2:
+                    dup.data.materials[1] = mat_shoe
+
+        if base_src:
+            bpy.ops.object.select_all(action='DESELECT')
+            base_src.select_set(True)
+            bpy.context.view_layer.objects.active = base_src
+            bpy.ops.object.duplicate()
+            dup_base = bpy.context.active_object
+            bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+            dup_base.rotation_mode = 'XYZ'
+            dup_base.rotation_euler = (0, 0, math.radians(90))
+            dup_base.location = (cur_x, 0, 0)
+            dup_base.data = dup_base.data.copy()
+            dup_base.data.materials[0] = mat_j_def if is_defense else mat_j_off
+            dup_base.data.materials[1] = mat_gold
+
+        if label == 'Shot':
+            bpy.ops.mesh.primitive_uv_sphere_add(radius=0.45, location=(cur_x + 0.30, -0.19, 7.50))
+            assign_material(bpy.context.object, mat_ball)
+        elif label == 'TripleThreat':
+            bpy.ops.mesh.primitive_uv_sphere_add(radius=0.45, location=(cur_x + 1.24, -0.45, 5.08))
+            assign_material(bpy.context.object, mat_ball)
+
+    # Remove source templates
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in [arm_src, base_src] + char_meshes:
+        if o: bpy.data.objects.remove(o, do_unlink=True)
+
+    # Lighting
+    bpy.ops.object.light_add(type='AREA', location=(6, -18, 14))
     key = bpy.context.object
-    key.data.energy = 6000
-    key.data.size = 10
-    key.data.color = (1.0, 0.94, 0.88)
-    aim_object(key, (0, -4.5, 10.5))
+    key.data.energy = 5000
+    key.data.size = 14
+    aim_object(key, (0, 0, 3.0))
 
-    bpy.ops.object.light_add(type='AREA', location=(10.0, -10.0, 13.0))
+    bpy.ops.object.light_add(type='AREA', location=(-14, -16, 12))
     fill = bpy.context.object
-    fill.data.energy = 3200
-    fill.data.size = 12
-    fill.data.color = (0.92, 0.95, 1.0)
-    aim_object(fill, (0, -1.0, 8.5))
+    fill.data.energy = 2500
+    fill.data.size = 16
+    aim_object(fill, (0, 0, 3.0))
 
-    bpy.ops.object.light_add(type='AREA', location=(4.0, 10.0, 16.0))
+    bpy.ops.object.light_add(type='AREA', location=(0, 14, 12))
     rim = bpy.context.object
-    rim.data.energy = 5500
-    rim.data.size = 8
-    rim.data.color = (1.0, 0.92, 0.82)
-    aim_object(rim, (0, 1.5, 10.0))
+    rim.data.energy = 3200
+    rim.data.size = 22
+    aim_object(rim, (0, 0, 3.0))
 
-    bpy.ops.object.light_add(type='POINT', location=(-3.0, -8.0, 8.0))
-    p_net = bpy.context.object
-    p_net.data.energy = 2200
-    p_net.data.color = (1.0, 0.88, 0.75)
-
-    # Close-up camera framing backboard, rim, and cantilever arm (hoop_detail.jpg)
-    cam_loc = Vector((-12.5, -14.0, 9.2))
-    cam_target = Vector((0.0, -0.5, 8.8))
+    # Camera at camera height 3 ft looking horizontally at Z = 3 ft
+    cam_loc = Vector((0.0, -25.0, 3.0))
+    cam_target = Vector((0.0, 0.0, 3.0))
     bpy.ops.object.camera_add(location=cam_loc)
     cam = bpy.context.object
     aim_object(cam, cam_target)
-    cam.data.lens = 46
+    cam.data.lens = 38
     scene.camera = cam
 
-    hoop_path = out_dir / 'hoop.jpg'
-    scene.render.filepath = str(hoop_path)
+    side_path = out_dir / 'athlete_side.jpg'
+    scene.render.filepath = str(side_path)
     bpy.ops.render.render(write_still=True)
-    print(f"Rendered {hoop_path} ({os.path.getsize(hoop_path):,} bytes)")
+    print(f"Rendered {side_path} ({os.path.getsize(side_path):,} bytes)")
+
+    # --------------------------------------------------------------------------
+    # Preview 4: hoop.jpg (Macro close-up matching hoop_detail.jpg)
+    # --------------------------------------------------------------------------
+    hoop_path = out_dir / 'hoop.jpg'
+    if not hoop_path.exists():
+        reset()
+        scene = bpy.context.scene
+        scene.render.engine = 'BLENDER_EEVEE'
+        scene.render.resolution_x = 1280
+        scene.render.resolution_y = 890
+        scene.render.image_settings.file_format = 'JPEG'
+        scene.render.image_settings.quality = 85
+
+        world = bpy.data.worlds.new('Hoop_World')
+        scene.world = world
+        world.use_nodes = True
+        bg = world.node_tree.nodes.get('Background')
+        if bg:
+            bg.inputs['Color'].default_value = (*srgb('#141210'), 1.0)
+            bg.inputs['Strength'].default_value = 0.7
+
+        bpy.ops.import_scene.gltf(filepath=str(MODELS_DIR / 'stage.glb'))
+        bpy.ops.import_scene.gltf(filepath=str(MODELS_DIR / 'hoop2.glb'))
+
+        for o in list(bpy.data.objects):
+            if 'Stands' in o.name or 'Crowd' in o.name:
+                bpy.data.objects.remove(o, do_unlink=True)
+
+        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, -5.0, -2.1))
+        table = bpy.context.object
+        table.scale = (80.0, 80.0, 0.2)
+        mat_table = make_material('WarmTable', srgb('#8B6B4D'), rough=0.38, metal=0.05)
+        assign_material(table, mat_table)
+
+        glass_mat = bpy.data.materials.get('Glass')
+        if glass_mat and glass_mat.node_tree:
+            bsdf = glass_mat.node_tree.nodes.get('Principled BSDF')
+            if bsdf:
+                bsdf.inputs['Alpha'].default_value = 0.25
+                if 'Transmission Weight' in bsdf.inputs:
+                    bsdf.inputs['Transmission Weight'].default_value = 0.85
+                bsdf.inputs['Roughness'].default_value = 0.04
+            glass_mat.blend_method = 'HASHED'
+
+        bpy.ops.object.light_add(type='AREA', location=(-12.0, -18.0, 15.0))
+        key = bpy.context.object
+        key.data.energy = 6000
+        key.data.size = 10
+        aim_object(key, (0, -4.5, 10.5))
+
+        bpy.ops.object.light_add(type='AREA', location=(10.0, -10.0, 13.0))
+        fill = bpy.context.object
+        fill.data.energy = 3200
+        fill.data.size = 12
+        aim_object(fill, (0, -1.0, 8.5))
+
+        bpy.ops.object.light_add(type='AREA', location=(4.0, 10.0, 16.0))
+        rim = bpy.context.object
+        rim.data.energy = 5500
+        rim.data.size = 8
+        aim_object(rim, (0, 1.5, 10.0))
+
+        bpy.ops.object.light_add(type='POINT', location=(-3.0, -8.0, 8.0))
+        p_net = bpy.context.object
+        p_net.data.energy = 2200
+
+        cam_loc = Vector((-12.5, -14.0, 9.2))
+        cam_target = Vector((0.0, -0.5, 8.8))
+        bpy.ops.object.camera_add(location=cam_loc)
+        cam = bpy.context.object
+        aim_object(cam, cam_target)
+        cam.data.lens = 46
+        scene.camera = cam
+
+        scene.render.filepath = str(hoop_path)
+        bpy.ops.render.render(write_still=True)
+        print(f"Rendered {hoop_path} ({os.path.getsize(hoop_path):,} bytes)")
+    else:
+        print(f"Reusing existing {hoop_path}")
 
 
 # ==============================================================================
@@ -1153,14 +1616,20 @@ def main():
     hoop_glb = MODELS_DIR / 'hoop2.glb'
     stage_glb = MODELS_DIR / 'stage.glb'
 
-    print("Building athlete.glb...")
+    print("Building athlete.glb v2.1...")
     build_athlete(athlete_glb)
 
-    print("Building hoop2.glb...")
-    build_hoop(hoop_glb)
+    if not hoop_glb.exists():
+        print("Building hoop2.glb...")
+        build_hoop(hoop_glb)
+    else:
+        print("Keeping existing hoop2.glb untouched.")
 
-    print("Building stage.glb...")
-    build_stage(stage_glb)
+    if not stage_glb.exists():
+        print("Building stage.glb...")
+        build_stage(stage_glb)
+    else:
+        print("Keeping existing stage.glb untouched.")
 
     print("Rendering previews...")
     render_previews(PREVIEWS_DIR)
