@@ -36,7 +36,7 @@ try {
   page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
   page.on('console', m => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
 
-  const decide = Number(process.env.HOOPS_DECIDE || 45);
+  const decide = Number(process.env.HOOPS_DECIDE || 90);
   await page.goto(`${origin}/?hoopsDecide=${decide}${process.env.HOOPS_2D ? '&hoops2d=1' : ''}`);
   await page.evaluate(() => localStorage.clear());
   await page.reload();

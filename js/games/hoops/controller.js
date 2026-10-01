@@ -9,7 +9,7 @@
  */
 
 import { CourtView } from './court.js';
-import { hoopsAudio as sfx, voiceEnabled, setVoiceEnabled, stopVoice } from './audio.js';
+import { hoopsAudio as sfx, voiceEnabled, setVoiceEnabled, stopVoice, drawVoice as draw, PRAISE_LEVELS, STREAK_LINES } from './audio.js';
 import { CHAPTER, LEVELS } from './levels.js';
 import { FAMILIES, TAGS, pickRound } from './families.js';
 import { PlaybookMode } from './playbook-mode.js';
@@ -20,22 +20,6 @@ import { sounds } from '../../engine/sound.js';
 const PROGRESS_KEY = 'caesar_hoops_progress_v1';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const pad2 = n => String(n).padStart(2, '0');
-/* Coach lines rotate like a shuffled deck: no line repeats until the rest have played. */
-export const VOICE_POOLS = {
-  best: ['react_best_1', 'react_best_2', 'react_best_3'],
-  ok: ['react_ok_1', 'react_ok_2'],
-  bad: ['react_bad_1', 'react_bad_2']
-};
-const decks = {};
-function draw(pool) {
-  const d = decks[pool] ||= { left: [], last: null };
-  if (!d.left.length) {
-    d.left = VOICE_POOLS[pool].slice().sort(() => Math.random() - 0.5);
-    if (d.left.length > 1 && d.left[0] === d.last) d.left.push(d.left.shift());
-  }
-  d.last = d.left.shift();
-  return d.last;
-}
 
 /** Voice line for a level's rule — variants reuse their chapter twin's line. */
 function ruleVoice(lvl) {
@@ -392,6 +376,7 @@ export class HoopsGame {
     card.classList.add('is-on');
     if (this.mode !== 'read') sfx.voice(`level_${pad2(this.index + 1)}_title`, getLocale());
     else if (this.round === 1) sfx.voice('cue_watch', getLocale());
+    else if (Math.random() < 0.35) sfx.voice(draw('round'), getLocale());
     await wait(1100);
     if (flow !== this.flow) return;
     card.classList.remove('is-on');
@@ -517,8 +502,16 @@ export class HoopsGame {
     const lvl = this.level;
     const g = opt ? opt.grade : -1;
     // Praise is not every time — sometimes the crowd says it. Misses always get a word.
+    // Streak milestones always get called; otherwise mix play-specific praise,
+    // "that was quick" for three stars, and the general deck.
     const lines = [];
-    if (g === 3) { if (Math.random() < 0.6) lines.push(draw('best')); }
+    if (g === 3) {
+      const r = Math.random();
+      if (this.mode === 'read' && STREAK_LINES.includes(this.streak)) lines.push(`streak_${this.streak}`);
+      else if (r < 0.3 && PRAISE_LEVELS.includes(lvl.id)) lines.push(`praise_${lvl.id}`);
+      else if (r < 0.55 && this.stars === 3) lines.push(draw('fast'));
+      else if (r < 0.85) lines.push(draw('best'));
+    }
     else if (g === 1) lines.push(draw('ok'));
     else if (g === 0) lines.push(draw('bad'));
     else lines.push('react_slow');

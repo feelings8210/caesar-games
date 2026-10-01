@@ -8,7 +8,7 @@
  */
 
 import { CATEGORIES, PLAYS, stepDiagram, stepTasks, rolesOf } from './playbook.js';
-import { hoopsAudio as sfx } from './audio.js';
+import { hoopsAudio as sfx, drawVoice } from './audio.js';
 import { t, getLocale } from '../../i18n/strings.js';
 import { sounds } from '../../engine/sound.js';
 
@@ -166,6 +166,7 @@ export class PlaybookMode {
     if (!done || token !== this.token) return;
     this.step++;
     this.snaps[this.step] = this.court.snapshot();
+    if (this.step >= this.play.steps.length) sfx.voice('pb_watch_end', getLocale());
     this._showStep();
   }
 
@@ -257,6 +258,7 @@ export class PlaybookMode {
       if (this.tries === 0) this.score.first++;
       this.score.total++;
       sfx.lockIn();
+      if (Math.random() < 0.5) sfx.voice(drawVoice('pbRight'), getLocale());
       this.court._pulse?.(task.kind === 'pass' ? task.to : this.role);
       this.feedback = t('hoops.pb.right');
       this.taskIndex++;
@@ -270,6 +272,7 @@ export class PlaybookMode {
     sounds.invalid();
     this.feedback = t(this.tries >= 2 ? 'hoops.pb.hint' : 'hoops.pb.wrong');
     if (this.tries === 2) this.score.total++;      // counted once, as a miss
+    if (this.tries <= 2) sfx.voice(this.tries === 1 ? drawVoice('pbWrong') : 'pb_hint', getLocale());
     if (this.tries >= 2) {
       const pos = this.court.pos[this.role];
       const mark = task.kind === 'move'
@@ -289,6 +292,7 @@ export class PlaybookMode {
     this.waiting = false;
     for (let s = 0; s < this.stars; s++) setTimeout(() => sfx.star(s), 200 * (s + 1));
     if (this.stars === 3) sfx.cheer(0.7);
+    sfx.voice(first === total ? 'pb_done_3' : 'pb_done', getLocale());
     this.game.render();
   }
 

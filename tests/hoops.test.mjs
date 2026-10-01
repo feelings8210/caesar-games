@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { CHAPTER, LEVELS, VARIANTS } from '../js/games/hoops/levels.js';
 import { FAMILIES, TAGS, mirrorLevel, pickRound } from '../js/games/hoops/families.js';
 import { CATEGORIES, PLAYS, stateBefore, stepDiagram, stepTasks, rolesOf } from '../js/games/hoops/playbook.js';
+import { VOICE_POOLS, PRAISE_LEVELS, STREAK_LINES } from '../js/games/hoops/audio.js';
+import fs from 'node:fs';
 
 let passed = 0;
 function test(name, fn) {
@@ -193,6 +195,22 @@ test('playbook plays are complete, bilingual and on the floor', () => {
     bilingual(c.title, `category ${c.id}`);
     assert.ok(PLAYS.some(p => p.category === c.id), `category ${c.id} has plays`);
   }
+});
+
+test('every coach line exists in both languages and is precached', () => {
+  const ids = new Set([...Object.values(VOICE_POOLS).flat(), ...PRAISE_LEVELS.map(id => `praise_${id}`),
+    ...STREAK_LINES.map(n => `streak_${n}`), 'pb_hint', 'pb_done', 'pb_done_3', 'pb_watch_end', 'react_slow',
+    'rank_up', 'chapter_done', 'show_best', 'cue_watch', ...LEVELS.flatMap((_, i) => [`level_${String(i + 1).padStart(2, '0')}_title`, `level_${String(i + 1).padStart(2, '0')}_rule`])]);
+  const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  for (const loc of ['zh', 'en']) {
+    for (const id of ids) {
+      const rel = `assets/hoops/voice/${loc}/${id}.mp3`;
+      assert.ok(fs.existsSync(new URL(`../${rel}`, import.meta.url)), `${rel} missing`);
+      assert.ok(sw.includes(`'./${rel}'`), `${rel} not precached`);
+    }
+  }
+  const levelIds = new Set([...LEVELS, ...VARIANTS].map(l => l.id));
+  for (const id of PRAISE_LEVELS) assert.ok(levelIds.has(id), `praise for unknown level ${id}`);
 });
 
 console.log(`hoops: ${passed} passed`);
