@@ -15,6 +15,32 @@ const MEDIA = new URL('../../../assets/hoops/', import.meta.url).href;
 const SAMPLES = { dribble: 4, squeak: 4, catch: 3, pass: 2, swish: 3, rim: 3, backboard: 2, block: 2, whistle: 2, buzzer: 1, cheer: 3, groan: 2 };
 const VOICE_KEY = 'caesar_hoops_voice';
 
+const range = (prefix, from, to) => Array.from({ length: to - from + 1 }, (_, i) => `${prefix}${from + i}`);
+/* Coach lines rotate like a shuffled deck: no line repeats until the rest have played. */
+export const VOICE_POOLS = {
+  best: range('react_best_', 1, 12),
+  ok: range('react_ok_', 1, 6),
+  bad: range('react_bad_', 1, 6),
+  fast: range('fast_', 1, 4),
+  round: range('round_', 1, 4),
+  pbRight: range('pb_right_', 1, 3),
+  pbWrong: range('pb_wrong_', 1, 2)
+};
+/** Levels with their own praise line (praise_<level id>). */
+export const PRAISE_LEVELS = ['backdoor', 'catch-sag', 'drive-kick', 'drive-weak', 'drive-none', 'pnr-roll', 'pnr-drop',
+  'switch', 'two-on-one', 'break-stay', 'help-side', 'closeout', 'box-out', 'last-shot'];
+export const STREAK_LINES = [3, 5, 8, 10];
+const decks = {};
+export function drawVoice(pool) {
+  const d = decks[pool] ||= { left: [], last: null };
+  if (!d.left.length) {
+    d.left = VOICE_POOLS[pool].slice().sort(() => Math.random() - 0.5);
+    if (d.left.length > 1 && d.left[0] === d.last) d.left.push(d.left.shift());
+  }
+  d.last = d.left.shift();
+  return d.last;
+}
+
 let bus = null;
 const bank = {};                 // cue -> AudioBuffer[]
 const voiceCache = new Map();    // url -> Promise<AudioBuffer|null>

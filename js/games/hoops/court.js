@@ -339,6 +339,28 @@ export class CourtView extends BeatRunner {
 
   clearCue() { this.gFx.querySelectorAll('.hc-cue').forEach(n => n.remove()); }
 
+  showDiagram(marks) {
+    this.clearDiagram();
+    this.gDiagram = el('g', { class: 'hc-diagram' }, this.gTrails);
+    for (const m of marks) {
+      if (!m.pts || m.pts.length < 2) continue;
+      const d = m.pts.map((p, i) => `${i ? 'L' : 'M'} ${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join(' ');
+      el('path', { d, class: `hc-dg is-${m.type} is-${m.team}${m.hint ? ' is-hint' : ''}` }, this.gDiagram);
+      const [ex, ey] = m.pts[m.pts.length - 1];
+      const [px, py] = m.pts[m.pts.length - 2];
+      const L = Math.hypot(ex - px, ey - py) || 1;
+      const ux = (ex - px) / L, uy = (ey - py) / L;
+      if (m.type === 'screen') {
+        el('line', { x1: ex - uy * 1.1, y1: ey + ux * 1.1, x2: ex + uy * 1.1, y2: ey - ux * 1.1, class: `hc-dg is-bar is-${m.team}` }, this.gDiagram);
+      } else {
+        const bx = ex - ux * 1.3, by = ey - uy * 1.3;
+        el('path', { d: `M ${ex} ${ey} L ${bx - uy * 0.7} ${by + ux * 0.7} L ${bx + uy * 0.7} ${by - ux * 0.7} Z`, class: `hc-dg-head is-${m.type} is-${m.team}${m.hint ? ' is-hint' : ''}` }, this.gDiagram);
+      }
+    }
+  }
+
+  clearDiagram() { this.gDiagram?.remove(); this.gDiagram = null; }
+
   /** Nearest option to a tap (or a drag release), or -1. */
   pickTarget(clientX, clientY, drag = false) {
     if (!drag) {
@@ -362,6 +384,12 @@ export class CourtView extends BeatRunner {
     if (!hit) return null;
     const r = hit.getBoundingClientRect();
     return [r.left + r.width / 2, r.top + r.height / 2];
+  }
+
+  courtClientPoint([x, y]) {
+    const m = this.svg.getScreenCTM();
+    const p = new DOMPoint(x, y).matrixTransform(m);
+    return [p.x, p.y];
   }
 
   actorClientPoint(id) {

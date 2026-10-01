@@ -9,9 +9,10 @@
  */
 
 import { CourtView } from './court.js';
-import { hoopsAudio as sfx, voiceEnabled, setVoiceEnabled, stopVoice } from './audio.js';
+import { hoopsAudio as sfx, voiceEnabled, setVoiceEnabled, stopVoice, drawVoice as draw, PRAISE_LEVELS, STREAK_LINES } from './audio.js';
 import { CHAPTER, LEVELS } from './levels.js';
 import { FAMILIES, TAGS, pickRound } from './families.js';
+import { PlaybookMode } from './playbook-mode.js';
 import { recordRead, readSummary, tagAccuracy, bestStreak, saveBestStreak } from './stats.js';
 import { t, getLocale } from '../../i18n/strings.js';
 import { sounds } from '../../engine/sound.js';
@@ -19,7 +20,6 @@ import { sounds } from '../../engine/sound.js';
 const PROGRESS_KEY = 'caesar_hoops_progress_v1';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const pad2 = n => String(n).padStart(2, '0');
-const pickOf = list => list[Math.floor(Math.random() * list.length)];
 
 /** Voice line for a level's rule — variants reuse their chapter twin's line. */
 function ruleVoice(lvl) {
@@ -63,6 +63,7 @@ export class HoopsGame {
     this.menuTab = 'chapter';    // 'chapter' | 'read' | 'stats'
     this.current = null;
     this._build();
+    this.pb = new PlaybookMode(this);
     this.court = null;           // created on first level: 3D, or SVG fallback
   }
 
@@ -91,6 +92,7 @@ export class HoopsGame {
         <nav class="hp-tabs" role="tablist">
           <button type="button" class="hp-tab" data-tab="chapter" role="tab"></button>
           <button type="button" class="hp-tab" data-tab="read" role="tab"></button>
+          <button type="button" class="hp-tab" data-tab="playbook" role="tab"></button>
           <button type="button" class="hp-tab" data-tab="stats" role="tab"></button>
         </nav>
         <button type="button" class="hp-voice-toggle"></button>
@@ -106,6 +108,7 @@ export class HoopsGame {
           </div>
           <ul class="hp-read-families"></ul>
         </div>
+        <div class="hp-tabpane" data-pane="playbook"><div class="hp-pb-menu"></div></div>
         <div class="hp-tabpane" data-pane="stats"><div class="hp-stats"></div></div>
       </section>
       <section class="hp-play">
@@ -185,7 +188,7 @@ export class HoopsGame {
     });
     this.$('.hp-back').addEventListener('click', () => {
       sounds.tap();
-      this.menuTab = this.mode === 'read' ? 'read' : 'chapter';
+      this.menuTab = this.mode === 'read' ? 'read' : this.mode === 'playbook' ? 'playbook' : 'chapter';
       this.showMenu();
     });
     this.$('.hp-retry').addEventListener('click', () => { sounds.tap(); this.startLevel(this.index); });
@@ -212,6 +215,7 @@ export class HoopsGame {
 
   leave() {
     this.flow++;
+    this.pb?.stop();
     this.court?.cancel();
     this.court?.setFrozen(false);
     this.court?.sleep?.();
@@ -256,6 +260,7 @@ export class HoopsGame {
     this.$('.hp-chapter-title').textContent = tab === 'chapter' ? L(CHAPTER.title) : t(`hoops.${tab}.title`);
     this.$('.hp-chapter-sub').textContent = tab === 'chapter' ? L(CHAPTER.sub) : t(`hoops.${tab}.sub`);
     if (tab === 'read') this._renderReadPane();
+    if (tab === 'playbook') this.pb.renderMenu(this.$('.hp-pb-menu'));
     if (tab === 'stats') this._renderStats();
     const total = this.totalStars();
     this.$('.hp-rank-label').textContent = t('hoops.rankLabel');
@@ -369,7 +374,9 @@ export class HoopsGame {
     card.querySelector('span').textContent = cardTop;
     card.querySelector('strong').textContent = L(lvl.title);
     card.classList.add('is-on');
-    sfx.voice(this.mode === 'read' ? 'cue_watch' : `level_${pad2(this.index + 1)}_title`, getLocale());
+    if (this.mode !== 'read') sfx.voice(`level_${pad2(this.index + 1)}_title`, getLocale());
+    else if (this.round === 1) sfx.voice('cue_watch', getLocale());
+    else if (Math.random() < 0.35) sfx.voice(draw('round'), getLocale());
     await wait(1100);
     if (flow !== this.flow) return;
     card.classList.remove('is-on');
@@ -494,11 +501,20 @@ export class HoopsGame {
   async _coach(opt, flow) {
     const lvl = this.level;
     const g = opt ? opt.grade : -1;
-    const lines = [
-      g === 3 ? pickOf(['react_best_1', 'react_best_2', 'react_best_3'])
-        : g === 1 ? pickOf(['react_ok_1', 'react_ok_2'])
-        : g === 0 ? pickOf(['react_bad_1', 'react_bad_2']) : 'react_slow'
-    ];
+    // Praise is not every time — sometimes the crowd says it. Misses always get a word.
+    // Streak milestones always get called; otherwise mix play-specific praise,
+    // "that was quick" for three stars, and the general deck.
+    const lines = [];
+    if (g === 3) {
+      const r = Math.random();
+      if (this.mode === 'read' && STREAK_LINES.includes(this.streak)) lines.push(`streak_${this.streak}`);
+      else if (r < 0.3 && PRAISE_LEVELS.includes(lvl.id)) lines.push(`praise_${lvl.id}`);
+      else if (r < 0.55 && this.stars === 3) lines.push(draw('fast'));
+      else if (r < 0.85) lines.push(draw('best'));
+    }
+    else if (g === 1) lines.push(draw('ok'));
+    else if (g === 0) lines.push(draw('bad'));
+    else lines.push('react_slow');
     if (this.mode === 'read' && this.readOver && this.newBest) lines.push('rank_up');
     if (g !== 3) lines.push(ruleVoice(lvl));
     if (this.mode === 'chapter' && this.index === LEVELS.length - 1 && g >= 1) lines.push('chapter_done');
@@ -562,9 +578,17 @@ export class HoopsGame {
   }
 
   _renderPanel() {
-    const lvl = this.level;
     const p = this.phase;
-    this.$('.hp-back').textContent = `‹ ${t('hoops.levels')}`;
+    this.$('.hp-back').textContent = `‹ ${t(this.mode === 'chapter' ? 'hoops.levels' : 'hoops.back')}`;
+    if (p === 'pb') {
+      this.$$('.hp-phase').forEach(n => n.classList.remove('is-on'));
+      this.$('.hp-view').classList.add('is-hidden');
+      this._renderHud();
+      this.pb.render();
+      return;
+    }
+    const lvl = this.level;
+    this.$('.hp-back').textContent = `‹ ${t(this.mode === 'chapter' ? 'hoops.levels' : 'hoops.back')}`;
     const read = this.mode === 'read';
     this.$('.hp-level-eyebrow').textContent = read
       ? `${t('hoops.read.round', { n: this.round })} · ${t('hoops.read.streak', { n: this.streak })}`
