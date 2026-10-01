@@ -60,7 +60,7 @@ try {
       const { LEVELS } = await import('./js/games/hoops/levels.js');
       return LEVELS[idx].options.findIndex(o => o.grade === 3);
     }, i);
-    await page.waitForTimeout(1300);   // let the freeze camera settle
+    await page.waitForTimeout(2600);   // POV hold, then the rise to the full view
     if (i === 0 || i === 6) await page.screenshot({ path: `${outDir}/${String(i + 2).padStart(2, '0')}-L${i + 1}-decide.png` });
     const point = await page.evaluate(i => window.caesarApp.hoops.court.targetClientPoint(i), best);
     if (!point) throw new Error(`level ${i + 1}: no target point (phase ${await phase()})`);
@@ -93,6 +93,49 @@ try {
   // Wrong read, then the demo of the best read (level 2, Chinese UI).
   await page.waitForSelector('.hoops[data-view="menu"]');
   await page.screenshot({ path: `${outDir}/20-menu-complete.png` });
+
+  // Read & React: four best reads, then a deliberate wrong one ends the run.
+  await page.click('.hp-tab[data-tab="read"]');
+  await page.screenshot({ path: `${outDir}/24-read-menu.png` });
+  await page.click('.hp-read-start');
+  report.read = [];
+  for (let r = 0; r < 5; r++) {
+    await waitPhase('decide', 30000);
+    if (r === 0) {
+      await page.waitForTimeout(500);
+      await page.screenshot({ path: `${outDir}/25-read-pov.png` });
+    }
+    await page.waitForTimeout(2600);   // POV hold, then the rise to the full view
+    if (r === 1 && await page.isVisible('.hp-view')) {
+      await page.click('.hp-view');
+      await page.waitForTimeout(1200);
+      await page.screenshot({ path: `${outDir}/26-read-player-view.png` });
+      await page.click('.hp-view');
+      await page.waitForTimeout(2200);
+    }
+    const pick = await page.evaluate(last => {
+      const opts = window.caesarApp.hoops.level.options;
+      return last ? opts.findIndex(o => o.grade === 0) : opts.findIndex(o => o.grade === 3);
+    }, r === 4);
+    const pt = await page.evaluate(i => window.caesarApp.hoops.court.targetClientPoint(i), pick);
+    if (!pt) throw new Error(`read round ${r + 1}: no target point (phase ${await phase()})`);
+    await page.mouse.click(pt[0], pt[1]);
+    await waitPhase('review', 30000);
+    await page.waitForTimeout(600);
+    report.read.push(await page.evaluate(() => {
+      const h = window.caesarApp.hoops;
+      return { family: h.level.family, variant: h.level.id, mirrored: !!h.level.mirrored, streak: h.streak, over: h.readOver,
+        summary: document.querySelector('.hp-summary').textContent, title: document.querySelector('.hp-title').textContent };
+    }));
+    if (r === 3) await page.screenshot({ path: `${outDir}/27-read-review.png` });
+    if (r < 4) await page.click('.hp-next');
+  }
+  await page.screenshot({ path: `${outDir}/28-read-over.png` });
+  await page.click('.hp-back');
+  await page.click('.hp-tab[data-tab="stats"]');
+  report.statsRows = await page.locator('.hp-stat-rows li').count();
+  await page.screenshot({ path: `${outDir}/29-stats.png` });
+  await page.click('.hp-tab[data-tab="chapter"]');
   await page.click('#btn-language');
   await page.click('.hp-level[data-index="1"]');
   await waitPhase('decide');

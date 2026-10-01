@@ -11,6 +11,8 @@
 import { CourtView } from './court.js';
 import { hoopsAudio as sfx } from './audio.js';
 import { CHAPTER, LEVELS } from './levels.js';
+import { FAMILIES, TAGS, pickRound } from './families.js';
+import { recordRead, readSummary, tagAccuracy, bestStreak, saveBestStreak } from './stats.js';
 import { t, getLocale } from '../../i18n/strings.js';
 import { sounds } from '../../engine/sound.js';
 
@@ -49,6 +51,9 @@ export class HoopsGame {
     this.index = 0;
     this.flow = 0;               // bumps to cancel any in-flight sequence
     this.progress = readProgress();
+    this.mode = 'chapter';       // 'chapter' | 'read'
+    this.menuTab = 'chapter';    // 'chapter' | 'read' | 'stats'
+    this.current = null;
     this._build();
     this.court = null;           // created on first level: 3D, or SVG fallback
   }
@@ -74,7 +79,23 @@ export class HoopsGame {
             <span class="hp-rank-stars"></span>
           </div>
         </header>
-        <div class="hp-levels"></div>
+        <nav class="hp-tabs" role="tablist">
+          <button type="button" class="hp-tab" data-tab="chapter" role="tab"></button>
+          <button type="button" class="hp-tab" data-tab="read" role="tab"></button>
+          <button type="button" class="hp-tab" data-tab="stats" role="tab"></button>
+        </nav>
+        <div class="hp-tabpane" data-pane="chapter"><div class="hp-levels"></div></div>
+        <div class="hp-tabpane" data-pane="read">
+          <div class="hp-read-card">
+            <div class="hp-read-copy"><h3 class="hp-read-title"></h3><p class="hp-read-desc"></p></div>
+            <div class="hp-read-side">
+              <span class="hp-read-best"></span>
+              <button class="btn btn-primary hp-read-start" type="button"></button>
+            </div>
+          </div>
+          <ul class="hp-read-families"></ul>
+        </div>
+        <div class="hp-tabpane" data-pane="stats"><div class="hp-stats"></div></div>
       </section>
       <section class="hp-play">
         <div class="hp-stage">
@@ -86,6 +107,7 @@ export class HoopsGame {
           </div>
           <div class="hp-title-card"><span></span><strong></strong></div>
           <div class="hp-banner"></div>
+          <button class="hp-view is-hidden" type="button"></button>
         </div>
         <aside class="hp-panel" aria-live="polite">
           <button class="hp-back" type="button"></button>
@@ -98,6 +120,7 @@ export class HoopsGame {
             <div class="hp-clock"><i></i></div>
           </div>
           <div class="hp-phase hp-review">
+            <p class="hp-summary is-hidden"></p>
             <div class="hp-verdict">
               <span class="hp-stars"><i></i><i></i><i></i></span>
               <strong class="hp-verdict-text"></strong>
@@ -132,11 +155,28 @@ export class HoopsGame {
       levels.appendChild(b);
     });
 
-    this.$('.hp-back').addEventListener('click', () => { sounds.tap(); this.showMenu(); });
+    this.$$('.hp-tab').forEach(b => b.addEventListener('click', () => {
+      sounds.tap();
+      this.menuTab = b.dataset.tab;
+      this.render();
+    }));
+    this.$('.hp-read-start').addEventListener('click', () => { sounds.tap(); this.startRead(); });
+    this.$('.hp-view').addEventListener('click', () => {
+      sounds.tap();
+      this.pov = !this.pov;
+      this.court?.setShot?.(this.pov ? 'pov' : 'decide', false, true);
+      this.render();
+    });
+    this.$('.hp-back').addEventListener('click', () => {
+      sounds.tap();
+      this.menuTab = this.mode === 'read' ? 'read' : 'chapter';
+      this.showMenu();
+    });
     this.$('.hp-retry').addEventListener('click', () => { sounds.tap(); this.startLevel(this.index); });
     this.$('.hp-best').addEventListener('click', () => { sounds.tap(); this.demoBest(); });
     this.$('.hp-next').addEventListener('click', () => {
       sounds.tap();
+      if (this.mode === 'read') { if (this.readOver) this.startRead(); else this._nextRound(); return; }
       if (this.index + 1 < LEVELS.length) this.startLevel(this.index + 1);
       else this.showMenu();
     });
@@ -183,9 +223,18 @@ export class HoopsGame {
   }
 
   _renderMenu() {
-    this.$('.hp-menu [data-k="chapter"]').textContent = t('hoops.chapter');
-    this.$('.hp-chapter-title').textContent = L(CHAPTER.title);
-    this.$('.hp-chapter-sub').textContent = L(CHAPTER.sub);
+    const tab = this.menuTab;
+    this.$$('.hp-tab').forEach(b => {
+      b.classList.toggle('is-on', b.dataset.tab === tab);
+      b.setAttribute('aria-selected', String(b.dataset.tab === tab));
+      b.textContent = t(`hoops.tab.${b.dataset.tab}`);
+    });
+    this.$$('.hp-tabpane').forEach(p => p.classList.toggle('is-on', p.dataset.pane === tab));
+    this.$('.hp-menu [data-k="chapter"]').textContent = tab === 'chapter' ? t('hoops.chapter') : t('game.hoops.title');
+    this.$('.hp-chapter-title').textContent = tab === 'chapter' ? L(CHAPTER.title) : t(`hoops.${tab}.title`);
+    this.$('.hp-chapter-sub').textContent = tab === 'chapter' ? L(CHAPTER.sub) : t(`hoops.${tab}.sub`);
+    if (tab === 'read') this._renderReadPane();
+    if (tab === 'stats') this._renderStats();
     const total = this.totalStars();
     this.$('.hp-rank-label').textContent = t('hoops.rankLabel');
     this.$('.hp-rank-name').textContent = t(rankKey(total));
@@ -204,24 +253,83 @@ export class HoopsGame {
     });
   }
 
+  _renderReadPane() {
+    this.$('.hp-read-title').textContent = t('hoops.read.cardTitle');
+    this.$('.hp-read-desc').textContent = t('hoops.read.desc');
+    const best = bestStreak();
+    this.$('.hp-read-best').textContent = best ? t('hoops.read.best', { n: best }) : t('hoops.read.noBest');
+    this.$('.hp-read-start').textContent = t('hoops.read.start');
+    this.$('.hp-read-families').innerHTML = FAMILIES.map(f => `<li><strong>${L(f.title)}</strong><span>${t('hoops.read.variants', { n: f.variants.length })}</span></li>`).join('');
+  }
+
+  _renderStats() {
+    const s = readSummary();
+    const box = this.$('.hp-stats');
+    if (!s.total) { box.innerHTML = `<p class="hp-stats-empty">${t('hoops.stats.empty')}</p>`; return; }
+    const pct = v => (v === null ? '—' : `${Math.round(v * 100)}%`);
+    const head = `<div class="hp-stat-head">
+      <div><strong>${s.total}</strong><span>${t('hoops.stats.reads')}</span></div>
+      <div><strong>${pct(s.rate)}</strong><span>${t('hoops.stats.accuracy')}</span></div>
+      <div><strong>${bestStreak()}</strong><span>${t('hoops.stats.bestStreak')}</span></div>
+    </div>`;
+    const rows = Object.keys(TAGS).filter(k => s.tags[k]).map(k => {
+      const r = s.tags[k];
+      const w = Math.round((r.rate || 0) * 100);
+      const time = r.avgMs === null ? '—' : `${(r.avgMs / 1000).toFixed(1)} s`;
+      const trend = r.trend === null ? '' : r.trend > 0.04 ? `<span class="hp-stat-trend is-up">↑ ${t('hoops.stats.better')}</span>`
+        : r.trend < -0.04 ? `<span class="hp-stat-trend is-down">↓ ${t('hoops.stats.worse')}</span>` : '';
+      return `<li title="${L(TAGS[k])}: ${pct(r.rate)} · ${r.n}">
+        <span class="hp-stat-name">${L(TAGS[k])}<small>${t('hoops.stats.count', { n: r.n })}</small></span>
+        <span class="hp-stat-bar"><i style="width:${w}%"></i></span>
+        <span class="hp-stat-pct">${pct(r.rate)}</span>
+        <span class="hp-stat-time">${time}</span>
+        ${trend}
+      </li>`;
+    }).join('');
+    box.innerHTML = `${head}<div class="hp-stat-cols"><span></span><span></span><span>${t('hoops.stats.accuracy')}</span><span>${t('hoops.stats.speed')}</span></div><ul class="hp-stat-rows">${rows}</ul>`;
+  }
+
   /* ---------------------------------------------------------------- *
    * Level flow
    * ---------------------------------------------------------------- */
 
-  get level() { return LEVELS[this.index]; }
+  get level() { return this.current; }
 
-  async startLevel(i) {
+  startLevel(i) {
+    this.mode = 'chapter';
+    this.index = i;
+    return this._run(LEVELS[i], t('hoops.level', { n: i + 1 }));
+  }
+
+  /** Read & React: endless rounds until a wrong read or a timeout. */
+  startRead() {
+    this.mode = 'read';
+    this.streak = 0;
+    this.round = 0;
+    this.readOver = false;
+    this.newBest = false;
+    this.lastFamily = null;
+    return this._nextRound();
+  }
+
+  _nextRound() {
+    this.round++;
+    const lvl = pickRound({ accuracy: tagAccuracy, streak: this.streak, last: this.lastFamily });
+    this.lastFamily = lvl.family;
+    return this._run(lvl, t('hoops.read.round', { n: this.round }));
+  }
+
+  async _run(lvl, cardTop) {
     const flow = ++this.flow;
     cancelAnimationFrame(this._timerRaf);
     await this._ensureCourt();
     if (flow !== this.flow) return;
-    this.index = i;
+    this.current = lvl;
     this.view = 'play';
     this.choice = null;
     this.stars = 0;
     this.demoShown = false;
     this.homeBonus = 0;
-    const lvl = this.level;
 
     this.clock = lvl.hud ? lvl.hud.clock : null;
     this.buzzed = false;
@@ -234,7 +342,7 @@ export class HoopsGame {
     this._setPhase('title');
 
     const card = this.$('.hp-title-card');
-    card.querySelector('span').textContent = t('hoops.level', { n: i + 1 });
+    card.querySelector('span').textContent = cardTop;
     card.querySelector('strong').textContent = L(lvl.title);
     card.classList.add('is-on');
     await wait(1100);
@@ -254,6 +362,7 @@ export class HoopsGame {
   _enterDecide(flow) {
     const lvl = this.level;
     sfx.freeze();
+    this.pov = false;
     this.court.setFrozen(true);
     this._setPhase('decide');
 
@@ -292,6 +401,13 @@ export class HoopsGame {
     const opt = lvl.options[i] || null;
     this.choice = i;
     this.stars = opt ? starsFor(opt.grade, elapsed, lvl.decide) : 0;
+    const grade = opt ? opt.grade : 0;
+    recordRead({ tag: lvl.tag, level: lvl.id, grade, ms: elapsed * 1000, mode: this.mode });
+    if (this.mode === 'read') {
+      if (grade === 3) this.streak++;
+      else if (grade === 0) this.readOver = true;
+      if (this.streak > bestStreak()) { saveBestStreak(this.streak); this.newBest = true; }
+    }
 
     this.court.setTimer(null);
     this.court.clearMarkers();
@@ -313,7 +429,9 @@ export class HoopsGame {
     }
 
     const key = lvl.id;
-    if (this.stars > (this.progress.stars[key] ?? -1)) {
+    if (this.mode !== 'chapter') {
+      // Read & React keeps its own record; chapter stars are untouched.
+    } else if (this.stars > (this.progress.stars[key] ?? -1)) {
       this.progress.stars[key] = this.stars;
       writeProgress(this.progress);
     } else if (!(key in this.progress.stars)) {
@@ -389,8 +507,15 @@ export class HoopsGame {
     const lvl = this.level;
     const p = this.phase;
     this.$('.hp-back').textContent = `‹ ${t('hoops.levels')}`;
-    this.$('.hp-level-eyebrow').textContent = `${t('hoops.level', { n: this.index + 1 })} · ${L(lvl.concept)}`;
-    this.$('.hp-title').textContent = L(lvl.title);
+    const read = this.mode === 'read';
+    this.$('.hp-level-eyebrow').textContent = read
+      ? `${t('hoops.read.round', { n: this.round })} · ${t('hoops.read.streak', { n: this.streak })}`
+      : `${t('hoops.level', { n: this.index + 1 })} · ${L(lvl.concept)}`;
+    // In Read & React the variant's name would give the answer away — show it only afterwards.
+    this.$('.hp-title').textContent = read && p === 'review' && lvl.variantTitle ? L(lvl.variantTitle) : L(lvl.title);
+    const view = this.$('.hp-view');
+    view.classList.toggle('is-hidden', !(p === 'decide' && this.root.dataset.court === '3d'));
+    view.textContent = t(this.pov ? 'hoops.view.court' : 'hoops.view.player');
     this.$('.hp-watch-text').textContent = t(p === 'demo' ? 'hoops.bestPlay' : 'hoops.watch');
     this.$('.hp-prompt').textContent = L(lvl.prompt);
     this.$('.hp-howto').textContent = t(lvl.side === 'defense' ? 'hoops.howToDefense' : 'hoops.howTo');
@@ -422,18 +547,33 @@ export class HoopsGame {
       rule.querySelector('.hp-note-label').textContent = t('hoops.rule');
       rule.querySelector('p').textContent = L(lvl.rule);
 
-      const last = this.index + 1 >= LEVELS.length;
-      const passed = (this.progress.stars[lvl.id] || 0) >= 1;
-      const next = this.$('.hp-next');
-      next.textContent = t(last ? 'hoops.finish' : 'hoops.next');
-      next.classList.toggle('is-hidden', !passed);
       const isBest = opt && opt.grade === 3;
       this.$('.hp-best').textContent = t('hoops.showBest');
       this.$('.hp-best').classList.toggle('is-hidden', isBest || this.demoShown);
+      const next = this.$('.hp-next');
       const retry = this.$('.hp-retry');
+      const summary = this.$('.hp-summary');
       retry.textContent = t('hoops.retry');
-      retry.classList.toggle('btn-primary', !passed);
-      retry.classList.toggle('btn-quiet', passed);
+      if (read) {
+        next.textContent = t(this.readOver ? 'hoops.read.again' : 'hoops.read.next');
+        next.classList.remove('is-hidden');
+        retry.classList.add('is-hidden');
+        const g = opt ? opt.grade : 0;
+        summary.textContent = this.readOver
+          ? `${t('hoops.read.over', { n: this.streak })} · ${this.newBest ? t('hoops.read.newBest') : t('hoops.read.best', { n: bestStreak() })}`
+          : g === 3 ? t('hoops.read.streakUp', { n: this.streak }) : t('hoops.read.keep', { n: this.streak });
+        summary.dataset.state = this.readOver ? 'over' : g === 3 ? 'up' : 'keep';
+        summary.classList.remove('is-hidden');
+      } else {
+        const last = this.index + 1 >= LEVELS.length;
+        const passed = (this.progress.stars[lvl.id] || 0) >= 1;
+        next.textContent = t(last ? 'hoops.finish' : 'hoops.next');
+        next.classList.toggle('is-hidden', !passed);
+        retry.classList.remove('is-hidden');
+        retry.classList.toggle('btn-primary', !passed);
+        retry.classList.toggle('btn-quiet', passed);
+        summary.classList.add('is-hidden');
+      }
     }
   }
 

@@ -48,6 +48,8 @@ const PRECACHE = [
   './js/games/hoops/levels.js',
   './js/games/hoops/controller.js',
   './js/games/hoops/runner.js',
+  './js/games/hoops/families.js',
+  './js/games/hoops/stats.js',
   './js/games/hoops/court3d.js',
   './js/vendor/three/three.core.min.js',
   './js/vendor/three/three.module.min.js',

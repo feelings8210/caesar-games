@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { CHAPTER, LEVELS } from '../js/games/hoops/levels.js';
+import { CHAPTER, LEVELS, VARIANTS } from '../js/games/hoops/levels.js';
+import { FAMILIES, TAGS, mirrorLevel, pickRound } from '../js/games/hoops/families.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -50,7 +51,7 @@ test('chapter has ten levels with unique ids', () => {
   assert.equal(new Set(LEVELS.map(l => l.id)).size, 10);
 });
 
-LEVELS.forEach((lvl, n) => {
+[...LEVELS, ...VARIANTS].forEach((lvl, n) => {
   const where = `level ${n + 1} (${lvl.id})`;
 
   test(`${where}: copy`, () => {
@@ -101,6 +102,44 @@ LEVELS.forEach((lvl, n) => {
       }
     }
   });
+});
+
+const targetKey = o => `${o.kind}:${o.to || ''}:${o.at ? o.at.join(',') : ''}:${o.label ? o.label.en : ''}`;
+
+test('every level and variant carries a known skill tag', () => {
+  for (const l of [...LEVELS, ...VARIANTS]) assert.ok(l.tag in TAGS, `${l.id} tag ${l.tag}`);
+});
+
+FAMILIES.forEach(f => {
+  test(`family ${f.id}: variants are indistinguishable until the read`, () => {
+    assert.ok(f.variants.length >= 2, 'at least two variants');
+    const [first, ...rest] = f.variants;
+    for (const v of rest) {
+      assert.deepEqual(v.setup, first.setup, `${v.id} setup`);
+      assert.equal(v.you, first.you, `${v.id} you`);
+      assert.deepEqual(v.intro[0], first.intro[0], `${v.id} opening beat`);
+      assert.deepEqual(v.options.map(targetKey).sort(), first.options.map(targetKey).sort(), `${v.id} option set`);
+    }
+    const bestKeys = f.variants.map(v => targetKey(v.options.find(o => o.grade === 3)));
+    assert.ok(new Set(bestKeys).size >= 2, 'the right answer actually changes between variants');
+  });
+});
+
+test('mirrored levels stay on the floor and keep their answers', () => {
+  for (const l of [...LEVELS, ...VARIANTS]) {
+    const m = mirrorLevel(l);
+    for (const [k, p] of Object.entries(m.setup)) if (/^[od]\d$/.test(k)) onCourt(p, `${l.id} mirror ${k}`);
+    assert.equal(m.options.findIndex(o => o.grade === 3), l.options.findIndex(o => o.grade === 3));
+  }
+});
+
+test('round picker returns a playable, tightening round', () => {
+  let seed = 1;
+  const rng = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 40; i++) {
+    const r = pickRound({ streak: i, rng });
+    assert.ok(r.family && r.options.length && r.decide >= 2.5, 'round shape');
+  }
 });
 
 console.log(`hoops: ${passed} passed`);

@@ -494,7 +494,7 @@ export class Court3D extends BeatRunner {
   /** Camera distance that fits a half-width (feet) across the view. */
   _fit(halfWidth) {
     const aspect = this._aspect || 1.2;
-    const hTan = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * aspect;
+    const hTan = Math.tan(THREE.MathUtils.degToRad((this.baseFov || 38) / 2)) * aspect;
     return halfWidth / hTan;
   }
 
@@ -503,7 +503,16 @@ export class Court3D extends BeatRunner {
     return new THREE.Vector3(target.x, target.y + Math.sin(a) * distance, target.z + Math.cos(a) * distance);
   }
 
-  setShot(name, snap = false) {
+  /** Where "you" would be looking: the rim with the ball, else the ball. */
+  _povLook() {
+    const holder = this.ball.holder;
+    if (holder === this.you) return new THREE.Vector3(HOOP[0], 7.5, HOOP[1]);
+    if (holder && this.pos[holder]) return new THREE.Vector3(this.pos[holder][0], 3.4, this.pos[holder][1]);
+    return this.ballMesh ? this.ballMesh.position.clone() : new THREE.Vector3(0, 3, 20);
+  }
+
+  setShot(name, snap = false, user = false) {
+    if (user) this._userShot = true;
     this.shot = name;
     const g = this.goal;
     if (name === 'broadcast') {
@@ -512,7 +521,8 @@ export class Court3D extends BeatRunner {
       g.k = 2.2;
     } else if (name === 'decide') {
       g.target.set(0, 0, 20);
-      g.pos.copy(this._orbit(g.target, 52, this._fit(27)));
+      // Sidelines near the camera spread wider than the middle; fit with margin.
+      g.pos.copy(this._orbit(g.target, 52, this._fit(31)));
       g.k = 2.4;
     } else if (name === 'push') {
       // Look at "you" from the middle of the floor so the read sits centre frame.
@@ -521,7 +531,20 @@ export class Court3D extends BeatRunner {
       g.target.set(at[0], 2.6, at[1]);
       g.pos.set(at[0] - side * 6, 10, at[1] + 16);
       g.k = 3.6;
+    } else if (name === 'pov') {
+      // Eye height, a step behind "you", looking where the player would look.
+      const at = this.pos[this.you] || [0, 20];
+      const look = this._povLook();
+      const dir = new THREE.Vector2(look.x - at[0], look.z - at[1]);
+      if (dir.lengthSq() < 1e-4) dir.set(0, -1);
+      dir.normalize();
+      g.pos.set(at[0] - dir.x * 1.6, 5.7, at[1] - dir.y * 1.6);
+      g.target.copy(look);
+      g.k = 4.2;
     }
+    this.fovGoal = name === 'pov' ? 66 : (this.baseFov || 38);
+    const me = this.players[this.you];
+    if (me) me.root.visible = name !== 'pov';
     if (snap) { this.cam.pos.copy(g.pos); this.cam.target.copy(g.target); }
   }
 
@@ -531,9 +554,10 @@ export class Court3D extends BeatRunner {
     this.el.classList.toggle('is-frozen', this.frozen);
     clearTimeout(this._shotTimer);
     if (this.frozen && !was) {
-      // Push in on the moment, hold a beat, then rise to see the floor.
-      this.setShot('push');
-      this._shotTimer = setTimeout(() => { if (this.frozen) this.setShot('decide'); }, 850);
+      // Drop to the player's eyes, hold the read, then rise to see the floor.
+      this._userShot = false;
+      this.setShot('pov');
+      this._shotTimer = setTimeout(() => { if (this.frozen && !this._userShot) this.setShot('decide'); }, 1500);
     } else if (!this.frozen && was) {
       this.setShot('broadcast');
     }
@@ -750,9 +774,10 @@ export class Court3D extends BeatRunner {
     this._aspect = w / h;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
-    this.camera.fov = w / h < 0.9 ? 50 : 38;
+    this.baseFov = w / h < 0.9 ? 50 : 38;
+    if (this.shot !== 'pov') this.camera.fov = this.baseFov;
     this.camera.updateProjectionMatrix();
-    this.setShot(this.frozen ? (this.shot === 'push' ? 'push' : 'decide') : this.shot);
+    this.setShot(this.shot);
   }
 
   _idleYaw(p) {
@@ -799,6 +824,8 @@ export class Court3D extends BeatRunner {
       this.cam.pos[k] = damp(this.cam.pos[k], g.pos[k], g.k, dt);
       this.cam.target[k] = damp(this.cam.target[k], target[k], g.k, dt);
     }
+    const fov = damp(this.camera.fov, this.fovGoal || this.baseFov || 38, 3.5, dt);
+    if (Math.abs(fov - this.camera.fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
     this.camera.position.copy(this.cam.pos);
     this.camera.lookAt(this.cam.target);
 
@@ -829,8 +856,17 @@ export class Court3D extends BeatRunner {
   }
 
   _layoutLabels() {
-    const place = (el, v, dy = 0) => {
-      const [x, y, z] = this._project(v);
+    const W = this._w || this._rect().width;
+    const H = this._h || this._rect().height;
+    const place = (el, v, dy = 0, clamp = false) => {
+      let [x, y, z] = this._project(v);
+      if (clamp) {
+        // Keep option labels fully inside the court view.
+        const hw = (el.offsetWidth || 80) / 2 + 8;
+        const hh = (el.offsetHeight || 28) / 2 + 8;
+        x = Math.min(W - hw, Math.max(hw, x));
+        y = Math.min(H - hh, Math.max(hh, y));
+      }
       el.style.transform = `translate(${x.toFixed(1)}px, ${(y + dy).toFixed(1)}px) translate(-50%, -50%)`;
       el.style.visibility = z < 1 ? 'visible' : 'hidden';
     };
@@ -851,7 +887,7 @@ export class Court3D extends BeatRunner {
       const v = this._target3(t.opt);
       if (t.opt.kind === 'shoot') v.y += 2.6;
       else v.z += 2.8;
-      place(t.label, v);
+      place(t.label, v, 0, true);
     }
   }
 
