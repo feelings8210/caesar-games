@@ -10,6 +10,7 @@
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `assets/hoops/env/arena_a.jpg` | 自制 (AI 生成 + 高斯模糊) | Caesar Hoops Team | CC0 / Public Domain | - | 2048x1152 室内篮球场看台背景（虚化，q=78） |
 | `assets/hoops/env/arena_b.jpg` | 自制 (AI 生成 + 高斯模糊) | Caesar Hoops Team | CC0 / Public Domain | - | 2048x1152 对向底线看台背景（虚化，q=78） |
+| `assets/hoops/hoop2.glb` | 自制 (Blender 程序化建模，脚本见 `assets/hoops-models-2` 分支 `tools/blender/build_hoops2.py`) | Caesar Hoops Team | 自有 | - | 篮板、篮筐、悬臂支架；篮网和展台、看台由 `js/games/hoops/arena3d.js` 在游戏中生成 |
 | `assets/hoops/env/env_1k.hdr` | Poly Haven (squash_court) | Sergej Majboroda | CC0 | [Poly Haven (squash_court)](https://polyhaven.com/a/squash_court) | 1024x512 Radiance HDR 室内球场全景 IBL 环境光照图 |
 | `assets/hoops/env/wood_diff_1k.jpg` | ambientCG (WoodFloor051) | Lennart Demes | CC0 | [ambientCG (WoodFloor051)](https://ambientcg.com/view?id=WoodFloor051) | 1024x1024 枫木球场地板漫反射贴图 (Color map, q=82) |
 | `assets/hoops/env/wood_nor_1k.jpg` | ambientCG (WoodFloor051) | Lennart Demes | CC0 | [ambientCG (WoodFloor051)](https://ambientcg.com/view?id=WoodFloor051) | 1024x1024 枫木球场地板法线贴图 (OpenGL Normal map, q=90) |

@@ -14,6 +14,7 @@ import { GLTFLoader } from '../../vendor/three/addons/GLTFLoader.js';
 import { RoomEnvironment } from '../../vendor/three/addons/RoomEnvironment.js';
 import { HDRLoader } from '../../vendor/three/addons/HDRLoader.js';
 import { BeatRunner, HOOP, dist, lerp } from './runner.js';
+import { buildArena } from './arena3d.js';
 
 const ASSETS = new URL('../../../assets/hoops/', import.meta.url).href;
 const RIM_Y = 10;
@@ -53,7 +54,12 @@ export class Court3D extends BeatRunner {
     mount.appendChild(this.el);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    // Quality starts high and steps down once if the first frames run slow.
+    const forced = new URLSearchParams(location.search).get('hoopsQuality');
+    this.quality = forced === 'low' ? 'low' : 'high';
+    this._qualityLocked = !!forced;
+    this._probe = [];
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.quality === 'low' ? 1 : 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
@@ -71,7 +77,8 @@ export class Court3D extends BeatRunner {
     this.el.appendChild(vignette);
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0B1526);
+    this.scene.background = new THREE.Color(0x090D14);
+    this.scene.fog = new THREE.Fog(0x090D14, 85, 210);
     this.camera = new THREE.PerspectiveCamera(38, 1, 1, 400);
     this.cam = { pos: new THREE.Vector3(0, 34, 72), target: new THREE.Vector3(0, 1.5, 17) };
     this.goal = { pos: this.cam.pos.clone(), target: this.cam.target.clone(), k: 2.6 };
@@ -83,7 +90,6 @@ export class Court3D extends BeatRunner {
     this.scene.environmentIntensity = 0.55;
 
     this._lights();
-    this._plinth();
     this.ready = this._load();
 
     this._ro = new ResizeObserver(() => this._resize());
@@ -96,13 +102,14 @@ export class Court3D extends BeatRunner {
    * ---------------------------------------------------------------- */
 
   _lights() {
-    this.scene.add(new THREE.HemisphereLight(0xDFE8FF, 0x3A2A1A, 0.45));
-    const key = new THREE.DirectionalLight(0xFFE9CC, 2.3);
-    key.position.set(-12, 46, 8);
-    key.target.position.set(0, 0, 21);
+    this.scene.add(new THREE.HemisphereLight(0xDFE8FF, 0x3A2A1A, 0.3));
+    // A museum spot over the table: full light on the court, falling off over the stands.
+    const key = new THREE.SpotLight(0xFFE9CC, 2.6, 0, 0.5, 0.55, 0);
+    key.position.set(-14, 84, 6);
+    key.target.position.set(0, 0, 22);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
-    Object.assign(key.shadow.camera, { left: -34, right: 34, top: 34, bottom: -34, near: 5, far: 110 });
+    Object.assign(key.shadow.camera, { near: 40, far: 130 });
     key.shadow.bias = -0.0004;
     key.shadow.normalBias = 0.04;
     this.scene.add(key, key.target);
@@ -112,33 +119,19 @@ export class Court3D extends BeatRunner {
     this.scene.add(rim);
   }
 
-  _plinth() {
-    const lacquer = new THREE.MeshStandardMaterial({ color: 0x0F1B30, roughness: 0.55, metalness: 0 });
-    const plinth = new THREE.Mesh(new THREE.BoxGeometry(56, 1.6, 61), lacquer);
-    plinth.position.set(0, -0.82, 20.3);
-    plinth.receiveShadow = true;
-    this.scene.add(plinth);
-    const inlay = new THREE.Mesh(new THREE.BoxGeometry(52.4, 0.04, 51.8),
-      new THREE.MeshStandardMaterial({ color: 0xA8823F, roughness: 0.35, metalness: 1 }));
-    inlay.position.set(0, -0.03, 24.9);
-    this.scene.add(inlay);
-  }
-
   async _load() {
     const loader = new GLTFLoader();
     const image = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
     const optional = p => p.catch(() => null);    // environment art is a bonus, never a blocker
     const tex = new THREE.TextureLoader();
-    const [figs, hoop, lines, wood, nor, rough, hdr, arenaA, arenaB] = await Promise.all([
+    const [figs, hoop, lines, wood, nor, rough, hdr] = await Promise.all([
       loader.loadAsync(ASSETS + 'figurines.glb'),
-      loader.loadAsync(ASSETS + 'hoop.glb'),
+      loader.loadAsync(ASSETS + 'hoop2.glb'),
       image(ASSETS + 'court_lines.png'),
       optional(image(ASSETS + 'env/wood_diff_1k.jpg')),
       optional(tex.loadAsync(ASSETS + 'env/wood_nor_1k.jpg')),
       optional(tex.loadAsync(ASSETS + 'env/wood_rough_1k.jpg')),
-      optional(new HDRLoader().loadAsync(ASSETS + 'env/env_1k.hdr')),
-      optional(tex.loadAsync(ASSETS + 'env/arena_a.jpg')),
-      optional(tex.loadAsync(ASSETS + 'env/arena_b.jpg'))
+      optional(new HDRLoader().loadAsync(ASSETS + 'env/env_1k.hdr'))
     ]);
 
     if (hdr) {
@@ -147,7 +140,6 @@ export class Court3D extends BeatRunner {
       this.scene.environmentIntensity = 0.7;
       hdr.dispose();
     }
-    this._backdrop(arenaA, arenaB);
 
     const floorMat = new THREE.MeshStandardMaterial({ map: this._floorTexture(lines, wood), roughness: 0.42, metalness: 0 });
     // Planks run along the court; the scans run across, so turn the detail maps.
@@ -179,6 +171,8 @@ export class Court3D extends BeatRunner {
       }
     });
     this.scene.add(hoop.scene);
+    this.arena = buildArena(this.scene, { hoop: hoop.scene, rimY: RIM_Y });
+    this._applyQuality();
 
     this.figureParts = {};
     for (const name of ['Figurine_Offense', 'Figurine_Defense']) {
@@ -192,23 +186,6 @@ export class Court3D extends BeatRunner {
     this.scene.add(this.ballMesh);
     this.loaded = true;
     if (this._pending) { const [s, y] = this._pending; this._pending = null; this.setScene(s, y); }
-  }
-
-  /** Two blurred arena halves on a ring around the table, like a studio backdrop. */
-  _backdrop(a, b) {
-    [[a, Math.PI / 2], [b || a, -Math.PI / 2]].forEach(([map, start]) => {
-      if (!map) return;
-      map.colorSpace = THREE.SRGBColorSpace;
-      map.wrapS = THREE.RepeatWrapping;
-      map.repeat.x = -1;              // seen from inside the ring
-      const ring = new THREE.Mesh(
-        new THREE.CylinderGeometry(105, 105, 72, 48, 1, true, start, Math.PI),
-        new THREE.MeshBasicMaterial({ map, side: THREE.BackSide, toneMapped: false, depthWrite: false })
-      );
-      ring.position.set(0, 24, 22);
-      ring.renderOrder = -1;
-      this.scene.add(ring);
-    });
   }
 
   _floorTexture(lines, wood) {
@@ -520,6 +497,7 @@ export class Court3D extends BeatRunner {
   }
 
   _swish() {
+    this.arena?.swish();
     const r = this._ring(0.8, 1.0, 0xFFFFFF, 0.95);
     r.position.set(HOOP[0], RIM_Y - 0.1, HOOP[1]);
     this._addFx(r, 900, k => { r.scale.setScalar(1 + k * 3); r.material.opacity = 0.95 * (1 - k); });
@@ -607,7 +585,7 @@ export class Court3D extends BeatRunner {
       // One calm game camera for watching and deciding: the freeze never moves it.
       // Sidelines near the camera spread wider than the middle; fit with margin.
       g.target.set(0, 0.5, 19);
-      g.pos.copy(this._orbit(g.target, 42, this._fit(29)));
+      g.pos.copy(this._orbit(g.target, 38, this._fit(29)));
       g.k = 2.4;
     } else if (name === 'push') {
       // Look at "you" from the middle of the floor so the read sits centre frame.
@@ -983,6 +961,30 @@ export class Court3D extends BeatRunner {
     this.setShot(this.shot);
   }
 
+  /** Median frame time over the first couple of seconds decides the tier, once. */
+  _probeQuality(dt) {
+    if (this._qualityLocked || !dt) return;
+    this._probe.push(dt);
+    if (this._probe.length < 90) return;
+    this._qualityLocked = true;
+    const sorted = this._probe.slice(20).sort((a, b) => a - b);
+    if (sorted[sorted.length >> 1] > 1 / 40) { this.quality = 'low'; this._applyQuality(); }
+  }
+
+  _applyQuality() {
+    const low = this.quality === 'low';
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, low ? 1 : 2));
+    const size = low ? 1024 : 2048;
+    if (this.key.shadow.mapSize.x !== size) {
+      this.key.shadow.mapSize.set(size, size);
+      this.key.shadow.map?.dispose();
+      this.key.shadow.map = null;
+    }
+    this.arena?.setQuality(this.quality);
+    if (this.el) this.el.dataset.quality = this.quality;
+    this._resize?.();
+  }
+
   _idleYaw(p) {
     const holder = this.ball.holder;
     let look;
@@ -998,6 +1000,8 @@ export class Court3D extends BeatRunner {
     this._last = now;
     if (!this.loaded) return;
     const t = now / 1000;
+    this._probeQuality(dt);
+    this.arena.update(dt);
 
     // Figurines: face where they move, hop a little when they travel.
     for (const p of Object.values(this.players)) {
