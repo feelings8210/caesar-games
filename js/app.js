@@ -24,6 +24,7 @@ import { t, plural, localizeDom, getLocale, setLocale } from './i18n/strings.js'
 import { GAME_TYPES, gameMeta, firstSideOf } from './games/registry.js';
 import { OpenGameController, replayOpenRecord } from './games/open/controller.js';
 import { OpenBoardView } from './games/open/board_view.js';
+import { HoopsGame } from './games/hoops/controller.js';
 
 export const S = {
   HOME: 'HOME',
@@ -41,6 +42,7 @@ export const S = {
   RECORD: 'RECORD',
   REPLAY: 'REPLAY',
   LEARN: 'LEARN',
+  HOOPS: 'HOOPS',
   OPEN_PLAY: 'OPEN_PLAY',
   OPEN_END: 'OPEN_END'
 };
@@ -83,6 +85,7 @@ export class App {
       onNodeTap: (k) => this.onNodeTap(k)
     });
     this.openGame = new OpenGameController(this, $('#board-mount'));
+    this.hoops = new HoopsGame($('#hoops-root'));
 
     this.bindChrome();
     this.go(S.HOME);
@@ -101,6 +104,7 @@ export class App {
       this.board.cancelAnimations();
     }
     if (prev !== next) this.cancelAi();
+    if (prev === S.HOOPS && next !== S.HOOPS) this.hoops.leave();
     if (prev !== next && (prev === S.OPEN_PLAY || prev === S.OPEN_END)) this.openGame.aiToken++;
 
     this.state = next;
@@ -606,10 +610,12 @@ export class App {
     if (st === S.GAME_LIBRARY) this.renderLibrary();
     if (st === S.RECORD || st === S.REPLAY) this.renderRecord();
     if (st === S.LEARN) this.renderLearn();
+    if (st === S.HOOPS) this.hoops.render();
   }
 
   screenFor(st) {
     if (st === S.LEARN) return 'learn';
+    if (st === S.HOOPS) return 'hoops';
     if (BOARD_STATES.has(st)) return 'board';
     return 'home';
   }
@@ -625,8 +631,8 @@ export class App {
   renderChrome() {
     const st = this.state;
     const onBoard = BOARD_STATES.has(st);
-    $('#app-bar').dataset.context = onBoard ? 'game' : 'home';
-    $('#btn-home').classList.toggle('is-hidden', !onBoard && st !== S.LEARN);
+    $('#app-bar').dataset.context = onBoard || st === S.HOOPS ? 'game' : 'home';
+    $('#btn-home').classList.toggle('is-hidden', !onBoard && st !== S.LEARN && st !== S.HOOPS);
 
     const muteBtn = $('#btn-sound');
     muteBtn.setAttribute('aria-pressed', String(!sounds.isMuted));
@@ -1273,6 +1279,7 @@ export class App {
     on('#btn-continue', () => { if (!this.resumeGame(null)) this.flash(t('misc.noContinue')); });
     on('#btn-games', () => this.go(S.GAME_LIBRARY));
     on('#btn-learn', () => this.go(S.LEARN));
+    on('#btn-hoops', () => this.go(S.HOOPS));
     on('#btn-learn-back', () => this.goHome());
 
     $$('[data-mode]').forEach(card => {

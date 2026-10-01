@@ -148,7 +148,7 @@ button { cursor: pointer; border: none; background: none; }
 .game-shelf {
   width: min(960px, 94vw);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
   margin: clamp(16px, 2.8vh, 26px) 0 clamp(14px, 2.5vh, 22px);
 }
@@ -646,6 +646,7 @@ button { cursor: pointer; border: none; background: none; }
 
 @media (max-width: 860px), (orientation: portrait) {
   .game-shelf { grid-template-columns: repeat(2, 1fr); width: min(560px, 94vw); }
+  .game-tile-hoops { grid-column: 1 / -1; }
   .game-tile { min-height: 86px; }
   .table { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; gap: 10px; }
   .board-mount {
