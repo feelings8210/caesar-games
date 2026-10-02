@@ -639,6 +639,11 @@ export class App {
     muteBtn.querySelector('.btn-label').textContent = t(sounds.isMuted ? 'bar.soundOff' : 'bar.soundOn');
     $('#btn-language').textContent = getLocale() === 'en' ? '中文' : 'EN';
     $('#btn-language').setAttribute('aria-label', t('bar.language'));
+    // Full screen hides the browser bars (and the status bar on iPad); the
+    // button only shows where the browser can actually do it.
+    const fs = $('#btn-fullscreen');
+    fs.classList.toggle('is-hidden', !fullscreenSupported());
+    fs.querySelector('.btn-label').textContent = t(fullscreenElement() ? 'bar.exitFullscreen' : 'bar.fullscreen');
   }
 
   /* ---------------- home ---------------- */
@@ -1266,6 +1271,15 @@ export class App {
       this.render();
     });
 
+    on('#btn-fullscreen', () => {
+      const done = () => this.renderChrome();
+      const p = fullscreenElement() ? exitFullscreen() : enterFullscreen();
+      Promise.resolve(p).catch(() => {}).then(done);
+    });
+    for (const type of ['fullscreenchange', 'webkitfullscreenchange']) {
+      document.addEventListener(type, () => this.renderChrome());
+    }
+
     on('#brand', () => this.goHome());
     on('#btn-home', () => this.goHome());
 
@@ -1435,13 +1449,31 @@ function escapeHtml(s) {
 
 /* ------------------------------------------------------------------ */
 
+/* Full screen, with Safari's prefixed API as the fallback. */
+function fullscreenSupported() {
+  return !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+}
+function fullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+function enterFullscreen() {
+  const el = document.documentElement;
+  return (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el);
+}
+function exitFullscreen() {
+  return (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+}
+
 function boot() {
   if (window.caesarApp) return;
-  // A quick double tap or a stray pinch must never magnify the app mid-game
-  // (Safari ignores user-scalable=no, but honours these).
-  for (const type of ['gesturestart', 'gesturechange', 'dblclick']) {
-    document.addEventListener(type, e => e.preventDefault(), { passive: false });
+  // A quick double tap or a stray pinch must never magnify the app mid-game.
+  // Pinching is only blocked at normal size, so a page that somehow got
+  // zoomed can always be pinched back out.
+  const atRest = () => (window.visualViewport?.scale ?? 1) <= 1.01;
+  for (const type of ['gesturestart', 'gesturechange']) {
+    document.addEventListener(type, e => { if (atRest()) e.preventDefault(); }, { passive: false });
   }
+  document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
   window.caesarApp = new App();
   window.CaesarDebug = { S, MODES, PIECE_TYPES };
   console.log(`[Caesar Games] ${BUILD.version} ready`);
