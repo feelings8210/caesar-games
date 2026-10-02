@@ -94,7 +94,7 @@ export const PLAYS = [
     title: T('一字排开（Stack）', 'Stack'),
     sub: T('四个人在罚球区一侧排成一列，听信号同时散开。', 'Four players line up on one side of the lane and break on the signal.'),
     side: 'o',
-    setup: { o1: [8, -1.5], o5: [6, 6], o4: [6, 9], o3: [6, 12], o2: [6, 15], ball: 'o1' },
+    setup: { o1: [8, -1.5], o5: [6, 5.5], o4: [6, 9], o3: [6, 12.5], o2: [6, 16], ball: 'o1' },
     steps: [
       { say: T('1 号在底线发球，其余四人在右侧罚球区边排成一列。', '#1 inbounds on the baseline; the other four line up along the right side of the lane.'),
         beats: [{ ms: 600, call: ['o1', T('一字！', 'Stack!')] }] },

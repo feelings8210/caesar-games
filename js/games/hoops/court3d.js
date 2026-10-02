@@ -1207,8 +1207,12 @@ export class Court3D extends BeatRunner {
     };
     const pov = this.shot === 'pov';
     for (const [id, chip] of Object.entries(this.labels)) {
+      // Beside the ring on the outside of the floor, not in front of it: in a
+      // column of players (a stack, a lane line-up) "in front" is the next
+      // player's feet, and every number looked like it belonged to him.
       const [x, z] = this.pos[id];
-      place(chip, new THREE.Vector3(x, 0.1, z + 2.6));
+      const out = x >= 0 ? 1 : -1;
+      place(chip, new THREE.Vector3(x + out * 2.5, 0.1, z + 1.1));
       if (pov && id === this.you) chip.style.visibility = 'hidden';
     }
     if (this.youTag) this.youTag.style.display = pov ? 'none' : '';
