@@ -1,8 +1,8 @@
 /* Caesar Games — Hoops IQ court design
  *
- * Paints the half court over the maple planks, kept deliberately quiet: one
- * honey-maple surface, crisp white lines, the lane in a slightly deeper stain
- * of the same wood, and the CD mark burned into the centre circle.
+ * Paints the half court over the maple planks, arena style: honey maple,
+ * crisp white lines, the key and centre circle painted in the team navy and
+ * the CD mark in gold at centre court.
  *
  * Canvas space: x across (left = court x -25), y down from the baseline,
  * `px` pixels per foot. Seen from the broadcast camera, canvas up is the far
@@ -10,6 +10,7 @@
  */
 
 const LINE = '#F7F4EC';
+const NAVY = '#173058';
 const HOOP_Z = 5.25;
 
 /** The CD mark as a single-colour silhouette. */
@@ -32,19 +33,15 @@ export function drawCourt(g, S, mark) {
   const lw = 0.19 * px;                         // two-inch lines, a touch bolder for the iPad
 
   g.save();
-  // The lane: the same boards under a deeper stain.
-  g.globalCompositeOperation = 'multiply';
-  g.fillStyle = 'rgba(160,128,98,0.32)';
+  // Painted key and centre circle in the team navy, the mark in gold.
+  g.fillStyle = NAVY;
   g.fillRect(X(-8), Z(0), 16 * px, 19 * px);
-  // The mark, burned into the centre circle.
+  g.beginPath(); g.arc(X(0), Z(47), 6 * px, 0, Math.PI * 2); g.fill();
   if (mark) {
-    const w = 8 * px;
-    const m = tintedMark(mark, '#9A6A3C', Math.round(w));
-    g.globalAlpha = 0.55;
+    const w = 7.4 * px;
+    const m = tintedMark(mark, '#D9B97A', Math.round(w));
     g.drawImage(m, X(0) - w / 2, Z(47) - m.height / 2 - 0.3 * px, w, m.height);
-    g.globalAlpha = 1;
   }
-  g.globalCompositeOperation = 'source-over';
 
   // Lines.
   g.strokeStyle = LINE;

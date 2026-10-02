@@ -24,7 +24,7 @@ export function buildHoop({ hoop = [0, 5.25], rimY = 10, mark = null } = {}) {
     black: new THREE.MeshStandardMaterial({ color: 0x14161A, roughness: 0.38, metalness: 0.5 }),
     steel: new THREE.MeshStandardMaterial({ color: 0x4A4F57, roughness: 0.3, metalness: 1 }),
     rim: new THREE.MeshStandardMaterial({ color: 0xE0592A, roughness: 0.36, metalness: 0.45 }),
-    lacquer: new THREE.MeshStandardMaterial({ color: 0x08090C, roughness: 0.22, metalness: 0.15 }),
+    lacquer: new THREE.MeshStandardMaterial({ color: 0x173058, roughness: 0.78 }),
     gold: new THREE.MeshStandardMaterial({ color: 0xC9A76A, roughness: 0.3, metalness: 1 })
   };
   const add = (geo, m, x, y, z, shadow = true) => {
@@ -63,10 +63,27 @@ export function buildHoop({ hoop = [0, 5.25], rimY = 10, mark = null } = {}) {
   box(0.62, 0.42, 0.06, mat.rim, hx, rimY - 0.08, zf + 0.03);
 
   // Support: lacquer base behind the baseline, black post, steel arm.
-  const baseZ0 = -9.4, baseZ1 = -3.2, baseH = 1.1, baseW = 4.2;
+  const baseZ0 = -9.6, baseZ1 = -3.0, baseH = 2.2, baseW = 4.6;
   const bz = (baseZ0 + baseZ1) / 2;
   box(baseW, baseH, baseZ1 - baseZ0, mat.lacquer, hx, baseH / 2, bz);
-  box(baseW + 0.05, 0.06, baseZ1 - baseZ0 + 0.05, mat.gold, hx, baseH - 0.28, bz, false);
+  box(baseW + 0.05, 0.06, baseZ1 - baseZ0 + 0.05, mat.white, hx, baseH - 0.2, bz, false);
+  // Shot clock on top of the board.
+  box(1.9, 0.62, 0.5, mat.black, hx, BOARD.bottom + BOARD.h + 0.42, zf - 0.3);
+  {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 84;
+    const cg = c.getContext('2d');
+    cg.fillStyle = '#050608'; cg.fillRect(0, 0, 256, 84);
+    cg.fillStyle = '#FF3B2F';
+    cg.font = '700 64px ui-monospace, Menlo, monospace';
+    cg.textAlign = 'center'; cg.textBaseline = 'middle';
+    cg.fillText('24', 128, 46);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.55), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
+    face.position.set(hx, BOARD.bottom + BOARD.h + 0.42, zf - 0.04);
+    g.add(face);
+  }
   const postZ = -6.3;
   add(new THREE.CylinderGeometry(0.36, 0.44, 6.2, 18), mat.black, hx, baseH + 3.1, postZ);
   const arm = new THREE.CatmullRomCurve3([
@@ -90,14 +107,14 @@ export function buildHoop({ hoop = [0, 5.25], rimY = 10, mark = null } = {}) {
 
   // The mark, in gold on the front of the base.
   if (mark) {
-    const c = tintedMark(mark, '#D9B97A', 512);
+    const c = tintedMark(mark, '#F4F2EC', 512);
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;
-    const w = 1.1;
+    const w = 2.3;
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * c.height / c.width),
       new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.05, metalness: 0.9, roughness: 0.3, depthWrite: false }));
-    m.position.set(hx, 0.42, baseZ1 + 0.012);
+    m.position.set(hx, 1.0, baseZ1 + 0.012);
     g.add(m);
   }
   return g;

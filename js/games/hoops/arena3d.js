@@ -1,10 +1,10 @@
 /* Caesar Games — Hoops IQ diorama set
  *
  * Everything around the court in the 3D view, built in code so it stays light
- * on an ordinary iPad: a black-lacquer plinth with a gold inlay, grey concrete
- * stands with wooden benches, aisles and black handrails behind slatted wood
- * fronts on three sides, columned walls falling into a cool haze, soft light
- * shafts from above, and a cord net that sways.
+ * on an ordinary iPad: a navy apron with a gold inlay and the name behind the
+ * baseline, stands of navy seats with aisles and black handrails behind a
+ * scrolling LED ribbon on three sides, columned walls falling into a cool
+ * haze, soft light shafts from above, and a cord net that sways.
  *
  * World space is court feet (x across, z from the baseline, y up); the court
  * floor itself (z 0..50) is drawn by Court3D at y = 0.
@@ -15,14 +15,13 @@ import * as THREE from '../../vendor/three/three.module.min.js';
 const GROUND_Y = -2.4;
 
 const MAT = {
-  lacquer: () => new THREE.MeshStandardMaterial({ color: 0x07090D, roughness: 0.55, metalness: 0.1, envMapIntensity: 0.25 }),
+  lacquer: () => new THREE.MeshStandardMaterial({ color: 0x14284A, roughness: 0.4, envMapIntensity: 0.3 }),
   gold: () => new THREE.MeshStandardMaterial({ color: 0xC9A76A, roughness: 0.3, metalness: 1 }),
   ground: () => new THREE.MeshStandardMaterial({ color: 0x0D1015, roughness: 0.92 }),
   tread: () => new THREE.MeshStandardMaterial({ color: 0x41464E, roughness: 0.9 }),
   riser: () => new THREE.MeshStandardMaterial({ color: 0x23272E, roughness: 0.92 }),
-  bench: () => new THREE.MeshStandardMaterial({ color: 0x77573A, roughness: 0.55 }),
+  seat: () => new THREE.MeshStandardMaterial({ color: 0x1D3A68, roughness: 0.6 }),
   step: () => new THREE.MeshStandardMaterial({ color: 0x5A5F67, roughness: 0.85 }),
-  slat: () => new THREE.MeshStandardMaterial({ color: 0x6B4A30, roughness: 0.55 }),
   backing: () => new THREE.MeshStandardMaterial({ color: 0x14171C, roughness: 0.9 }),
   rail: () => new THREE.MeshStandardMaterial({ color: 0x15171B, roughness: 0.35, metalness: 0.8 }),
   wall: () => new THREE.MeshStandardMaterial({ color: 0x262B32, roughness: 0.95 }),
@@ -75,7 +74,7 @@ function rod(a, b, r, mat) {
  * One bank of stands. Built along local +x (length) rising toward local -z,
  * then placed by the caller. `aisles` are local x positions of stairways.
  */
-function stand(length, mats, slats, aisles = []) {
+function stand(length, mats, seats, led, aisles = []) {
   const g = new THREE.Group();
   const rows = 6, depth = 2.7, rise = 1.45, aw = 3.6;
   // Bench runs between the aisles.
@@ -90,7 +89,10 @@ function stand(length, mats, slats, aisles = []) {
     const h = top - GROUND_Y;
     g.add(box(length, h - 0.22, depth, mats.riser, 0, GROUND_Y + (h - 0.22) / 2, z));
     g.add(box(length, 0.22, depth - 0.25, mats.tread, 0, top - 0.11, z + 0.12));
-    for (const [a, b] of runs) g.add(box(b - a - 0.3, 0.3, 1.0, mats.bench, (a + b) / 2, top + 0.15, z - depth / 2 + 0.75));
+    for (const [a, b] of runs) {
+      const n = Math.floor((b - a) / 1.9);
+      for (let i = 0; i < n; i++) seats.push([g, a + (b - a) * (i + 0.5) / n, top + 0.55, z - depth / 2 + 0.95]);
+    }
     for (const x of aisles) g.add(box(aw - 0.3, 0.06, depth - 0.4, mats.step, x, top + 0.03, z + 0.1));
   }
   // Handrails up each aisle, following the rake.
@@ -107,11 +109,12 @@ function stand(length, mats, slats, aisles = []) {
       }
     }
   }
-  // Slatted front panel and its rail.
+  // Front wall carrying the LED ribbon, and its rail.
   const frontH = 3.4;
   g.add(box(length, frontH, 0.3, mats.backing, 0, GROUND_Y + frontH / 2, -0.35));
-  const n = Math.floor(length / 0.55);
-  for (let i = 0; i < n; i++) slats.push([g, -length / 2 + (i + 0.5) * (length / n), GROUND_Y + frontH / 2 - 0.1, -0.12, frontH - 0.2]);
+  const ribbon = new THREE.Mesh(new THREE.PlaneGeometry(length, 1.7), led);
+  ribbon.position.set(0, GROUND_Y + frontH - 0.95, -0.19);
+  g.add(ribbon);
   const railY = GROUND_Y + frontH + 1.3;
   const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, length, 8), mats.rail);
   rail.rotation.z = Math.PI / 2;
@@ -127,6 +130,48 @@ function stand(length, mats, slats, aisles = []) {
   backRail.position.set(0, GROUND_Y + 2.6 + rise * (rows - 1) + 1.4, -0.6 - depth * rows + 0.3);
   g.add(backRail);
   return g;
+}
+
+/** Courtside LED ribbon: the name scrolling on a dark board, self-lit. */
+function ledBoard() {
+  const c = document.createElement('canvas');
+  c.width = 1024; c.height = 96;
+  const g = c.getContext('2d');
+  const bg = g.createLinearGradient(0, 0, 0, 96);
+  bg.addColorStop(0, '#0B1A33'); bg.addColorStop(1, '#122A52');
+  g.fillStyle = bg; g.fillRect(0, 0, 1024, 96);
+  g.textBaseline = 'middle'; g.textAlign = 'center';
+  g.font = '800 54px "Helvetica Neue", Arial, sans-serif';
+  if ('letterSpacing' in g) g.letterSpacing = '10px';
+  g.fillStyle = '#FFFFFF'; g.fillText('CAESAR GAMES', 300, 50);
+  g.fillStyle = '#E2BE72'; g.fillText('HOOPS IQ', 790, 50);
+  g.fillStyle = '#E2BE72'; g.fillRect(560, 40, 12, 12);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.repeat.set(58 / 22, 1);
+  const mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, color: 0xC8CCD4 });
+  return { mat, update(dt) { tex.offset.x = (tex.offset.x + dt * 0.035) % 1; } };
+}
+
+/** A word painted flat on the apron, readable from the camera. */
+function apronWord(text, x, z) {
+  const c = document.createElement('canvas');
+  c.width = 1024; c.height = 192;
+  const g = c.getContext('2d');
+  g.textBaseline = 'middle'; g.textAlign = 'center';
+  g.font = '800 150px "Helvetica Neue", Arial, sans-serif';
+  if ('letterSpacing' in g) g.letterSpacing = '18px';
+  g.fillStyle = '#F4F2EC';
+  g.fillText(text, 512, 100);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(13, 13 * 192 / 1024),
+    new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.4, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }));
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(x, 0.01, z);
+  return m;
 }
 
 /** Soft light shaft: an open cone, additive, fading at both ends and edges. */
@@ -230,27 +275,29 @@ export function buildArena(scene, { hoop, rimY }) {
   root.add(frame(-28.2, 28.2, -10.2, 52.2, 0.1, -0.005, mats.gold));
 
   // Stands: behind the basket and along both sidelines; the camera side stays open.
-  const slats = [];
-  const back = stand(58, mats, slats, [0]);
+  const seats = [];
+  const led = ledBoard();
+  const back = stand(58, mats, seats, led.mat, [0]);
   back.position.set(0, 0, -14);
-  const left = stand(58, mats, slats, [-14, 14]);
+  const left = stand(58, mats, seats, led.mat, [-14, 14]);
   left.rotation.y = Math.PI / 2;               // rows rise away from the court (-x)
   left.position.set(-33, 0, 23);
-  const right = stand(58, mats, slats, [-14, 14]);
+  const right = stand(58, mats, seats, led.mat, [-14, 14]);
   right.rotation.y = -Math.PI / 2;
   right.position.set(33, 0, 23);
   root.add(back, left, right);
-  const slatGeo = new THREE.BoxGeometry(0.3, 1, 0.14);
-  const slatMesh = new THREE.InstancedMesh(slatGeo, mats.slat, slats.length);
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), v = new THREE.Vector3();
+  const seatMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1.5, 1.1, 1.3), mats.seat, seats.length);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), v = new THREE.Vector3();
   root.updateMatrixWorld(true);
-  slats.forEach(([g, x, y, z, h], i) => {
+  seats.forEach(([g, x, y, z], i) => {
     v.set(x, y, z).applyMatrix4(g.matrixWorld);
     g.getWorldQuaternion(q);
-    s.set(1, h, 1);
-    slatMesh.setMatrixAt(i, m4.compose(v, q, s));
+    seatMesh.setMatrixAt(i, m4.compose(v, q, s));
   });
-  root.add(slatMesh);
+  root.add(seatMesh);
+
+  // The name on the apron behind the baseline, either side of the basket.
+  for (const [text, x] of [['CAESAR', -13.5], ['GAMES', 13.5]]) root.add(apronWord(text, x, -3.2));
 
   // Walls with pilasters, far enough to sit in the haze.
   const wallH = 70;
@@ -276,7 +323,7 @@ export function buildArena(scene, { hoop, rimY }) {
   return {
     root,
     swish: () => cords.kick(),
-    update(dt) { cords.update(dt); },
+    update(dt) { cords.update(dt); led.update(dt); },
     setQuality(q) { beams.visible = q !== 'low'; }
   };
 }

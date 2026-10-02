@@ -153,7 +153,7 @@ export class Court3D extends BeatRunner {
     // Specular held low too, or the overhead spot and the backlight leave white
     // smears across the near boards.
     const floorMat = new THREE.MeshPhysicalMaterial({ map: this._floorTexture(mark, wood), roughness: 0.42, metalness: 0,
-      envMap: this.roomEnv, envMapIntensity: 0.14, specularIntensity: 0.35 });
+      envMap: this.roomEnv, envMapIntensity: 0.3, specularIntensity: 0.35, clearcoat: 0.45, clearcoatRoughness: 0.16 });
     // Planks run along the court; the scans run across, so turn the detail maps.
     for (const [m, key] of [[nor, 'normalMap'], [rough, 'roughnessMap']]) {
       if (!m) continue;
