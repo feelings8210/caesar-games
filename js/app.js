@@ -1437,6 +1437,11 @@ function escapeHtml(s) {
 
 function boot() {
   if (window.caesarApp) return;
+  // A quick double tap or a stray pinch must never magnify the app mid-game
+  // (Safari ignores user-scalable=no, but honours these).
+  for (const type of ['gesturestart', 'gesturechange', 'dblclick']) {
+    document.addEventListener(type, e => e.preventDefault(), { passive: false });
+  }
   window.caesarApp = new App();
   window.CaesarDebug = { S, MODES, PIECE_TYPES };
   console.log(`[Caesar Games] ${BUILD.version} ready`);

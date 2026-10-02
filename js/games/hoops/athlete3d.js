@@ -10,6 +10,8 @@ import * as THREE from '../../vendor/three/three.module.min.js';
 import { clone as cloneSkinned } from '../../vendor/three/addons/SkeletonUtils.js';
 
 const FADE = 0.22;
+/** Loops that crouch deep enough to want some standing pose mixed in. */
+const CROUCH = new Set(['DefStance', 'DefSlideL']);
 /** Feet travelled per loop, from the animation library's root motion. */
 export const STRIDE = { Jog: 17.7 / 0.92, Sprint: 19.85 / 0.67 };
 
@@ -17,6 +19,9 @@ export class AthleteKit {
   constructor(gltf) {
     this.template = gltf.scene;
     this.clips = Object.fromEntries(gltf.animations.map(a => [a.name, a]));
+    // The pedestal's top face sat exactly on the floor and fought it for depth.
+    const base = this.template.getObjectByName('Base');
+    if (base) base.position.y += 0.1;
     this.template.updateMatrixWorld(true);
     // Numbers ride on the chest bone, laid on the jersey's own chest and back
     // surfaces as measured in the bind pose (the exported sockets sit inside
@@ -89,6 +94,12 @@ class Athlete {
       }
       this.actions[name] = a;
     }
+    // A second idle, blended under the defensive crouches so they read as a
+    // ready stance rather than a squat.
+    if (kit.clips.Idle) {
+      this.stand = this.mixer.clipAction(kit.clips.Idle.clone());
+      this.stand.setEffectiveWeight(0).play();
+    }
     this.loopName = null;
     this.want = 'Idle';
     this.oneShot = null;
@@ -129,7 +140,14 @@ class Athlete {
     this.oneShot = a;
   }
 
-  update(dt) { this.mixer.update(dt); }
+  update(dt) {
+    if (this.stand) {
+      const goal = !this.oneShot && CROUCH.has(this.loopName) ? 0.6 : 0;
+      const w = this.stand.getEffectiveWeight();
+      this.stand.setEffectiveWeight(w + (goal - w) * (1 - Math.exp(-6 * dt)));
+    }
+    this.mixer.update(dt);
+  }
 
   /** Fade the whole figure (the player view looks through anyone in the way). */
   setOpacity(a) {
