@@ -667,3 +667,8 @@ button { cursor: pointer; border: none; background: none; }
   .record-body { grid-template-columns: 1fr; }
   .replay-board { height: 44vh; }
 }
+
+/* Phones have no room in the bar for it (and iPhone can't go full screen anyway). */
+@media (max-width: 640px) {
+  #btn-fullscreen { display: none; }
+}
