@@ -1,9 +1,10 @@
 /* Caesar Games — Hoops IQ diorama set
  *
  * Everything around the court in the 3D view, built in code so it stays light
- * on an ordinary iPad: a black-lacquer plinth with gold inlay, stepped wooden
- * stands with slatted fronts and rails on three sides, dark walls with
- * pilasters, soft light shafts from above, and a cord net that sways.
+ * on an ordinary iPad: a black-lacquer plinth with a gold inlay, grey concrete
+ * stands with wooden benches, aisles and black handrails behind slatted wood
+ * fronts on three sides, columned walls falling into a cool haze, soft light
+ * shafts from above, and a cord net that sways.
  *
  * World space is court feet (x across, z from the baseline, y up); the court
  * floor itself (z 0..50) is drawn by Court3D at y = 0.
@@ -17,13 +18,15 @@ const MAT = {
   lacquer: () => new THREE.MeshStandardMaterial({ color: 0x07090D, roughness: 0.55, metalness: 0.1, envMapIntensity: 0.25 }),
   gold: () => new THREE.MeshStandardMaterial({ color: 0xC9A76A, roughness: 0.3, metalness: 1 }),
   ground: () => new THREE.MeshStandardMaterial({ color: 0x0D1015, roughness: 0.92 }),
-  tread: () => new THREE.MeshStandardMaterial({ color: 0x6A4A30, roughness: 0.6 }),
-  riser: () => new THREE.MeshStandardMaterial({ color: 0x1A1F27, roughness: 0.85 }),
+  tread: () => new THREE.MeshStandardMaterial({ color: 0x41464E, roughness: 0.9 }),
+  riser: () => new THREE.MeshStandardMaterial({ color: 0x23272E, roughness: 0.92 }),
+  bench: () => new THREE.MeshStandardMaterial({ color: 0x77573A, roughness: 0.55 }),
+  step: () => new THREE.MeshStandardMaterial({ color: 0x5A5F67, roughness: 0.85 }),
   slat: () => new THREE.MeshStandardMaterial({ color: 0x6B4A30, roughness: 0.55 }),
-  backing: () => new THREE.MeshStandardMaterial({ color: 0x0E1116, roughness: 0.9 }),
+  backing: () => new THREE.MeshStandardMaterial({ color: 0x14171C, roughness: 0.9 }),
   rail: () => new THREE.MeshStandardMaterial({ color: 0x15171B, roughness: 0.35, metalness: 0.8 }),
-  wall: () => new THREE.MeshStandardMaterial({ color: 0x1B2029, roughness: 0.95 }),
-  pilaster: () => new THREE.MeshStandardMaterial({ color: 0x232935, roughness: 0.9 })
+  wall: () => new THREE.MeshStandardMaterial({ color: 0x262B32, roughness: 0.95 }),
+  pilaster: () => new THREE.MeshStandardMaterial({ color: 0x323740, roughness: 0.9 })
 };
 
 function box(w, h, d, mat, x, y, z) {
@@ -59,19 +62,50 @@ function frame(x0, x1, z0, z1, w, y, mat) {
   return g;
 }
 
+/** A straight rod between two points. */
+function rod(a, b, r, mat) {
+  const len = a.distanceTo(b);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 8), mat);
+  m.position.copy(a).lerp(b, 0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+  return m;
+}
+
 /**
  * One bank of stands. Built along local +x (length) rising toward local -z,
- * then placed with `place(group)`.
+ * then placed by the caller. `aisles` are local x positions of stairways.
  */
-function stand(length, mats, slats) {
+function stand(length, mats, slats, aisles = []) {
   const g = new THREE.Group();
-  const rows = 6, depth = 2.7, rise = 1.45;
+  const rows = 6, depth = 2.7, rise = 1.45, aw = 3.6;
+  // Bench runs between the aisles.
+  const cuts = aisles.map(a => [a - aw / 2, a + aw / 2]).sort((p, q) => p[0] - q[0]);
+  const runs = [];
+  let from = -length / 2;
+  for (const [a, b] of cuts) { if (a > from) runs.push([from, a]); from = b; }
+  if (from < length / 2) runs.push([from, length / 2]);
   for (let k = 0; k < rows; k++) {
     const top = GROUND_Y + 2.6 + rise * k;
     const z = -0.6 - depth * (k + 0.5);
     const h = top - GROUND_Y;
     g.add(box(length, h - 0.22, depth, mats.riser, 0, GROUND_Y + (h - 0.22) / 2, z));
     g.add(box(length, 0.22, depth - 0.25, mats.tread, 0, top - 0.11, z + 0.12));
+    for (const [a, b] of runs) g.add(box(b - a - 0.3, 0.3, 1.0, mats.bench, (a + b) / 2, top + 0.15, z - depth / 2 + 0.75));
+    for (const x of aisles) g.add(box(aw - 0.3, 0.06, depth - 0.4, mats.step, x, top + 0.03, z + 0.1));
+  }
+  // Handrails up each aisle, following the rake.
+  const z0 = -0.9, z1 = -0.6 - depth * rows + 0.4;
+  const y0 = GROUND_Y + 2.6 + 2.4, y1 = GROUND_Y + 2.6 + rise * (rows - 1) + 2.4;
+  for (const x of aisles) {
+    for (const sx of [-1, 1]) {
+      const xr = x + sx * (aw / 2 - 0.15);
+      g.add(rod(new THREE.Vector3(xr, y0, z0), new THREE.Vector3(xr, y1, z1), 0.06, mats.rail));
+      for (let k = 0; k < rows; k += 2) {
+        const zz = -0.6 - depth * (k + 0.5), top = GROUND_Y + 2.6 + rise * k;
+        const yr = y0 + (y1 - y0) * (zz - z0) / (z1 - z0);
+        g.add(rod(new THREE.Vector3(xr, top, zz), new THREE.Vector3(xr, yr, zz), 0.045, mats.rail));
+      }
+    }
   }
   // Slatted front panel and its rail.
   const frontH = 3.4;
@@ -193,17 +227,16 @@ export function buildArena(scene, { hoop, rimY }) {
   plinth.position.y = -0.02;
   plinth.receiveShadow = true;
   root.add(plinth);
-  root.add(frame(-25, 25, 0, 50, 0.32, -0.005, mats.gold));
   root.add(frame(-28.2, 28.2, -10.2, 52.2, 0.1, -0.005, mats.gold));
 
   // Stands: behind the basket and along both sidelines; the camera side stays open.
   const slats = [];
-  const back = stand(58, mats, slats);
+  const back = stand(58, mats, slats, [0]);
   back.position.set(0, 0, -14);
-  const left = stand(58, mats, slats);
+  const left = stand(58, mats, slats, [-14, 14]);
   left.rotation.y = Math.PI / 2;               // rows rise away from the court (-x)
   left.position.set(-33, 0, 23);
-  const right = stand(58, mats, slats);
+  const right = stand(58, mats, slats, [-14, 14]);
   right.rotation.y = -Math.PI / 2;
   right.position.set(33, 0, 23);
   root.add(back, left, right);
@@ -224,14 +257,14 @@ export function buildArena(scene, { hoop, rimY }) {
   const backWall = box(150, wallH, 1, mats.wall, 0, GROUND_Y + wallH / 2, -36);
   root.add(backWall);
   for (const sx of [-1, 1]) root.add(box(1, wallH, 140, mats.wall, sx * 55, GROUND_Y + wallH / 2, 34));
-  for (let x = -60; x <= 60; x += 15) root.add(box(2.4, wallH, 1.6, mats.pilaster, x, GROUND_Y + wallH / 2, -35));
-  for (const sx of [-1, 1]) for (let z = -20; z <= 80; z += 15) root.add(box(1.6, wallH, 2.4, mats.pilaster, sx * 54, GROUND_Y + wallH / 2, z));
+  for (let x = -60; x <= 60; x += 15) root.add(box(3.4, wallH, 2.6, mats.pilaster, x, GROUND_Y + wallH / 2, -34.6));
+  for (const sx of [-1, 1]) for (let z = -20; z <= 80; z += 15) root.add(box(2.6, wallH, 3.4, mats.pilaster, sx * 53.6, GROUND_Y + wallH / 2, z));
 
   // Light shafts from high behind the basket, fading out above the court so
   // they never haze the players.
   const beams = new THREE.Group();
   [[-16, -11, 0.9], [-5, -3, 1.0], [6, 4, 1.0], [17, 12, 0.9]].forEach(([x0, x1, k]) => {
-    beams.add(beam(new THREE.Vector3(x0, 78, -30), new THREE.Vector3(x1, 6, 12), 1.4, 7.5, 0xFFE2B4, 0.2 * k));
+    beams.add(beam(new THREE.Vector3(x0, 78, -30), new THREE.Vector3(x1, 6, 12), 1.4, 7.5, 0xE4ECF6, 0.17 * k));
   });
   root.add(beams);
 

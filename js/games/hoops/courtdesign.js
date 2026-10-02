@@ -1,17 +1,15 @@
 /* Caesar Games — Hoops IQ court design
  *
- * Paints the half court over the maple planks: a stained navy lane with a
- * gold pinstripe, a slightly deeper tone inside the arc, crisp cream lines,
- * the CD mark in the centre circle and the name along the baseline.
+ * Paints the half court over the maple planks, kept deliberately quiet: one
+ * honey-maple surface, crisp white lines, the lane in a slightly deeper stain
+ * of the same wood, and the CD mark burned into the centre circle.
  *
  * Canvas space: x across (left = court x -25), y down from the baseline,
  * `px` pixels per foot. Seen from the broadcast camera, canvas up is the far
  * end, so everything is drawn upright.
  */
 
-const NAVY = '#1B3358';
-const GOLD = '#C9A76A';
-const LINE = '#F3EEE4';
+const LINE = '#F7F4EC';
 const HOOP_Z = 5.25;
 
 /** The CD mark as a single-colour silhouette. */
@@ -31,34 +29,22 @@ export function drawCourt(g, S, mark) {
   const px = S / 50;
   const X = x => (x + 25) * px;
   const Z = z => z * px;
-  const lw = 0.17 * px;                         // two-inch lines
+  const lw = 0.19 * px;                         // two-inch lines, a touch bolder for the iPad
 
   g.save();
-  // Two-tone floor: a deeper maple inside the arc.
+  // The lane: the same boards under a deeper stain.
   g.globalCompositeOperation = 'multiply';
-  g.fillStyle = 'rgba(214,178,132,0.55)';
-  arcRegion(g, X, Z, px);
-  g.fill();
-  g.globalCompositeOperation = 'source-over';
-
-  // Stained lane: navy over the grain, with a gold pinstripe inside the lines.
-  g.fillStyle = 'rgba(27,51,88,0.86)';
+  g.fillStyle = 'rgba(160,128,98,0.32)';
   g.fillRect(X(-8), Z(0), 16 * px, 19 * px);
-  g.strokeStyle = GOLD;
-  g.lineWidth = 0.09 * px;
-  g.strokeRect(X(-7.45), Z(0.55), 14.9 * px, 17.9 * px);
-
-  // Centre circle: navy disc, gold ring, the mark.
-  g.fillStyle = 'rgba(27,51,88,0.9)';
-  g.beginPath(); g.arc(X(0), Z(47), 6 * px, 0, Math.PI * 2); g.fill();
-  g.strokeStyle = GOLD;
-  g.lineWidth = 0.09 * px;
-  g.beginPath(); g.arc(X(0), Z(47), 5.45 * px, 0, Math.PI * 2); g.stroke();
+  // The mark, burned into the centre circle.
   if (mark) {
-    const w = 7.2 * px;
-    const m = tintedMark(mark, '#D8BC80', Math.round(w));
-    g.drawImage(m, X(0) - w / 2, Z(47) - m.height / 2 - 0.25 * px, w, m.height);
+    const w = 8 * px;
+    const m = tintedMark(mark, '#9A6A3C', Math.round(w));
+    g.globalAlpha = 0.55;
+    g.drawImage(m, X(0) - w / 2, Z(47) - m.height / 2 - 0.3 * px, w, m.height);
+    g.globalAlpha = 1;
   }
+  g.globalCompositeOperation = 'source-over';
 
   // Lines.
   g.strokeStyle = LINE;
@@ -67,8 +53,8 @@ export function drawCourt(g, S, mark) {
   const line = (x0, z0, x1, z1) => { g.beginPath(); g.moveTo(X(x0), Z(z0)); g.lineTo(X(x1), Z(z1)); g.stroke(); };
   const e = lw / 2 / px;
   line(-25, e, 25, e);                                                       // baseline
-  line(-25 + e, 0, -25 + e, 47); line(25 - e, 0, 25 - e, 47);                // sidelines
-  line(-25, 47, -6, 47); line(6, 47, 25, 47);                                // half court, broken by the circle
+  line(-25 + e, 0, -25 + e, 50); line(25 - e, 0, 25 - e, 50);                // sidelines
+  line(-25, 47, 25, 47);                                                     // half court
   g.strokeRect(X(-8), Z(0), 16 * px, 19 * px);                              // lane
   // Three-point line: corners, then the arc.
   const cz = HOOP_Z + Math.sqrt(23.75 ** 2 - 22 ** 2);
@@ -84,29 +70,7 @@ export function drawCourt(g, S, mark) {
   g.beginPath(); g.arc(X(0), Z(HOOP_Z), 4 * px, 0, Math.PI); g.stroke();
   line(-4, HOOP_Z, -4, 4); line(4, HOOP_Z, 4, 4);
   for (const z of [7, 8, 11, 14]) { line(-8.8, z, -8, z); line(8, z, 8.8, z); }
-  // Centre circle line and the small inner circle.
+  // Centre circle.
   g.beginPath(); g.arc(X(0), Z(47), 6 * px, 0, Math.PI * 2); g.stroke();
-
-  // Name along the baseline, either side of the lane.
-  g.fillStyle = NAVY;
-  g.globalAlpha = 0.92;
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.font = `700 ${Math.round(1.9 * px)}px "Iowan Old Style", "Palatino", Georgia, serif`;
-  if ('letterSpacing' in g) g.letterSpacing = `${Math.round(0.6 * px)}px`;
-  g.fillText('CAESAR', X(-14.6), Z(2.3));
-  g.fillText('GAMES', X(14.6), Z(2.3));
   g.restore();
-}
-
-/** Inside of the three-point line, as a path. */
-function arcRegion(g, X, Z, px) {
-  const cz = HOOP_Z + Math.sqrt(23.75 ** 2 - 22 ** 2);
-  const a0 = Math.atan2(cz - HOOP_Z, 22);
-  g.beginPath();
-  g.moveTo(X(-22), Z(0));
-  g.lineTo(X(-22), Z(cz));
-  g.arc(X(0), Z(HOOP_Z), 23.75 * px, Math.PI - a0, a0, true);
-  g.lineTo(X(22), Z(0));
-  g.closePath();
 }
