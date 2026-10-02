@@ -22,6 +22,9 @@ const ASSETS = new URL('../../../assets/hoops/', import.meta.url).href;
 const RIM_Y = 10;
 const HAND_Y = 2.45;
 const BALL_R = 0.45;
+/** Floor markings always win the depth test against the boards they lie on. */
+const ABOVE_FLOOR = { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 };
+const TRAIL_N = 20, TRAIL_LIFE = 0.3;
 
 const TEAM = {
   o: { jersey: 0x21457F, shorts: 0x15294A, base: 0x1B3358, body: 0xC9CDD3, ring: 0x7FB2FF },
@@ -88,7 +91,8 @@ export class Court3D extends BeatRunner {
 
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.pmrem = pmrem;
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.roomEnv = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environment = this.roomEnv;
     this.scene.environmentIntensity = 0.55;
 
     this._lights();
@@ -143,7 +147,10 @@ export class Court3D extends BeatRunner {
       hdr.dispose();
     }
 
-    const floorMat = new THREE.MeshStandardMaterial({ map: this._floorTexture(mark, wood), roughness: 0.42, metalness: 0 });
+    // The floor mirrors the soft studio room, not the photo's hot lamps:
+    // iPad GPUs blow those up into a white sheen across the boards.
+    const floorMat = new THREE.MeshStandardMaterial({ map: this._floorTexture(mark, wood), roughness: 0.42, metalness: 0,
+      envMap: this.roomEnv, envMapIntensity: 0.6 });
     // Planks run along the court; the scans run across, so turn the detail maps.
     for (const [m, key] of [[nor, 'normalMap'], [rough, 'roughnessMap']]) {
       if (!m) continue;
@@ -171,6 +178,8 @@ export class Court3D extends BeatRunner {
     this.materials = {};
     this.ballMesh = this._makeBall();
     this.scene.add(this.ballMesh);
+    this.trail = this._makeTrail();
+    this.scene.add(this.trail);
     this.loaded = true;
     if (this._pending) { const [s, y] = this._pending; this._pending = null; this.setScene(s, y); }
   }
@@ -309,8 +318,8 @@ export class Court3D extends BeatRunner {
       case 'Jersey': m = new THREE.MeshStandardMaterial({ color: t.jersey, roughness: 0.22 }); break;
       case 'Shorts': m = new THREE.MeshStandardMaterial({ color: t.shorts, roughness: 0.26 }); break;
       case 'Skin': m = new THREE.MeshStandardMaterial({ color: you ? TEAM.you.body : t.body, metalness: 1, roughness: you ? 0.3 : 0.38 }); break;
-      case 'Base': m = new THREE.MeshStandardMaterial({ color: t.base, roughness: 0.25, metalness: 0.05 }); break;
-      case 'Trim': m = new THREE.MeshStandardMaterial({ color: GOLD, metalness: 1, roughness: 0.3 }); break;
+      case 'Base': m = new THREE.MeshStandardMaterial({ color: t.base, roughness: 0.25, metalness: 0.05, ...ABOVE_FLOOR }); break;
+      case 'Trim': m = new THREE.MeshStandardMaterial({ color: GOLD, metalness: 1, roughness: 0.3, ...ABOVE_FLOOR }); break;
       default: m = new THREE.MeshStandardMaterial({ color: 0xF4F3EF, roughness: 0.45 });
     }
     this.materials[key] = m;
@@ -338,7 +347,7 @@ export class Court3D extends BeatRunner {
 
   _ring(inner, outer, color, opacity = 0.9, segments = 64) {
     const m = new THREE.Mesh(new THREE.RingGeometry(inner, outer, segments),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }));
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, toneMapped: false, side: THREE.DoubleSide, ...ABOVE_FLOOR }));
     m.rotation.x = -Math.PI / 2;
     return m;
   }
@@ -352,6 +361,7 @@ export class Court3D extends BeatRunner {
     this.resetState(setup);
     this.you = you;
     this._lean = null;
+    this._trailPts = [];
     if (!this.loaded) { this._pending = [setup, you]; return; }
     for (const p of Object.values(this.players)) this.scene.remove(p.root, p.ring);
     this.players = {};
@@ -373,7 +383,7 @@ export class Court3D extends BeatRunner {
       athlete.setLoop(side === 'd' ? 'DefStance' : 'Idle');
 
       const ring = new THREE.Group();
-      const glow = this._ring(1.72, 1.95, isYou ? TEAM.you.ring : TEAM[side].ring, 0.85);
+      const glow = this._ring(1.72, 1.95, isYou ? TEAM.you.ring : TEAM[side].ring, isYou ? 0.85 : 0.6);
       glow.position.y = 0.035;
       ring.add(glow);
       if (isYou) {
@@ -424,6 +434,40 @@ export class Court3D extends BeatRunner {
     const [x, z] = this.pos[id];
     p.root.position.x = x; p.root.position.z = z;
     p.ring.position.x = x; p.ring.position.z = z;
+  }
+
+  /** A short comet tail behind a ball in the air, so passes and shots read at a glance. */
+  _makeTrail() {
+    const m = new THREE.InstancedMesh(new THREE.SphereGeometry(BALL_R, 12, 8),
+      new THREE.MeshBasicMaterial({ transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), TRAIL_N);
+    m.frustumCulled = false;
+    m.count = 0;
+    m.renderOrder = 3;
+    m.setColorAt(0, new THREE.Color());
+    this._trailPts = [];
+    this._simT = 0;
+    return m;
+  }
+
+  _updateTrail(dt) {
+    if (!this.trail || this.frozen) return;
+    this._simT += dt * PLAY_SPEED;
+    const now = this._simT, bp = this.ballMesh.position;
+    const last = this._trailPts[this._trailPts.length - 1];
+    if (this.ball.flight && Number.isFinite(bp.x) && (!last || now - last.t > TRAIL_LIFE / TRAIL_N)) {
+      this._trailPts.push({ t: now, p: bp.clone() });
+    }
+    this._trailPts = this._trailPts.filter(s => now - s.t < TRAIL_LIFE).slice(-TRAIL_N);
+    const mat = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), col = new THREE.Color();
+    this._trailPts.forEach((s, i) => {
+      const k = 1 - (now - s.t) / TRAIL_LIFE;           // 1 = fresh, 0 = gone
+      sc.setScalar(0.35 + 0.55 * k);
+      this.trail.setMatrixAt(i, mat.compose(s.p, q, sc));
+      this.trail.setColorAt(i, col.setRGB(1, 0.62, 0.3).multiplyScalar(0.55 * k * k));
+    });
+    this.trail.count = this._trailPts.length;
+    this.trail.instanceMatrix.needsUpdate = true;
+    if (this.trail.instanceColor) this.trail.instanceColor.needsUpdate = true;
   }
 
   _renderBall(bounce) {
@@ -604,9 +648,10 @@ export class Court3D extends BeatRunner {
     const g = this.goal;
     if (name === 'broadcast' || name === 'decide') {
       // One calm game camera for watching and deciding: the freeze never moves it.
-      // Sidelines near the camera spread wider than the middle; fit with margin.
-      g.target.set(0, 0.5, 19);
-      g.pos.copy(this._orbit(g.target, 38, this._fit(29)));
+      // Framed on where the play happens (baseline to the top of the arc),
+      // corners included; the empty backcourt end stays mostly out of shot.
+      g.target.set(0, 0.5, 15);
+      g.pos.copy(this._orbit(g.target, 44, this._fit(25)));
       g.k = 2.4;
     } else if (name === 'push') {
       // Look at "you" from the middle of the floor so the read sits centre frame.
@@ -1077,6 +1122,7 @@ export class Court3D extends BeatRunner {
       if (!this.frozen) p.athlete.update(dt * PLAY_SPEED);
     }
     if (this.ball.holder && !this.ball.flight && this.players[this.ball.holder]?.speed < 2.5) this._renderBall(0);
+    this._updateTrail(dt);
 
     // Camera: damped toward the current shot; follow the ball in play.
     const g = this.goal;
