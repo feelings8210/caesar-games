@@ -1244,10 +1244,14 @@ export class App {
     // Re-unlock on every real gesture and also make a best-effort wake when the
     // page becomes visible; the next gesture remains the authoritative path.
     document.addEventListener('pointerdown', () => { void sounds.unlock(); }, { passive: true });
+    // Going to the background (home gesture, app switcher, lock) must silence
+    // the app: iOS otherwise keeps the arena murmur and voices playing.
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') void sounds.resume();
+      else void sounds.suspend();
     });
     window.addEventListener('pageshow', () => { void sounds.resume(); });
+    window.addEventListener('pagehide', () => { void sounds.suspend(); });
 
     const boardSurface = $('#board-mount');
     boardSurface.addEventListener('contextmenu', event => {

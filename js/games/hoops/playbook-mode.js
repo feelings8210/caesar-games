@@ -114,7 +114,7 @@ export class PlaybookMode {
     g.view = 'play';
     g.phase = 'pb';
     g.$('.hp-banner').className = 'hp-banner';
-    sfx.preload().then(() => { if (g.view === 'play') sfx.startCrowd(); });
+    sfx.preload().then(() => { if (g.view === 'play') sfx.startCrowd(() => g.courtOnScreen()); });
     this.startWatch();
   }
 
