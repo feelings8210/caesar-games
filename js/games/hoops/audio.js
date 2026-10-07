@@ -198,8 +198,10 @@ export const hoopsAudio = {
     return preloading;
   },
 
-  /** A low arena murmur under the play, while the court is on screen. */
-  startCrowd() {
+  /** A low arena murmur under the play, while the court is on screen.
+   *  `stillWanted` is checked as it runs, so the bed stops itself if the
+   *  court leaves the screen by any path. */
+  startCrowd(stillWanted = null) {
     const ctx = ready('crowd');
     if (!ctx || crowd || !bank.crowd?.length) return;
     const src = ctx.createBufferSource();
@@ -212,7 +214,10 @@ export const hoopsAudio = {
     crowd = { src, gain };
     setCrowdLevel(0.16, 1.2);
     // The app's sound switch only gates new cues; keep the bed in step with it.
-    crowd.watch = setInterval(() => setCrowdLevel(voiceNow ? 0.05 : 0.16, 0.3), 600);
+    crowd.watch = setInterval(() => {
+      if (stillWanted && !stillWanted()) { hoopsAudio.stopCrowd(); return; }
+      setCrowdLevel(voiceNow ? 0.05 : 0.16, 0.3);
+    }, 600);
   },
 
   stopCrowd() {
@@ -224,6 +229,12 @@ export const hoopsAudio = {
       c.gain.gain.setTargetAtTime(0, c.src.context.currentTime, 0.15);
       c.src.stop(c.src.context.currentTime + 0.6);
     } catch { /* context gone */ }
+    // The fade runs on the audio clock, which iOS can leave frozen after the
+    // app comes back from the background; cut it off on the wall clock too.
+    setTimeout(() => {
+      try { c.src.stop(); } catch { /* already stopped */ }
+      try { c.gain.disconnect(); } catch { /* already gone */ }
+    }, 700);
   },
 
   /** Time slows: the room closes in, then opens again on the decision. */

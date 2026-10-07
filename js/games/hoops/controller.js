@@ -213,6 +213,11 @@ export class HoopsGame {
     else this._renderPanel();
   }
 
+  /** The court is in play and the Hoops screen is the one showing. */
+  courtOnScreen() {
+    return this.view === 'play' && !!this.root.closest('.screen')?.classList.contains('is-active');
+  }
+
   leave() {
     this.flow++;
     this.pb?.stop();
@@ -351,7 +356,7 @@ export class HoopsGame {
     cancelAnimationFrame(this._timerRaf);
     await this._ensureCourt();
     if (flow !== this.flow) return;
-    sfx.preload().then(() => { if (this.view === 'play') sfx.startCrowd(); });
+    sfx.preload().then(() => { if (this.view === 'play') sfx.startCrowd(() => this.courtOnScreen()); });
     stopVoice();
     this.current = lvl;
     this.view = 'play';

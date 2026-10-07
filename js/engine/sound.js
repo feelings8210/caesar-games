@@ -67,6 +67,14 @@ class SoundEngine {
     }
   }
 
+  /** Silence everything while the app is hidden (iOS keeps Web Audio
+   *  playing in the background otherwise); resume() brings it back. */
+  suspend() {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running') return Promise.resolve();
+    try { return Promise.resolve(ctx.suspend()).catch(() => {}); } catch { return Promise.resolve(); }
+  }
+
   _dropContext() {
     this.ctx = null;
     this.master = null;
