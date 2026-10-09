@@ -282,7 +282,7 @@ export class CourtView extends BeatRunner {
       } else if (opt.kind === 'shoot') {
         el('circle', { cx: at[0], cy: at[1], r: 2.1, class: 'hc-target-ring' }, g);
         el('circle', { cx: at[0], cy: at[1], r: 3.2, class: 'hc-hit' }, g);
-        this._label(g, [at[0], at[1] + 3.3], opt.label);
+        this._label(g, [at[0], at[1] - 3.3], opt.label);
       } else {
         const mid = [(from[0] + at[0]) / 2, (from[1] + at[1]) / 2];
         const len = dist(from, at);
@@ -363,10 +363,6 @@ export class CourtView extends BeatRunner {
 
   /** Nearest option to a tap (or a drag release), or -1. */
   pickTarget(clientX, clientY, drag = false) {
-    if (!drag) {
-      const hit = document.elementFromPoint(clientX, clientY)?.closest?.('.hc-target');
-      if (hit && this.svg.contains(hit)) return Number(hit.dataset.opt);
-    }
     const pt = this.toCourt(clientX, clientY);
     let best = -1;
     let bestD = Infinity;
@@ -376,7 +372,11 @@ export class CourtView extends BeatRunner {
       const d = dist(pt, at);
       if (d < bestD) { bestD = d; best = i; }
     });
-    return bestD <= (drag ? 4.5 : 3.4) ? best : -1;
+    // A target's centre remains usable even when a neighbouring label covers it.
+    if (bestD <= 1.35 || drag) return bestD <= (drag ? 4.5 : 3.4) ? best : -1;
+    const hit = document.elementFromPoint(clientX, clientY)?.closest?.('.hc-target');
+    if (hit && this.svg.contains(hit)) return Number(hit.dataset.opt);
+    return bestD <= 3.4 ? best : -1;
   }
 
   targetClientPoint(i) {

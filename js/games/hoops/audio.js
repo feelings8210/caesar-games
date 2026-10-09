@@ -47,7 +47,11 @@ const voiceCache = new Map();    // url -> Promise<AudioBuffer|null>
 let preloading = null;
 let crowd = null;                // { src, gain }
 let voiceNow = null;
+let voiceGeneration = 0;
 const lastPick = {};
+if (typeof window !== 'undefined') window.addEventListener('caesar-mute', e => {
+  if (e.detail.muted) stopVoice();
+});
 
 function ready(cue) {
   const ctx = sounds._ready(`hoops.${cue}`);
@@ -171,6 +175,7 @@ export function setVoiceEnabled(on) {
 }
 
 export function stopVoice() {
+  voiceGeneration++;
   try { voiceNow?.stop(); } catch { /* already ended */ }
   voiceNow = null;
 }
@@ -253,17 +258,19 @@ export const hoopsAudio = {
     if (!id || !voiceEnabled()) return;
     const ctx = ready(`voice.${id}`);
     if (!ctx) return;
+    // A newer request, mute or leaving the court invalidates an unfinished load.
+    stopVoice();
+    const generation = voiceGeneration;
     const url = `${MEDIA}voice/${locale === 'zh' ? 'zh' : 'en'}/${id}.mp3`;
     if (!voiceCache.has(url)) voiceCache.set(url, fetchBuffer(ctx, url));
     const buf = await voiceCache.get(url);
-    if (!buf || sounds.isMuted || !voiceEnabled()) return;
-    stopVoice();
+    if (!buf || generation !== voiceGeneration || ctx !== sounds.ctx || sounds.isMuted || !voiceEnabled()) return;
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.connect(bus.voice);
     voiceNow = src;
     setCrowdLevel(0.05, 0.2);
-    await new Promise(res => { src.onended = res; src.start(); });
+    await new Promise(res => { src.onended = () => { src.disconnect(); res(); }; src.start(); });
     if (voiceNow === src) { voiceNow = null; setCrowdLevel(0.16, 0.6); }
   },
 

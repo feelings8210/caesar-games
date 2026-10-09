@@ -59,14 +59,19 @@ export class AthleteKit {
     }
   }
 
-  make(materialFor, numberMat) {
-    return new Athlete(this, materialFor, numberMat);
+  make(materialFor, numberMat, { pedestal = true } = {}) {
+    return new Athlete(this, materialFor, numberMat, pedestal);
   }
 }
 
 class Athlete {
-  constructor(kit, materialFor, numberMat) {
+  constructor(kit, materialFor, numberMat, pedestal) {
     this.root = cloneSkinned(kit.template);
+    this.ownedGeometry = new Set();
+    if (!pedestal) {
+      const base = this.root.getObjectByName('Base');
+      if (base) base.visible = false;
+    }
     this.root.traverse(o => {
       if (!o.isMesh) return;
       o.material = materialFor(o.material.name).clone();   // own copy, so one figure can fade
@@ -78,6 +83,7 @@ class Athlete {
       const bone = this.root.getObjectByName(d.bone);
       if (!bone || !numberMat) continue;
       const m = new THREE.Mesh(new THREE.PlaneGeometry(d.size, d.size), numberMat.clone());
+      this.ownedGeometry.add(m.geometry);
       d.local.decompose(m.position, m.quaternion, m.scale);
       bone.add(m);
     }
@@ -167,5 +173,19 @@ class Athlete {
   ballPosition(out) {
     if (!this.ballSocket) return null;
     return this.ballSocket.getWorldPosition(out);
+  }
+
+  dispose() {
+    this.mixer.stopAllAction();
+    this.mixer.uncacheRoot(this.root);
+    const materials = new Set(), skeletons = new Set();
+    this.root.traverse(o => {
+      if (o.material) for (const m of [o.material].flat()) materials.add(m);
+      if (o.skeleton) skeletons.add(o.skeleton);
+    });
+    // Model geometry and number maps belong to the shared kit/court.
+    for (const g of this.ownedGeometry) g.dispose();
+    for (const m of materials) m.dispose();
+    for (const s of skeletons) s.dispose();
   }
 }

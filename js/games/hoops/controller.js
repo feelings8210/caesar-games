@@ -62,6 +62,7 @@ export class HoopsGame {
     this.mode = 'chapter';       // 'chapter' | 'read'
     this.menuTab = 'chapter';    // 'chapter' | 'read' | 'stats'
     this.current = null;
+    this.previewLevel = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('hoopsPreview') : null;
     this._build();
     this.pb = new PlaybookMode(this);
     this.court = null;           // created on first level: 3D, or SVG fallback
@@ -247,7 +248,8 @@ export class HoopsGame {
   }
 
   unlocked(i) {
-    return i === 0 || (this.progress.stars[LEVELS[i - 1].id] ?? -1) >= 1;
+    // Review links may open one representative scene without writing progress.
+    return LEVELS[i]?.id === this.previewLevel || i === 0 || (this.progress.stars[LEVELS[i - 1].id] ?? -1) >= 1;
   }
 
   _renderMenu() {

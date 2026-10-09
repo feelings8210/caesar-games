@@ -29,7 +29,14 @@ class SoundEngine {
 
   setMuted(v) {
     this.muted = !!v;
+    if (this.master) {
+      const now = this.ctx.currentTime;
+      this.master.gain.cancelScheduledValues(now);
+      this.master.gain.setValueAtTime(this.master.gain.value, now);
+      this.master.gain.linearRampToValueAtTime(this.muted ? 0 : 0.42, now + 0.015);
+    }
     try { localStorage.setItem(MUTE_KEY, String(this.muted)); } catch { /* private mode */ }
+    try { window.dispatchEvent(new CustomEvent('caesar-mute', { detail: { muted: this.muted } })); } catch {}
     return this.muted;
   }
 
@@ -98,7 +105,7 @@ class SoundEngine {
     comp.release.value = 0.18;
 
     this.master = this.ctx.createGain();
-    this.master.gain.value = 0.42;
+    this.master.gain.value = this.muted ? 0 : 0.42;
     this.master.connect(comp);
     comp.connect(this.ctx.destination);
 

@@ -110,8 +110,8 @@ export const LEVELS = [
         result: T('分给底角，三分命中！', 'Kick to the corner — three is good!'),
         why: T('补防的人从哪来，空位就在哪。底角三分是球场上最近的三分。', 'Where the help comes from, that is where the open man is. The corner three is the shortest three on the floor.'),
         play: [
-          { ms: 520, pass: 'o3', move: { d3: [14, 7.5], o1: [7.5, 12] } },
-          { ms: 800, shot: 'make', move: { d3: [19.5, 5] } }
+          { ms: 850, prepareMs: 260, pass: 'o3', move: { d3: [14, 7.5], o1: [7.5, 12] } },
+          { ms: 1450, prepareMs: 720, shot: 'make', move: { d3: [19.5, 5] } }
         ]
       },
       {

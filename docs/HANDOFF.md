@@ -5,6 +5,11 @@ PARENT STATE ID: NONE（从 Claude Code 云端会话整段重建）
 WORKING MANUAL: embedded（见下方"协作规则"；根目录 AGENTS.md 有精简版）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+【本地开发更新 — 2026-10-09】
+当前在 `codex/hoops-local`，试版 `v2.9.0-local.2`。Owner 已决定先本地开发，暂不 push、不创建 PR、不发布；以下云端基线和旧的 EXACT NEXT ACTION 留作历史，当前接手请先读 `docs/LOCAL_DEVELOPMENT_20261009.md` 与 `docs/LOCAL_AUDIT_20261009.md`。
+Owner 已说明：球场、场景、球员、动作要向 NBA 游戏靠近；声音由我们建议；同时研究游戏性。使用普通 iPad / iPad Pro，代际未知，教练未反馈。第一批核心修复和“突破分球”试版已实现，真机、实际听审和 Owner 美术验收仍待完成。继续优先真实篮球动作、球员模型和手球/脚步接触，再扩其他关卡与两段决策。
+本机对比入口 `http://127.0.0.1:8000/review/hoops-local-dev-20261009/`（需仓库根目录的本地服务器）。`?hoopsLook=arena&hoopsPreview=drive-kick` 可直接查看代表关卡；不写入虚假星数。不要恢复旧的“先问教练、先做俱乐部配置”优先级。
+
 【READ THIS FIRST — 接手者第一步】
 1. 先读下面的"协作规则"，了解怎么和 Owner 配合。
 2. 读 PERSISTENT CORE，了解项目是什么。

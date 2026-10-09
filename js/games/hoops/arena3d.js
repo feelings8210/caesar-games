@@ -258,7 +258,7 @@ function net(center, rimY) {
   };
 }
 
-export function buildArena(scene, { hoop, rimY }) {
+export function buildArena(scene, { hoop, rimY, populated = false }) {
   const mats = Object.fromEntries(Object.entries(MAT).map(([k, f]) => [k, f()]));
   const root = new THREE.Group();
   scene.add(root);
@@ -272,7 +272,7 @@ export function buildArena(scene, { hoop, rimY }) {
   plinth.position.y = -0.02;
   plinth.receiveShadow = true;
   root.add(plinth);
-  root.add(frame(-28.2, 28.2, -10.2, 52.2, 0.1, -0.005, mats.gold));
+  if (!populated) root.add(frame(-28.2, 28.2, -10.2, 52.2, 0.1, -0.005, mats.gold));
 
   // Stands: behind the basket and along both sidelines; the camera side stays open.
   const seats = [];
@@ -295,6 +295,31 @@ export function buildArena(scene, { hoop, rimY }) {
     seatMesh.setMatrixAt(i, m4.compose(v, q, s));
   });
   root.add(seatMesh);
+
+  // Distant spectators: code-native silhouettes, one instanced draw per part.
+  // A stable layout avoids random crowd changes on every scene load.
+  let spectators = null;
+  if (populated) {
+    const people = seats.filter((_, i) => i % 7 !== 0);
+    const torso = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.32, 0.75, 2, 5),
+      new THREE.MeshStandardMaterial({ roughness: 1, envMapIntensity: 0.15 }), people.length);
+    const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.25, 6, 4),
+      new THREE.MeshStandardMaterial({ roughness: 1, envMapIntensity: 0.15 }), people.length);
+    const shirts = [0x254574, 0x7E8A98, 0xC4BDAE, 0x8D3C35, 0x1B2330, 0x496474];
+    const skins = [0xBD8A66, 0x815438, 0xD4A581, 0x5B3828];
+    const col = new THREE.Color();
+    people.forEach(([g, x, y, z], i) => {
+      const jitter = Math.sin(i * 9.7) * 0.14;
+      v.set(x + jitter, y + 0.7, z + 0.2).applyMatrix4(g.matrixWorld);
+      g.getWorldQuaternion(q);
+      torso.setMatrixAt(i, m4.compose(v, q, s));
+      torso.setColorAt(i, col.setHex(shirts[i % shirts.length]));
+      v.y += 0.88;
+      heads.setMatrixAt(i, m4.compose(v, q, s));
+      heads.setColorAt(i, col.setHex(skins[i % skins.length]));
+    });
+    spectators = new THREE.Group(); spectators.add(torso, heads); root.add(spectators);
+  }
 
   // The name on the apron behind the baseline, either side of the basket.
   for (const [text, x] of [['CAESAR', -13.5], ['GAMES', 13.5]]) root.add(apronWord(text, x, -3.2));
@@ -324,6 +349,9 @@ export function buildArena(scene, { hoop, rimY }) {
     root,
     swish: () => cords.kick(),
     update(dt) { cords.update(dt); led.update(dt); },
-    setQuality(q) { beams.visible = q !== 'low'; }
+    setQuality(q) {
+      beams.visible = q !== 'low';
+      if (spectators) spectators.children.forEach(m => { m.count = q === 'low' ? Math.ceil(m.instanceMatrix.count / 2) : m.instanceMatrix.count; });
+    }
   };
 }

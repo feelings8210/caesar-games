@@ -18,6 +18,8 @@ import { buildArena } from './arena3d.js';
 import { drawCourt } from './courtdesign.js';
 import { buildHoop } from './hoop3d.js';
 import { AthleteKit, STRIDE } from './athlete3d.js';
+import { madeBallAt } from './ball-motion.js';
+import { hoopsAudio } from './audio.js';
 
 const ASSETS = new URL('../../../assets/hoops/', import.meta.url).href;
 const RIM_Y = 10;
@@ -36,6 +38,18 @@ const GOLD = 0xE2BE72;
 
 const damp = (cur, goal, k, dt) => cur + (goal - cur) * (1 - Math.exp(-k * dt));
 const angleDelta = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
+
+/** Remove transient objects and their private buffers/materials, not shared maps. */
+function disposeObject(obj) {
+  obj.removeFromParent();
+  const geometries = new Set(), materials = new Set();
+  obj.traverse(o => {
+    if (o.geometry) geometries.add(o.geometry);
+    if (o.material) for (const m of [o.material].flat()) materials.add(m);
+  });
+  for (const g of geometries) g.dispose();
+  for (const m of materials) m.dispose();
+}
 
 export function webglAvailable() {
   try {
@@ -62,6 +76,7 @@ export class Court3D extends BeatRunner {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     // Quality starts high and steps down once if the first frames run slow.
     const forced = new URLSearchParams(location.search).get('hoopsQuality');
+    this.arenaLook = new URLSearchParams(location.search).get('hoopsLook') === 'arena';
     this.quality = forced === 'low' ? 'low' : 'high';
     this._qualityLocked = !!forced;
     this._probe = [];
@@ -174,7 +189,7 @@ export class Court3D extends BeatRunner {
 
     const hoop = buildHoop({ hoop: HOOP, rimY: RIM_Y, mark });
     this.scene.add(hoop);
-    this.arena = buildArena(this.scene, { hoop, rimY: RIM_Y });
+    this.arena = buildArena(this.scene, { hoop, rimY: RIM_Y, populated: this.arenaLook });
     this._applyQuality();
 
     this.kit = new AthleteKit(figs);
@@ -276,8 +291,8 @@ export class Court3D extends BeatRunner {
     return m;
   }
 
-  _material(slot, side, you) {
-    const key = `${slot}:${side}:${you ? 1 : 0}`;
+  _material(slot, side, you, number = 1) {
+    const key = `${slot}:${side}:${you ? 1 : 0}:${this.arenaLook ? number : 0}`;
     if (this.materials[key]) return this.materials[key];
     const t = TEAM[side];
     let m;
@@ -288,6 +303,15 @@ export class Court3D extends BeatRunner {
       case 'Base': m = new THREE.MeshStandardMaterial({ color: t.base, roughness: 0.25, metalness: 0.05, ...ABOVE_FLOOR }); break;
       case 'Trim': m = new THREE.MeshStandardMaterial({ color: GOLD, metalness: 1, roughness: 0.3, ...ABOVE_FLOOR }); break;
       default: m = new THREE.MeshStandardMaterial({ color: 0xF4F3EF, roughness: 0.45 });
+    }
+    if (this.arenaLook) {
+      if (slot === 'Skin') {
+        const skins = [0xA36E4C, 0xD6A17C, 0x72452F, 0xBE885F, 0x8E5C40];
+        m.color.setHex(skins[(number - 1 + (side === 'd' ? 2 : 0)) % skins.length]);
+        m.metalness = 0; m.roughness = 0.8; m.envMapIntensity = 0.3;
+      }
+      if (slot === 'Jersey' || slot === 'Shorts') { m.roughness = 0.85; m.envMapIntensity = 0.2; }
+      if (slot === 'Shoe') { m.color.setHex(side === 'o' ? 0xE8E6E0 : 0x252D39); m.roughness = 0.8; }
     }
     this.materials[key] = m;
     return m;
@@ -330,7 +354,7 @@ export class Court3D extends BeatRunner {
     this._lean = null;
     this._trailPts = [];
     if (!this.loaded) { this._pending = [setup, you]; return; }
-    for (const p of Object.values(this.players)) this.scene.remove(p.root, p.ring);
+    this._clearPlayers();
     this.players = {};
     this.overlay.textContent = '';
     this.labels = {};
@@ -344,13 +368,18 @@ export class Court3D extends BeatRunner {
       const isYou = id === you;
       const n = Number(id.slice(1));
       const decalMat = new THREE.MeshStandardMaterial({ map: this._numberTexture(n), alphaTest: 0.5, roughness: 0.35 });
-      const athlete = this.kit.make(slot => this._material(slot, side, isYou), decalMat);
+      const athlete = this.kit.make(slot => this._material(slot, side, isYou, n), decalMat, { pedestal: !this.arenaLook });
+      decalMat.dispose();
       const root = new THREE.Group();
       root.add(athlete.root);
+      if (this.arenaLook) {
+        const scale = [0.95, 0.98, 1, 1.04, 1.08][n - 1] || 1;
+        athlete.root.scale.set(scale, scale, scale);
+      }
       athlete.setLoop(side === 'd' ? 'DefStance' : 'Idle');
 
       const ring = new THREE.Group();
-      const glow = this._ring(1.72, 1.95, isYou ? TEAM.you.ring : TEAM[side].ring, isYou ? 0.85 : 0.6);
+      const glow = this._ring(1.72, this.arenaLook ? 1.8 : 1.95, isYou ? TEAM.you.ring : TEAM[side].ring, isYou ? 0.85 : 0.6);
       glow.position.y = 0.035;
       ring.add(glow);
       if (isYou) {
@@ -390,6 +419,18 @@ export class Court3D extends BeatRunner {
     this.goal.k = 1.6;
     this._renderBall(0);
     this.wake();
+  }
+
+  _clearPlayers() {
+    clearTimeout(this._celebrateTimer);
+    for (const p of Object.values(this.players)) {
+      p.root.removeFromParent();
+      p.athlete.dispose();
+      disposeObject(p.ring);
+    }
+    this.players = {};
+    this.timerRing = null;
+    this.youTag = null;
   }
 
   setYouLabel(s) { if (this.youTag) this.youTag.textContent = s; }
@@ -449,7 +490,7 @@ export class Court3D extends BeatRunner {
     let at = b.at;
     let y;
     const held = b.holder && !f && this.players[b.holder];
-    if (held && held.speed < 2.5 && !bounce && held.athlete.ballPosition(this.ballMesh.position)) {
+    if (held && (b.preparing || held.speed < 2.5) && !bounce && held.athlete.ballPosition(this.ballMesh.position)) {
       b.at = [this.ballMesh.position.x, this.ballMesh.position.z];
       this._ballY = this.ballMesh.position.y;
       return;
@@ -469,10 +510,20 @@ export class Court3D extends BeatRunner {
           y = lerp(f.fromY, RIM_Y + 0.3, e) + Math.sin(e * Math.PI) * 6.5;
         }
       } else if (f.kind === 'pass') {
-        y = lerp(f.fromY, HAND_Y, e) + Math.sin(e * Math.PI) * (f.lob ? 5 : 1.1);
+        const receiver = this.players[f.target]?.athlete;
+        const hand = receiver?.ballPosition(new THREE.Vector3());
+        if (hand && this.arenaLook) {
+          at = [lerp(f.from[0], hand.x, e), lerp(f.from[1], hand.z, e)];
+          b.at = at;
+        }
+        y = lerp(f.fromY, hand?.y ?? HAND_Y, e) + Math.sin(e * Math.PI) * (f.lob ? 5 : 1.1);
       } else {
         y = lerp(f.fromY, HAND_Y, e) + Math.sin(e * Math.PI) * 3.2;
       }
+    } else if (b.rest === 'made' && this._madeBall) {
+      const drop = madeBallAt(this._madeBall.elapsed, RIM_Y + 0.3, BALL_R);
+      at = [HOOP[0], HOOP[1] + drop.forward];
+      y = drop.height;
     } else if (b.rest === 'rim') {
       y = RIM_Y + 0.6;
     } else {
@@ -494,7 +545,8 @@ export class Court3D extends BeatRunner {
   }
 
   _clearFx() {
-    for (const f of this.fx) { this.scene.remove(f.obj); f.obj.geometry?.dispose(); }
+    this._madeBall = null;
+    for (const f of this.fx) disposeObject(f.obj);
     this.fx = [];
   }
 
@@ -535,6 +587,10 @@ export class Court3D extends BeatRunner {
 
   _swish() {
     this.arena?.swish();
+    if (this.arenaLook) {
+      this._madeBall = { elapsed: 0, contacts: 0 };
+      return;
+    }
     const r = this._ring(0.8, 1.0, 0xFFFFFF, 0.95);
     r.position.set(HOOP[0], RIM_Y - 0.1, HOOP[1]);
     this._addFx(r, 900, k => { r.scale.setScalar(1 + k * 3); r.material.opacity = 0.95 * (1 - k); });
@@ -743,7 +799,7 @@ export class Court3D extends BeatRunner {
   }
 
   clearMarkers() {
-    for (const t of this.targets) { this.scene.remove(t.group); t.label?.remove(); }
+    for (const t of this.targets) { disposeObject(t.group); t.label?.remove(); }
     this.targets = [];
     this.endDrag();
   }
@@ -757,7 +813,7 @@ export class Court3D extends BeatRunner {
   }
 
   endDrag() {
-    if (this.dragLine) { this.scene.remove(this.dragLine); this.dragLine = null; }
+    if (this.dragLine) { disposeObject(this.dragLine); this.dragLine = null; }
   }
 
   showCue(cue) {
@@ -772,7 +828,7 @@ export class Court3D extends BeatRunner {
     this.scene.add(r);
   }
 
-  clearCue() { if (this.cueRing) { this.scene.remove(this.cueRing); this.cueRing = null; this.cueId = null; } }
+  clearCue() { if (this.cueRing) { disposeObject(this.cueRing); this.cueRing = null; this.cueId = null; } }
 
   /* ---------------------------------------------------------------- *
    * Play diagrams (playbook): flat ribbons on the floor
@@ -880,8 +936,7 @@ export class Court3D extends BeatRunner {
 
   clearDiagram() {
     if (!this.diagram) return;
-    this.scene.remove(this.diagram);
-    this.diagram.traverse(o => o.geometry?.dispose());
+    disposeObject(this.diagram);
     this.diagram = null;
   }
 
@@ -1004,11 +1059,21 @@ export class Court3D extends BeatRunner {
     return super._beat(b, token, slow);
   }
 
+  _prepareAction(b, flight, ms) {
+    const who = this.players[this.ball.holder];
+    const name = b.pass ? 'Pass' : b.shot ? 'Shot' : null;
+    const clip = this.kit.clips[name];
+    if (!who || !clip) return;
+    who.athlete.trigger(name, clip.duration / (ms * PLAY_SPEED / 1000));
+    flight.prepared = true;
+    if (b.shot) this._shooter = who.id;
+  }
+
   /** One-shots from what the ball just did: passes, catches, shots. */
   _cueActions() {
     const b = this.ball;
     const f = b.flight;
-    if (f && f !== this._seenFlight) {
+    if (f && f !== this._seenFlight && !f.prepared) {
       const who = this.players[this._seenHolder];
       if (who && f.kind === 'pass') who.athlete.trigger('Pass', 1.7);
       if (who && f.kind === 'shot') { who.athlete.trigger('Shot', 1.25); this._shooter = who.id; }
@@ -1017,7 +1082,9 @@ export class Court3D extends BeatRunner {
     if (b.rest === 'made' && this._shooter && this._celebrated !== this._seenFlight) {
       this._celebrated = this._seenFlight;
       const s = this.players[this._shooter];
-      if (s?.side === 'o') setTimeout(() => s.athlete.trigger('Celebrate', 1.2), 350);
+      if (s?.side === 'o') this._celebrateTimer = setTimeout(() => {
+        if (this.players[s.id] === s && this.active) s.athlete.trigger('Celebrate', 1.2);
+      }, 350);
     }
     this._seenFlight = f || (b.holder ? null : this._seenFlight);
     if (b.holder) this._seenHolder = b.holder;
@@ -1094,6 +1161,16 @@ export class Court3D extends BeatRunner {
       if (!this.frozen) p.athlete.update(dt * PLAY_SPEED);
     }
     if (this.ball.holder && !this.ball.flight && this.players[this.ball.holder]?.speed < 2.5) this._renderBall(0);
+    if (this._madeBall && this.ball.rest === 'made' && !this.ball.holder && !this.ball.flight && !this.frozen) {
+      this._madeBall.elapsed += dt * PLAY_SPEED;
+      const drop = madeBallAt(this._madeBall.elapsed, RIM_Y + 0.3, BALL_R);
+      if (drop.contacts > this._madeBall.contacts) {
+        // One current contact, never a burst of catch-up sounds after a pause.
+        hoopsAudio.dribble(Math.max(0.12, 0.55 * 0.5 ** (drop.contacts - 1)));
+        this._madeBall.contacts = drop.contacts;
+      }
+      this._renderBall(0);
+    }
     this._updateTrail(dt);
 
     // Camera: damped toward the current shot; follow the ball in play.
@@ -1111,8 +1188,12 @@ export class Court3D extends BeatRunner {
       this.cam.pos[k] = damp(this.cam.pos[k], g.pos[k], g.k, dt);
       this.cam.target[k] = damp(this.cam.target[k], target[k], g.k, dt);
     }
-    const fov = damp(this.camera.fov, this.fovGoal || this.baseFov || 38, 3.5, dt);
-    if (Math.abs(fov - this.camera.fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
+    const fovGoal = this.fovGoal || this.baseFov || 38;
+    const fov = damp(this.camera.fov, fovGoal, 3.5, dt);
+    // Finish the transition when its per-frame step becomes subpixel; stopping
+    // at the previous value left a persistent gap from the requested lens.
+    const nextFov = Math.abs(fov - this.camera.fov) > 0.01 ? fov : fovGoal;
+    if (nextFov !== this.camera.fov) { this.camera.fov = nextFov; this.camera.updateProjectionMatrix(); }
     if (![this.cam.pos.x, this.cam.pos.y, this.cam.pos.z, this.cam.target.x, this.cam.target.y, this.cam.target.z].every(Number.isFinite)) {
       if (!this._nanReported) { this._nanReported = true; console.error('Hoops IQ camera: non-finite', JSON.stringify({ pos: this.cam.pos, target: this.cam.target, ball: this.ballMesh?.position, holder: this.ball.holder, shot: this.shot })); }
       this.cam.pos.copy(this.goal.pos);
@@ -1128,7 +1209,7 @@ export class Court3D extends BeatRunner {
     this.fx = this.fx.filter(f => {
       const k = Math.min(1, (now - f.t0) / f.dur);
       f.update(k);
-      if (k >= 1) { this.scene.remove(f.obj); f.obj.geometry?.dispose(); return false; }
+      if (k >= 1) { disposeObject(f.obj); return false; }
       return true;
     });
     const pulse = 1 + Math.sin(t * 4.2) * 0.05;

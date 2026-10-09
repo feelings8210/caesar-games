@@ -108,30 +108,39 @@ export class BeatRunner {
       }
 
       let flight = null;
+      const releaseAt = Math.min(ms * 0.8, Math.max(0, (b.prepareMs || 0) / (b.ms || 600) * ms));
       const from = [...this.ball.at];
       const fromH = this.ball.h || 0;
       if (b.pass) {
         flight = { kind: 'pass', from, fromH, target: b.pass, arc: b.lob ? .95 : .32, lob: !!b.lob };
-        this.ball.holder = null;
-        sfx.pass();
-        this._passLine(from, b.pass, ms);
       } else if (b.shot) {
         flight = { kind: 'shot', from, fromH, result: b.shot, arc: 1.25, blocked: false };
-        this.ball.holder = null;
-        sfx.release();
       } else if (b.ball) {
         flight = { kind: 'loose', from, fromH, target: b.ball, arc: .7, bounced: false };
-        this.ball.holder = null;
       }
-      this.ball.flight = flight;
+      this.ball.preparing = !!(flight && releaseAt);
+      this.ball.flight = null;
+      if (this.ball.preparing) this._prepareAction(b, flight, ms);
+      let released = false;
+      const release = () => {
+        released = true;
+        flight.from = [...this.ball.at];
+        flight.fromH = this.ball.h || 0;
+        this.ball.preparing = false;
+        this.ball.holder = null;
+        this.ball.flight = flight;
+        if (flight.kind === 'pass') { sfx.pass(); this._passLine(flight.from, b.pass, ms - releaseAt); }
+        if (flight.kind === 'shot') sfx.release();
+      };
+      if (flight && !releaseAt) release();
 
       if (b.sfx === 'squeak') sfx.squeak();
       if (b.sfx === 'whistle') sfx.whistle();
       if (b.call) this.call(b.call[0], b.call[1]);
 
-      const holderMoves = this.ball.holder && tracks[this.ball.holder];
+      const holderMoves = !flight && this.ball.holder && tracks[this.ball.holder];
       const dribbleEvery = slow ? 560 : 400;
-      let nextDribble = holderMoves ? 60 : Infinity;
+      let nextDribble = holderMoves ? dribbleEvery / 2 : Infinity;
       const trailPts = Object.fromEntries(Object.keys(tracks).map(id => [id, [[...this.pos[id]]]]));
 
       const start = performance.now();
@@ -151,13 +160,20 @@ export class BeatRunner {
         }
 
         let bounce = 0;
-        if (flight) this._fly(flight, raw);
+        if (flight && elapsed >= releaseAt) {
+          if (!released) release();
+          this._fly(flight, Math.min(1, (elapsed - releaseAt) / (ms - releaseAt)));
+        }
         else if (holderMoves) {
           const phase = (elapsed % dribbleEvery) / dribbleEvery;
           bounce = Math.sin(phase * Math.PI);
-          if (elapsed >= nextDribble) { sfx.dribble(slow ? .7 : 1); nextDribble += dribbleEvery; }
         }
         this._renderBall(bounce);
+        // The ball reaches the floor halfway through each bounce, not at release.
+        if (elapsed >= nextDribble) {
+          sfx.dribble(slow ? .7 : 1);
+          nextDribble = (Math.floor((elapsed - dribbleEvery / 2) / dribbleEvery) + 1) * dribbleEvery + dribbleEvery / 2;
+        }
         if (this.onFrame) this.onFrame(dt, b);
 
         if (raw < 1) { requestAnimationFrame(frame); return; }
@@ -231,6 +247,7 @@ export class BeatRunner {
    * ---------------------------------------------------------------- */
 
   _place() {}
+  _prepareAction() {}
   _renderBall() {}
   _spin() {}
   _swish() {}
