@@ -107,6 +107,7 @@ export const LEVELS = [
     options: [
       {
         kind: 'pass', to: 'o3', grade: 3, end: 'score',
+        points: 3,
         result: T('分给底角，三分命中！', 'Kick to the corner — three is good!'),
         why: T('补防的人从哪来，空位就在哪。底角三分是球场上最近的三分。', 'Where the help comes from, that is where the open man is. The corner three is the shortest three on the floor.'),
         play: [

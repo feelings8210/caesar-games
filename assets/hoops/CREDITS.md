@@ -18,6 +18,16 @@
 
 ---
 
+### 本地球员改造（2026-10-10）
+
+`athlete-arena.glb` 复用已有 Quaternius 球衣、鞋和动作，身体与头部改用资产库内 Blender 官方 Human Base Meshes v1.4.1 的 GEO-body_male_realistic 身体和头部拓扑；骨架按自然 A pose 拟合并使用原生 heat weights，旧动作的世界矩阵重新烘焙；眼睛来自同一源中的成对解剖眼球，眼白/虹膜/瞳孔材质分区原创；头发由同一头部表面派生。原球衣在休止空间细分、平滑，身体/头发/头部/球衣/短裤有真实几何 LOD。两种来源均 CC0-1.0。没有 NBA 球员肖像、队徽或比赛动画授权，原创球队外观。
+
+- 官方来源：[Blender demo files](https://www.blender.org/download/demo-files/)，固定 [v1.4.1 bundle](https://download.blender.org/demo/asset-bundles/human-base-meshes/human-base-meshes-bundle-v1.4.1.zip)。许可：[CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)。
+- canonical asset id：`blender-human-base-meshes:3c121505651140ce`。来源 SHA256：`3c121505651140ceb4d69fd1d8923f7788ffadd81672f5be14845a5f2c75c137`。
+- 派生 GLB SHA256：`3519bb125cbe2e187db5945e0919352e24225437ca09609e4176e0333fcc9e9b`，2,951,976 字节。完整来源、canonical 路径与构建 SHA 见 `athlete-arena.provenance.json`。
+- 可复现构建：`tools/blender/build_arena_athlete.py`；在 3090 使用 Blender 5.2.1 CPU，源库不修改。原资产始终保留，`?hoopsLook=classic` 可比较旧模型。
+- 材质、球馆观众、手臂联动、脚步稳定和镜头由运行代码生成；它们不是 NBA 2K 的资产或 ProPLAY 动作。
+
 ## 2. 比赛音效 (Sound Effects)
 
 所有音效源自 [Freesound](https://freesound.org/) 社区，全部遵循 **CC0 1.0 Universal (Public Domain Dedication)** 许可协议，已进行高品质无损切片、响度归一化（Peak -1.0 dBFS）与淡入淡出处理。

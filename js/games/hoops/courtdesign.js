@@ -26,7 +26,7 @@ export function tintedMark(img, color, width) {
   return c;
 }
 
-export function drawCourt(g, S, mark) {
+export function drawCourt(g, S, mark, { centreMark = true } = {}) {
   const px = S / 50;
   const X = x => (x + 25) * px;
   const Z = z => z * px;
@@ -37,7 +37,7 @@ export function drawCourt(g, S, mark) {
   g.fillStyle = NAVY;
   g.fillRect(X(-8), Z(0), 16 * px, 19 * px);
   g.beginPath(); g.arc(X(0), Z(47), 6 * px, 0, Math.PI * 2); g.fill();
-  if (mark) {
+  if (mark && centreMark) {
     const w = 7.4 * px;
     const m = tintedMark(mark, '#D9B97A', Math.round(w));
     g.drawImage(m, X(0) - w / 2, Z(47) - m.height / 2 - 0.3 * px, w, m.height);

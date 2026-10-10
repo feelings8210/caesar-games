@@ -21,6 +21,42 @@
 .hoops[data-view="menu"] .hp-menu { display: flex; }
 .hoops[data-view="play"] .hp-play { display: grid; }
 
+/* Local arena presentation: the floor is the main screen; coaching reads as
+   a broadcast-side panel instead of a separate white worksheet. */
+.hoops[data-look="arena"] {
+  --surface: #101C2D; --surface-sunken: #17273D;
+  --ink: #F2F5FA; --ink-muted: #B2C0D3; --ink-faint: #7E92AE;
+  --ink-soft: #BDCADB;
+  --hairline: #2C3D55; --hairline-strong: #3D4F69;
+  --hp-good: #79CBA0;
+}
+.hoops[data-look="arena"] .hp-menu { color: var(--ink); }
+.hoops[data-look="arena"] .hp-menu-head { padding: 26px; border-radius: 14px; background: linear-gradient(115deg,#132743,#101C2D); }
+.hoops[data-look="arena"] .hp-chapter-title { color: #F3F6FC; font-size: 36px; }
+.hoops[data-look="arena"] .hp-level { background: #142238; box-shadow: inset 0 0 0 1px #2A3D58; }
+.hoops[data-look="arena"] .hp-tabs { background: #182940; }
+.hoops[data-look="arena"] .hp-play { grid-template-columns: minmax(0,1fr) minmax(250px,280px); gap: 10px; }
+.hoops[data-look="arena"] .hp-panel { border-radius: 12px; padding: 22px 18px; color: var(--ink); }
+.hoops[data-look="arena"] .hp-title { color: var(--ink); }
+.hoops[data-look="arena"] .hp-prompt,
+.hoops[data-look="arena"] .hp-howto,
+.hoops[data-look="arena"] .hp-why,
+.hoops[data-look="arena"] .hp-clue,
+.hoops[data-look="arena"] .hp-clue-text { color: #BDCADB; }
+.hoops[data-look="arena"] .hp-btn:not(.hp-btn-primary),
+.hoops[data-look="arena"] .hp-retry { color: #E1E9F6; background: #21334D; }
+.hoops[data-look="arena"] .hp-view { top: 16px; right: 16px; left: auto; bottom: auto; }
+.hoops[data-look="arena"] .hc3d { border-radius: 12px; }
+.hoops[data-look="arena"] .hc3d:not(.is-frozen) .hc3-chip { opacity: 0; }
+.hoops[data-look="arena"][data-phase="review"] .hc3d .hc3-chip { opacity: 1; }
+.hoops[data-look="arena"] .hp-hud { top: auto; bottom: 18px; left: 18px; transform: none; border-radius: 3px; border-left: 4px solid #BBD4FF; padding: 11px 16px; background: #0D1829; }
+.hoops[data-look="arena"] .hp-banner { bottom: 72px; }
+@media(max-width:760px) {
+  .hoops[data-look="arena"] .hp-play { grid-template-columns: minmax(0,1fr); }
+  .hoops[data-look="arena"] .hp-hud { bottom: 10px; left: 10px; gap: 8px; padding: 8px; font-size: 11px; }
+  .hoops[data-look="arena"] .hp-hud-clock { font-size: 15px; }
+}
+
 /* ------------------------------------------------------------------ *
  * Menu
  * ------------------------------------------------------------------ */

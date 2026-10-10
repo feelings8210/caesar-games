@@ -48,6 +48,9 @@ let preloading = null;
 let crowd = null;                // { src, gain }
 let voiceNow = null;
 let voiceGeneration = 0;
+let courtPosition = null;
+const trainingSound = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('hoopsSound') === 'training';
+const POSITIONED = new Set(['dribble', 'pass', 'catch', 'swish', 'rim', 'block', 'backboard', 'squeak']);
 const lastPick = {};
 if (typeof window !== 'undefined') window.addEventListener('caesar-mute', e => {
   if (e.detail.muted) stopVoice();
@@ -87,7 +90,7 @@ function buildBus(ctx) {
   tone.type = 'lowpass';
   tone.frequency.value = 4200;
   const wet = ctx.createGain();
-  wet.gain.value = 0.2;
+  wet.gain.value = trainingSound ? 0.12 : 0.2;
   muffle.connect(verb); verb.connect(tone); tone.connect(wet); wet.connect(sounds.master);
   return { ctx, out, muffle, voice };
 }
@@ -150,8 +153,14 @@ function sample(ctx, name, gain = 0.7, rate = 1) {
   src.buffer = list[i];
   src.playbackRate.value = rate * (1 + (Math.random() * 2 - 1) * 0.035);
   const g = ctx.createGain();
-  g.gain.value = gain;
-  src.connect(g); g.connect(bus.out);
+  g.gain.value = gain * (courtPosition && POSITIONED.has(name) ? courtPosition.level : 1);
+  src.connect(g);
+  let pan = null;
+  if (courtPosition && POSITIONED.has(name) && ctx.createStereoPanner) {
+    pan = ctx.createStereoPanner(); pan.pan.value = courtPosition.pan;
+    g.connect(pan); pan.connect(bus.out);
+  } else g.connect(bus.out);
+  src.onended = () => { src.disconnect(); g.disconnect(); pan?.disconnect(); };
   src.start();
   return true;
 }
@@ -184,10 +193,14 @@ function setCrowdLevel(level, seconds = 0.4) {
   if (!crowd || !bus) return;
   const now = bus.ctx.currentTime;
   crowd.gain.gain.cancelScheduledValues(now);
-  crowd.gain.gain.setTargetAtTime(sounds.isMuted ? 0 : level, now, seconds / 3);
+  crowd.gain.gain.setTargetAtTime(sounds.isMuted ? 0 : level * (trainingSound ? .18 : 1), now, seconds / 3);
 }
 
 export const hoopsAudio = {
+  /** Mild screen-relative placement, preserving clarity on tablet speakers. */
+  setCourtPosition(pan, depth, enabled = true) {
+    courtPosition = enabled ? { pan: Math.max(-.55, Math.min(.55, pan * .55)), level: Math.max(.7, 1 - Math.max(0, depth - 8) / 140) } : null;
+  },
   /** Load every recorded cue once; synthesized cues cover the gap until then. */
   preload() {
     if (preloading) return preloading;
@@ -377,6 +390,7 @@ export const hoopsAudio = {
 
   /** A crowd rising: three vowel bands, scattered applause, a few shouts. */
   cheer(size = 1) {
+    if (trainingSound) size *= .65;
     const ctx = ready('cheer'); if (!ctx) return;
     if (sample(ctx, 'cheer', 0.55 * size)) return;
     const t = ctx.currentTime;
@@ -396,7 +410,7 @@ export const hoopsAudio = {
 
   groan() {
     const ctx = ready('groan'); if (!ctx) return;
-    if (sample(ctx, 'groan', 0.55)) return;
+    if (sample(ctx, 'groan', trainingSound ? .36 : .55)) return;
     const t = ctx.currentTime;
     noise(ctx, t, { freq: 560, to: 300, q: 1.1, gain: 0.07, attack: 0.18, hold: 0.2, decay: 0.8 });
     tone(ctx, t, { type: 'sawtooth', freq: 170, to: 118, gain: 0.014, attack: 0.15, hold: 0.2, decay: 0.7, filter: 700 });

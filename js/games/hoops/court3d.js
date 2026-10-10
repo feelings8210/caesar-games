@@ -15,11 +15,13 @@ import { RoomEnvironment } from '../../vendor/three/addons/RoomEnvironment.js';
 import { HDRLoader } from '../../vendor/three/addons/HDRLoader.js';
 import { BeatRunner, HOOP, PLAY_SPEED, dist, lerp } from './runner.js';
 import { buildArena } from './arena3d.js';
-import { drawCourt } from './courtdesign.js';
+import { drawCourt, tintedMark } from './courtdesign.js';
 import { buildHoop } from './hoop3d.js';
 import { AthleteKit, STRIDE } from './athlete3d.js';
 import { madeBallAt } from './ball-motion.js';
 import { hoopsAudio } from './audio.js';
+import { actionBall, basketballBeat } from './basketball-pose.js';
+import { framePosition } from './camera-frame.js';
 
 const ASSETS = new URL('../../../assets/hoops/', import.meta.url).href;
 const RIM_Y = 10;
@@ -76,7 +78,7 @@ export class Court3D extends BeatRunner {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     // Quality starts high and steps down once if the first frames run slow.
     const forced = new URLSearchParams(location.search).get('hoopsQuality');
-    this.arenaLook = new URLSearchParams(location.search).get('hoopsLook') === 'arena';
+    this.arenaLook = new URLSearchParams(location.search).get('hoopsLook') !== 'classic';
     this.quality = forced === 'low' ? 'low' : 'high';
     this._qualityLocked = !!forced;
     this._probe = [];
@@ -99,7 +101,7 @@ export class Court3D extends BeatRunner {
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0B0E13);
-    this.scene.fog = new THREE.Fog(0x0E1218, 80, 200);
+    this.scene.fog = new THREE.Fog(0x0E1218, this.arenaLook ? 100 : 80, this.arenaLook ? 245 : 200);
     this.camera = new THREE.PerspectiveCamera(38, 1, 1, 400);
     this.cam = { pos: new THREE.Vector3(0, 34, 72), target: new THREE.Vector3(0, 1.5, 17) };
     this.goal = { pos: this.cam.pos.clone(), target: this.cam.target.clone(), k: 2.6 };
@@ -124,7 +126,7 @@ export class Court3D extends BeatRunner {
    * ---------------------------------------------------------------- */
 
   _lights() {
-    this.scene.add(new THREE.HemisphereLight(0xDCE6F5, 0x1E2228, 0.32));
+    this.scene.add(new THREE.HemisphereLight(0xDCE6F5, 0x1E2228, this.arenaLook ? 0.65 : 0.32));
     // A museum spot over the table: full light on the court, falling off over the stands.
     const key = new THREE.SpotLight(0xFFF0DC, 2.45, 0, 0.46, 0.5, 0);
     key.position.set(-14, 84, 6);
@@ -139,6 +141,10 @@ export class Court3D extends BeatRunner {
     const rim = new THREE.DirectionalLight(0xBFD3FF, 0.7);
     rim.position.set(10, 18, -30);
     this.scene.add(rim);
+    if (this.arenaLook) {
+      const fill = new THREE.DirectionalLight(0xE7EDFF, 0.9);
+      fill.position.set(-28, 28, 30); this.scene.add(fill);
+    }
   }
 
   async _load() {
@@ -147,7 +153,7 @@ export class Court3D extends BeatRunner {
     const optional = p => p.catch(() => null);    // environment art is a bonus, never a blocker
     const tex = new THREE.TextureLoader();
     const [figs, mark, wood, nor, rough, hdr] = await Promise.all([
-      loader.loadAsync(ASSETS + 'athlete.glb'),
+      loader.loadAsync(ASSETS + (this.arenaLook ? 'athlete-arena.glb' : 'athlete.glb')),
       optional(image(ASSETS + '../cd_home_mark_transparent.png')),
       optional(image(ASSETS + 'env/wood_diff_1k.jpg')),
       optional(tex.loadAsync(ASSETS + 'env/wood_nor_1k.jpg')),
@@ -181,14 +187,34 @@ export class Court3D extends BeatRunner {
     }
     if (nor) floorMat.normalScale.set(0.35, 0.35);
     if (rough) floorMat.roughness = 0.78;                // satin: the spot leaves a soft sheen
+    if (this.arenaLook) { floorMat.clearcoat = .2; floorMat.clearcoatRoughness = .4; floorMat.specularIntensity = .16; }
     this.floor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), floorMat);
     this.floor.rotation.x = -Math.PI / 2;
     this.floor.position.set(0, 0, 25);
     this.floor.receiveShadow = true;
+    if (this.arenaLook) {
+      // A real court continues beyond the lesson, without a model pedestal.
+      this.floor.geometry.dispose(); this.floor.geometry = new THREE.PlaneGeometry(50,47);
+      const uv = this.floor.geometry.attributes.uv;
+      for(let i=0;i<uv.count;i++) uv.setY(i,.06 + uv.getY(i)*.94);
+      this.floor.position.z = 23.5;
+      const other = new THREE.Mesh(this.floor.geometry, floorMat);
+      other.name = 'FarCourt';
+      other.quaternion.setFromAxisAngle(new THREE.Vector3(0,1,0),Math.PI).multiply(this.floor.quaternion);
+      other.position.set(0,0,70.5); other.receiveShadow=true; this.scene.add(other);
+      if (mark) {
+        const image = tintedMark(mark,'#D9B97A',512), texture = new THREE.CanvasTexture(image);
+        texture.colorSpace=THREE.SRGBColorSpace;
+        const logo = new THREE.Mesh(new THREE.PlaneGeometry(7.4,7.4*image.height/image.width),
+          new THREE.MeshStandardMaterial({map:texture,transparent:true,roughness:.85,depthWrite:false,...ABOVE_FLOOR}));
+        logo.rotation.x=-Math.PI/2;logo.position.set(0,.012,47);this.scene.add(logo);
+      }
+    }
     this.scene.add(this.floor);
 
     const hoop = buildHoop({ hoop: HOOP, rimY: RIM_Y, mark });
     this.scene.add(hoop);
+    if (this.arenaLook) { const farHoop=buildHoop({hoop:HOOP,rimY:RIM_Y,mark});farHoop.name='FarHoop';farHoop.rotation.y=Math.PI;farHoop.position.z=94;this.scene.add(farHoop); }
     this.arena = buildArena(this.scene, { hoop, rimY: RIM_Y, populated: this.arenaLook });
     this._applyQuality();
 
@@ -197,6 +223,7 @@ export class Court3D extends BeatRunner {
     this.ballMesh = this._makeBall();
     this.scene.add(this.ballMesh);
     this.trail = this._makeTrail();
+    this.trail.visible = !this.arenaLook;
     this.scene.add(this.trail);
     this.loaded = true;
     if (this._pending) { const [s, y] = this._pending; this._pending = null; this.setScene(s, y); }
@@ -210,7 +237,7 @@ export class Court3D extends BeatRunner {
     const px = S / 50;
     if (wood) {
       this._woodFloor(g, S, wood);
-      drawCourt(g, S, mark);
+      drawCourt(g, S, mark, { centreMark: !this.arenaLook });
       const t = new THREE.CanvasTexture(c);
       t.colorSpace = THREE.SRGBColorSpace;
       t.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
@@ -239,7 +266,7 @@ export class Court3D extends BeatRunner {
       g.fillStyle = 'rgba(110,74,34,.12)';
       g.fillRect(x, 0, 1, S);
     }
-    drawCourt(g, S, mark);
+    drawCourt(g, S, mark, { centreMark: !this.arenaLook });
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
@@ -261,7 +288,7 @@ export class Court3D extends BeatRunner {
     for (let i = 0; i < d.length; i += 64) { r += d[i]; gr += d[i + 1]; b += d[i + 2]; }
     const n = d.length / 64;
     // Honey maple, with the grain and plank-to-plank variation drawn out.
-    const mean = [r / n, gr / n, b / n], tone = [186, 133, 80], k = 1.3;
+    const mean = [r / n, gr / n, b / n], tone = this.arenaLook ? [175, 153, 114] : [186, 133, 80], k = this.arenaLook ? 0.52 : 1.3;
     for (let i = 0; i < d.length; i += 4) {
       for (let c = 0; c < 3; c++) d[i + c] = tone[c] + (d[i + c] - mean[c]) * k;
     }
@@ -287,6 +314,13 @@ export class Court3D extends BeatRunner {
     tex.colorSpace = THREE.SRGBColorSpace;
     const m = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 32, 18),
       new THREE.MeshStandardMaterial({ map: tex, roughness: 0.62 }));
+    if (this.arenaLook) {
+      const surface=document.createElement('canvas');surface.width=surface.height=64;
+      const ctx=surface.getContext('2d');ctx.fillStyle='#777';ctx.fillRect(0,0,64,64);ctx.fillStyle='#AAA';
+      for(let y=0;y<64;y+=4)for(let x=0;x<64;x+=4){ctx.beginPath();ctx.arc(x+(y%8?2:0),y,1.3,0,Math.PI*2);ctx.fill();}
+      const bump=new THREE.CanvasTexture(surface);bump.wrapS=bump.wrapT=THREE.RepeatWrapping;bump.repeat.set(8,4);
+      m.material.bumpMap=bump;m.material.bumpScale=.003;m.material.roughness=.74;
+    }
     m.castShadow = true;
     return m;
   }
@@ -302,6 +336,10 @@ export class Court3D extends BeatRunner {
       case 'Skin': m = new THREE.MeshStandardMaterial({ color: you ? TEAM.you.body : t.body, metalness: 1, roughness: you ? 0.3 : 0.38 }); break;
       case 'Base': m = new THREE.MeshStandardMaterial({ color: t.base, roughness: 0.25, metalness: 0.05, ...ABOVE_FLOOR }); break;
       case 'Trim': m = new THREE.MeshStandardMaterial({ color: GOLD, metalness: 1, roughness: 0.3, ...ABOVE_FLOOR }); break;
+      case 'Hair': m = new THREE.MeshStandardMaterial({ color: number % 3 === 0 ? 0x35281E : 0x171514, roughness: 0.95 }); break;
+      case 'EyeSclera': m = new THREE.MeshStandardMaterial({color:0xD6CEC0,roughness:.32}); break;
+      case 'EyeIris': m = new THREE.MeshStandardMaterial({color:number%4===0?0x556251:0x49321E,roughness:.42}); break;
+      case 'EyePupil': m = new THREE.MeshStandardMaterial({color:0x080809,roughness:.3}); break;
       default: m = new THREE.MeshStandardMaterial({ color: 0xF4F3EF, roughness: 0.45 });
     }
     if (this.arenaLook) {
@@ -311,15 +349,30 @@ export class Court3D extends BeatRunner {
         m.metalness = 0; m.roughness = 0.8; m.envMapIntensity = 0.3;
       }
       if (slot === 'Jersey' || slot === 'Shorts') { m.roughness = 0.85; m.envMapIntensity = 0.2; }
+      if (slot === 'Jersey' || slot === 'Shorts') {
+        if (!this._clothNormal) {
+          const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
+          const ctx = canvas.getContext('2d'), image = ctx.createImageData(64,64);
+          for (let y=0;y<64;y++) for(let x=0;x<64;x++) {
+            const i=(y*64+x)*4;
+            image.data[i]=128+Math.sin(x*Math.PI/2)*18; image.data[i+1]=128+Math.sin(y*Math.PI/2)*18;
+            image.data[i+2]=252; image.data[i+3]=255;
+          }
+          ctx.putImageData(image,0,0); this._clothNormal=new THREE.CanvasTexture(canvas);
+          this._clothNormal.wrapS=this._clothNormal.wrapT=THREE.RepeatWrapping; this._clothNormal.repeat.set(9,9);
+        }
+        m.normalMap=this._clothNormal; m.normalScale.set(.14,.14);
+      }
       if (slot === 'Shoe') { m.color.setHex(side === 'o' ? 0xE8E6E0 : 0x252D39); m.roughness = 0.8; }
     }
     this.materials[key] = m;
     return m;
   }
 
-  _numberTexture(n) {
+  _numberTexture(n, side = 'o') {
     this._numTex = this._numTex || {};
-    if (this._numTex[n]) return this._numTex[n];
+    const key = this.arenaLook ? `${side}:${n}` : n;
+    if (this._numTex[key]) return this._numTex[key];
     const c = document.createElement('canvas');
     c.width = c.height = 128;
     const g = c.getContext('2d');
@@ -331,9 +384,15 @@ export class Court3D extends BeatRunner {
     g.strokeText(String(n), 64, 70);
     g.fillStyle = '#F4F1E8';
     g.fillText(String(n), 64, 70);
+    if (this.arenaLook) {
+      g.clearRect(0,0,128,128);
+      g.fillStyle='#F4F1E8';g.font='800 18px Arial, sans-serif';
+      g.fillText(side==='o'?'CAESAR':'RIVALS',64,25);
+      g.font='800 78px Arial, sans-serif';g.lineWidth=3;g.strokeText(String(n),64,78);g.fillText(String(n),64,78);
+    }
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
-    return (this._numTex[n] = tex);
+    return (this._numTex[key] = tex);
   }
 
   _ring(inner, outer, color, opacity = 0.9, segments = 64) {
@@ -353,6 +412,7 @@ export class Court3D extends BeatRunner {
     this.you = you;
     this._lean = null;
     this._trailPts = [];
+    this._receivingId = null; this._shooter = null; this._celebrated = null;
     if (!this.loaded) { this._pending = [setup, you]; return; }
     this._clearPlayers();
     this.players = {};
@@ -367,8 +427,8 @@ export class Court3D extends BeatRunner {
       const side = id[0];
       const isYou = id === you;
       const n = Number(id.slice(1));
-      const decalMat = new THREE.MeshStandardMaterial({ map: this._numberTexture(n), alphaTest: 0.5, roughness: 0.35 });
-      const athlete = this.kit.make(slot => this._material(slot, side, isYou, n), decalMat, { pedestal: !this.arenaLook });
+      const decalMat = new THREE.MeshStandardMaterial({ map: this._numberTexture(n,side), alphaTest: 0.5, roughness: 0.75 });
+      const athlete = this.kit.make(slot => this._material(slot, side, isYou, n), decalMat, { pedestal: !this.arenaLook, style: this.arenaLook ? n : 0 });
       decalMat.dispose();
       const root = new THREE.Group();
       root.add(athlete.root);
@@ -377,6 +437,7 @@ export class Court3D extends BeatRunner {
         athlete.root.scale.set(scale, scale, scale);
       }
       athlete.setLoop(side === 'd' ? 'DefStance' : 'Idle');
+      athlete.setQuality(this.quality);
 
       const ring = new THREE.Group();
       const glow = this._ring(1.72, this.arenaLook ? 1.8 : 1.95, isYou ? TEAM.you.ring : TEAM[side].ring, isYou ? 0.85 : 0.6);
@@ -393,6 +454,7 @@ export class Court3D extends BeatRunner {
       const [x, z] = this.pos[id];
       root.position.set(x, 0, z);
       ring.position.set(x, 0, z);
+      if (this.arenaLook) ring.visible = isYou;
       const p = { id, side, root, athlete, ring, yaw: side === 'o' ? Math.PI : 0, prev: [x, z], speed: 0 };
       this.players[id] = p;
 
@@ -486,10 +548,35 @@ export class Court3D extends BeatRunner {
   _renderBall(bounce) {
     if (!this.ballMesh) return;
     const b = this.ball;
+    if (this.arenaLook) {
+      const projected = this.ballMesh.position.clone().project(this.camera);
+      hoopsAudio.setCourtPosition(projected.x, this.ballMesh.position.distanceTo(this.camera.position));
+    } else hoopsAudio.setCourtPosition(0, 0, false);
     const f = b.flight;
     let at = b.at;
     let y;
     const held = b.holder && !f && this.players[b.holder];
+    if (held && this.arenaLook) {
+      this._dribbleBounce = bounce;
+      const action = held.action;
+      const moving = held.speed > 2.5;
+      let local = moving ? [-.8, 3.4 - bounce * (3.4 - BALL_R), .65] : [-.65,3.8,.7];
+      if (b.preparing && action) {
+        const fraction = (performance.now() - action.start) / action.releaseMs;
+        local = actionBall(action.style === 'layup' ? 'layup' : action.kind, fraction);
+      }
+      const point = held.root.localToWorld(new THREE.Vector3(...local));
+      point.y = Math.max(BALL_R, point.y);
+      if (b.preparing && action) {
+        const root = held.athlete.root.getObjectByName('root');
+        point.y += root?.getWorldPosition(new THREE.Vector3()).y || 0;
+        const t = Math.min(1, (performance.now() - action.start) / Math.min(120, action.releaseMs));
+        point.lerp(action.from, 1 - t);
+      }
+      b.at = [point.x, point.z]; this._ballY = point.y;
+      this.ballMesh.position.copy(point);
+      return;
+    }
     if (held && (b.preparing || held.speed < 2.5) && !bounce && held.athlete.ballPosition(this.ballMesh.position)) {
       b.at = [this.ballMesh.position.x, this.ballMesh.position.z];
       this._ballY = this.ballMesh.position.y;
@@ -680,7 +767,23 @@ export class Court3D extends BeatRunner {
       // corners included; the empty backcourt end stays mostly out of shot.
       g.target.set(0, 0.5, 15);
       g.pos.copy(this._orbit(g.target, 44, this._fit(25)));
+      if (this.arenaLook) {
+        const front = Math.max(33, ...Object.values(this.pos).map(p => p[1] + 4));
+        g.target.set(0, 2, front * .43);
+        const direction = (this._aspect < .9 ? new THREE.Vector3(-.25,.66,.71) : new THREE.Vector3(-.75,.62,.24)).normalize();
+        const points = [];
+        for (const x of [-27, 27]) for (const z of [-2, front]) points.push(new THREE.Vector3(x, 0, z));
+        points.push(new THREE.Vector3(0, 15, 5.25));
+        g.pos.copy(framePosition(points, g.target, direction, this.baseFov || 44, this._aspect || 1.2, 1.03));
+      }
       g.k = 2.4;
+    } else if (name === 'finish' && this.arenaLook) {
+      const shooter = this.pos[this._shooter] || this.pos[this.you] || [0, 20];
+      g.target.set((shooter[0] + HOOP[0]) / 2, 5, (shooter[1] + HOOP[1]) / 2);
+      const points = [new THREE.Vector3(shooter[0], 0, shooter[1]), new THREE.Vector3(shooter[0], 9, shooter[1]),
+        new THREE.Vector3(HOOP[0], 13, HOOP[1]), new THREE.Vector3((shooter[0] + HOOP[0]) / 2, 17, (shooter[1] + HOOP[1]) / 2)];
+      g.pos.copy(framePosition(points, g.target, new THREE.Vector3(.62, .3, .73), this.baseFov || 44, this._aspect || 1.2, 1.1));
+      g.k = 4.8;
     } else if (name === 'push') {
       // Look at "you" from the middle of the floor so the read sits centre frame.
       const at = this.pos[this.you] || [0, 20];
@@ -710,6 +813,15 @@ export class Court3D extends BeatRunner {
     this.frozen = !!on;
     this.el.classList.toggle('is-frozen', this.frozen);
     clearTimeout(this._shotTimer);
+    if (this.frozen && this.arenaLook && this.ball.holder) {
+      const player = this.players[this.ball.holder];
+      if (player) {
+        player.speed = 0; this._renderBall(0);
+        const target = this.ballMesh.position.clone();
+        const guide = player.root.localToWorld(new THREE.Vector3(.35,0,0)).sub(player.root.position).add(target);
+        player.athlete.reachBall(target,guide);
+      }
+    }
     // The camera stays put on the freeze; player view is the learner's choice.
     if (!this.frozen && was && this.shot === 'pov') this.setShot('broadcast');
   }
@@ -1048,7 +1160,7 @@ export class Court3D extends BeatRunner {
     this._aspect = w / h;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
-    this.baseFov = w / h < 0.9 ? 50 : 38;
+    this.baseFov = this.arenaLook ? (w / h < 0.9 ? 54 : 36) : (w / h < 0.9 ? 50 : 38);
     if (this.shot !== 'pov') this.camera.fov = this.baseFov;
     this.camera.updateProjectionMatrix();
     this.setShot(this.shot);
@@ -1056,6 +1168,8 @@ export class Court3D extends BeatRunner {
 
   _beat(b, token, slow) {
     for (const id of [b.screen].flat().filter(Boolean)) this._screeners?.add(id);
+    if (this.arenaLook) b = basketballBeat(b, this.ball.holder ? {id:this.ball.holder,at:this.pos[this.ball.holder]} : null);
+    if (this.arenaLook && b.sfx==='squeak') b={...b,sfx:undefined};
     return super._beat(b, token, slow);
   }
 
@@ -1064,9 +1178,17 @@ export class Court3D extends BeatRunner {
     const name = b.pass ? 'Pass' : b.shot ? 'Shot' : null;
     const clip = this.kit.clips[name];
     if (!who || !clip) return;
+    if (this.arenaLook) who.action = {
+      kind: b.pass ? 'pass' : 'shot', target: b.pass,
+      style: b.finish || 'jump',
+      start: performance.now(), duration: ms,
+      releaseMs: ms * (b.prepareMs || 0) / (b.ms || 600),
+      from: new THREE.Vector3(this.ball.at[0], this._ballY ?? 3.4, this.ball.at[1])
+    };
+    if (this.arenaLook && b.pass) this._receivingId = b.pass;
     who.athlete.trigger(name, clip.duration / (ms * PLAY_SPEED / 1000));
     flight.prepared = true;
-    if (b.shot) this._shooter = who.id;
+    if (b.shot) { this._receivingId = null; this._shooter = who.id; if (this.arenaLook) this.setShot('finish'); }
   }
 
   /** One-shots from what the ball just did: passes, catches, shots. */
@@ -1076,9 +1198,10 @@ export class Court3D extends BeatRunner {
     if (f && f !== this._seenFlight && !f.prepared) {
       const who = this.players[this._seenHolder];
       if (who && f.kind === 'pass') who.athlete.trigger('Pass', 1.7);
-      if (who && f.kind === 'shot') { who.athlete.trigger('Shot', 1.25); this._shooter = who.id; }
+      if (who && f.kind === 'shot') { this._receivingId = null; who.athlete.trigger('Shot', 1.25); this._shooter = who.id; }
     }
-    if (b.holder && b.holder !== this._seenHolder && this._seenFlight) this.players[b.holder]?.athlete.trigger('Catch', 2.2);
+    if (this.arenaLook && f?.kind === 'pass') this._receivingId = f.target;
+    if (b.holder && b.holder !== this._seenHolder && this._seenFlight && !b.preparing) this.players[b.holder]?.athlete.trigger('Catch', 2.2);
     if (b.rest === 'made' && this._shooter && this._celebrated !== this._seenFlight) {
       this._celebrated = this._seenFlight;
       const s = this.players[this._shooter];
@@ -1095,7 +1218,7 @@ export class Court3D extends BeatRunner {
     if (sp > 2.5) this._screeners?.delete(p.id);
     const shotUp = this.ball.flight?.kind === 'shot' && p.id !== this._shooter && dist(this.pos[p.id], HOOP) < 16;
     if (sp > 18) p.athlete.setLoop('Sprint', Math.min(1.3, Math.max(0.7, sp / STRIDE.Sprint)));
-    else if (sp > 2.5 && p.side === 'd' && sp < 11) p.athlete.setLoop('DefSlideL', Math.min(1.5, Math.max(0.8, sp / 6)));
+    else if (sp > 2.5 && p.side === 'd' && sp < 11) p.athlete.setLoop(this.arenaLook && p.slideRight ? 'DefSlideR' : 'DefSlideL', Math.min(1.5, Math.max(0.8, sp / 6)));
     else if (sp > 2.5) p.athlete.setLoop('Jog', Math.min(1.4, Math.max(0.6, sp / STRIDE.Jog)));
     else if (shotUp) p.athlete.setLoop('BoxOut');
     else if (this._screeners?.has(p.id)) p.athlete.setLoop('Screen');
@@ -1123,6 +1246,7 @@ export class Court3D extends BeatRunner {
       this.key.shadow.map = null;
     }
     this.arena?.setQuality(this.quality);
+    for (const player of Object.values(this.players)) player.athlete.setQuality(this.quality);
     if (this.el) this.el.dataset.quality = this.quality;
     this._resize?.();
   }
@@ -1130,7 +1254,9 @@ export class Court3D extends BeatRunner {
   _idleYaw(p) {
     const holder = this.ball.holder;
     let look;
-    if (p.side === 'd') look = this.pos[holder] || HOOP;
+    if (this.arenaLook && p.id === this._receivingId && (this.ball.flight?.kind === 'pass' || this.ball.preparing && this.ball.holder !== p.id)) look = this.pos[this._seenHolder] || HOOP;
+    else if (this.arenaLook && p.action?.kind === 'pass' && performance.now() - p.action.start < p.action.duration) look = this.pos[p.action.target] || HOOP;
+    else if (p.side === 'd') look = this.pos[holder] || (this.arenaLook && this.ball.flight?.kind === 'shot' ? this.pos[this._shooter] : null) || HOOP;
     else look = holder && holder !== p.id ? this.pos[holder] : HOOP;
     const me = this.pos[p.id];
     return Math.atan2(look[0] - me[0], look[1] - me[1]);
@@ -1146,6 +1272,7 @@ export class Court3D extends BeatRunner {
     this.arena.update(dt);
 
     this._cueActions();
+    let brakingPlayer=null,largestBrake=0;
     // Figurines: face where they move, pick a loop from what they are doing.
     for (const p of Object.values(this.players)) {
       const [x, z] = this.pos[p.id];
@@ -1153,12 +1280,53 @@ export class Court3D extends BeatRunner {
       const vz = (z - p.prev[1]) / Math.max(dt, 1e-3);
       p.prev = [x, z];
       const speed = Math.hypot(vx, vz);
+      const braking=((p.rawSpeed || 0)-speed)/Math.max(dt,1e-3);
+      if(!this.frozen&&this.arenaLook&&(p.rawSpeed||0)>7&&braking>45&&braking>largestBrake) {brakingPlayer=p;largestBrake=braking;}
+      p.rawSpeed=speed;
       p.speed = damp(p.speed, speed, 10, dt);
-      const goalYaw = p.speed > 1.5 ? Math.atan2(vx, vz) : this._idleYaw(p);
-      p.yaw += angleDelta(p.yaw, goalYaw) * (1 - Math.exp(-9 * dt));
+      const slide = this.arenaLook && p.side === 'd' && p.speed < 11;
+      const goalYaw = p.speed > 1.5 && !slide ? Math.atan2(vx, vz) : this._idleYaw(p);
+      p.slideRight = vx*Math.cos(p.yaw)-vz*Math.sin(p.yaw)>0;
+      if (!this.frozen) p.yaw += angleDelta(p.yaw, goalYaw) * (1 - Math.exp(-9 * dt));
       p.root.rotation.y = p.yaw;
       this._pickLoop(p);
       if (!this.frozen) p.athlete.update(dt * PLAY_SPEED);
+    }
+    if (this.arenaLook && !this.frozen) {
+      const finisher=this.players[this._shooter];
+      if(finisher?.action?.style==='layup'&&now-finisher.action.start<finisher.action.duration)
+        finisher.athlete.layupStride((now-finisher.action.start)/finisher.action.duration);
+      const receiver = this.players[this._receivingId];
+      if (receiver && (this.ball.flight?.kind === 'pass' || this.ball.preparing && this.ball.holder !== receiver.id)) {
+        const target = receiver.root.localToWorld(new THREE.Vector3(-.65,3.8,.7));
+        const guide = receiver.root.localToWorld(new THREE.Vector3(.35,0,0)).sub(receiver.root.position).add(target);
+        receiver.athlete.reachBall(target,guide);
+      }
+      for (const player of Object.values(this.players)) {
+        if (player.side !== 'd' || player.speed > 14) continue;
+        const shooter = this.pos[this._shooter];
+        const contest = (this.ball.flight?.kind === 'shot' || this.ball.preparing && this.players[this.ball.holder]?.action?.kind==='shot') && shooter && dist(this.pos[player.id], shooter) < 11;
+        const y = contest ? 6 : 3.8;
+        player.athlete.guardHands(player.root.localToWorld(new THREE.Vector3(-1.3, y, .65)), player.root.localToWorld(new THREE.Vector3(1.3, y, .65)));
+      }
+      const holder = this.players[this.ball.holder];
+      if (holder) {
+        this._renderBall(this.ball.preparing || holder.speed < 2.5 ? 0 : this._dribbleBounce || 0);
+        const handTarget = this.ballMesh.position.clone();
+        if (!this.ball.preparing && holder.speed > 2.5) handTarget.y = Math.max(handTarget.y + .15, 3.2);
+        const guide = holder.root.localToWorld(new THREE.Vector3(.35, 0, 0)).sub(holder.root.position).add(handTarget);
+        const releaseProgress = holder.action ? (now-holder.action.start)/holder.action.releaseMs : 0;
+        const oneHand = this.ball.preparing && holder.action?.style==='layup' && releaseProgress>.55;
+        const balance=oneHand?holder.root.localToWorld(new THREE.Vector3(.9,4.1,.25)):guide;
+        holder.athlete.reachBall(handTarget, oneHand || this.ball.preparing || holder.speed < 2.5 ? balance : null);
+      }
+      for (const player of Object.values(this.players)) player.athlete.plantFeet(player.speed > 2.5);
+      if(brakingPlayer&&now-(this._shoeSoundAt||0)>220&&brakingPlayer.athlete.feet.some(f=>f.bone?.getWorldPosition(new THREE.Vector3()).y<.75)) {
+        const point=brakingPlayer.root.position.clone().project(this.camera);
+        hoopsAudio.setCourtPosition(point.x,brakingPlayer.root.position.distanceTo(this.camera.position));
+        hoopsAudio.squeak();this._shoeSoundAt=now;
+      }
+      for (const player of Object.values(this.players)) player.athlete.gaze(this.ballMesh.position,player.yaw);
     }
     if (this.ball.holder && !this.ball.flight && this.players[this.ball.holder]?.speed < 2.5) this._renderBall(0);
     if (this._madeBall && this.ball.rest === 'made' && !this.ball.holder && !this.ball.flight && !this.frozen) {

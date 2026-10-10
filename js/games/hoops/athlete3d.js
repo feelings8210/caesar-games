@@ -8,6 +8,7 @@
 
 import * as THREE from '../../vendor/three/three.module.min.js';
 import { clone as cloneSkinned } from '../../vendor/three/addons/SkeletonUtils.js';
+import { reach } from './basketball-pose.js';
 
 const FADE = 0.22;
 /** Loops that crouch deep enough to want some standing pose mixed in. */
@@ -29,7 +30,7 @@ export class AthleteKit {
     this.decals = [];
     const bone = this.template.getObjectByName('socket_num_front')?.parent || this.template.getObjectByName('spine_03');
     let jersey = null;
-    this.template.traverse(o => { if (o.isSkinnedMesh && o.material?.name === 'Jersey') jersey = o; });
+    this.template.traverse(o => { if (o.isSkinnedMesh && o.material?.name === 'Jersey' && o.name !== 'JerseyLOD') jersey = o; });
     if (bone && jersey) {
       const v = new THREE.Vector3();
       let front = -Infinity, back = Infinity, y0 = Infinity, y1 = -Infinity;
@@ -59,15 +60,30 @@ export class AthleteKit {
     }
   }
 
-  make(materialFor, numberMat, { pedestal = true } = {}) {
-    return new Athlete(this, materialFor, numberMat, pedestal);
+  make(materialFor, numberMat, { pedestal = true, style = 0 } = {}) {
+    return new Athlete(this, materialFor, numberMat, pedestal, style);
   }
 }
 
 class Athlete {
-  constructor(kit, materialFor, numberMat, pedestal) {
+  constructor(kit, materialFor, numberMat, pedestal, style) {
     this.root = cloneSkinned(kit.template);
+    this.poseBase = new Map();
+    this.head = this.root.getObjectByName('Head');
     this.ownedGeometry = new Set();
+    this.hairStyle = style % 2 ? 'HairCrop' : 'HairFull';
+    this.identity = style ? [
+      ['Head', [1 + (style - 3) * .025, 1, 1 + (3 - style) * .015]],
+      ...['upperarm_l','upperarm_r'].map(name => [name,[.86 + style * .012,1,.86 + style * .012]]),
+      ...['calf_l','calf_r'].map(name => [name,[.94,1,.94]])
+    ].map(([name, scale]) => [this.root.getObjectByName(name), new THREE.Vector3(...scale)]) : [];
+    for (const name of ['HairCrop', 'HairFull', 'HairCropLOD', 'HairFullLOD', 'HeadLOD']) {
+      const hair = this.root.getObjectByName(name);
+      if (hair) hair.visible = name === this.hairStyle;
+    }
+    for (const name of ['BodyLOD','JerseyLOD','ShortsLOD']) {
+      const lod=this.root.getObjectByName(name);if(lod)lod.visible=false;
+    }
     if (!pedestal) {
       const base = this.root.getObjectByName('Base');
       if (base) base.visible = false;
@@ -82,12 +98,20 @@ class Athlete {
     for (const d of kit.decals) {
       const bone = this.root.getObjectByName(d.bone);
       if (!bone || !numberMat) continue;
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(d.size, d.size), numberMat.clone());
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(d.size*(pedestal?1:1.5),d.size*(pedestal?1:1.35)), numberMat.clone());
       this.ownedGeometry.add(m.geometry);
       d.local.decompose(m.position, m.quaternion, m.scale);
       bone.add(m);
     }
     this.ballSocket = this.root.getObjectByName('socket_ball');
+    this.rightArm = ['lowerarm_r', 'upperarm_r'].map(n => this.root.getObjectByName(n));
+    this.leftArm = ['lowerarm_l', 'upperarm_l'].map(n => this.root.getObjectByName(n));
+    this.leftHand = this.root.getObjectByName('hand_l');
+    this.rightHand = this.root.getObjectByName('hand_r');
+    this.fingerRest = [];
+    this.root.traverse(o => { if (o.isBone && /^(index|middle|ring|pinky|thumb)_/.test(o.name)) this.fingerRest.push([o, o.quaternion.clone()]); });
+    this.feet = ['l', 'r'].map(side => ({ bone: this.root.getObjectByName(`foot_${side}`),
+      joints: [`calf_${side}`, `thigh_${side}`].map(n => this.root.getObjectByName(n)), planted: null }));
     this.opacity = 1;
 
     this.mixer = new THREE.AnimationMixer(this.root);
@@ -147,12 +171,19 @@ class Athlete {
   }
 
   update(dt) {
+    // Undo the previous frame's procedural layer before the mixer. Constant
+    // animation tracks may skip writes, so leaving IK edits in place drifts.
+    for (const [bone, quaternion] of this.poseBase) bone.quaternion.copy(quaternion);
+    this.poseBase.clear();
     if (this.stand) {
       const goal = !this.oneShot && CROUCH.has(this.loopName) ? 0.6 : 0;
       const w = this.stand.getEffectiveWeight();
       this.stand.setEffectiveWeight(w + (goal - w) * (1 - Math.exp(-6 * dt)));
     }
     this.mixer.update(dt);
+    // PropertyMixer may skip writes for unchanged scale tracks; assign absolute
+    // identity dimensions rather than compounding them on every frame.
+    for (const [bone, scale] of this.identity) if (bone) bone.scale.copy(scale);
   }
 
   /** Fade the whole figure (the player view looks through anyone in the way). */
@@ -173,6 +204,91 @@ class Athlete {
   ballPosition(out) {
     if (!this.ballSocket) return null;
     return this.ballSocket.getWorldPosition(out);
+  }
+
+  reachBall(rightTarget, leftTarget = null) {
+    this._savePose([...this.rightArm, ...this.leftArm]);
+    this.root.updateWorldMatrix(true, true);
+    const error = reach(this.ballSocket, this.rightArm, rightTarget);
+    if (leftTarget) reach(this.leftHand, this.leftArm, leftTarget);
+    this.contactError = error;
+  }
+
+  guardHands(rightTarget, leftTarget) {
+    this._savePose([...this.rightArm, ...this.leftArm, ...this.fingerRest.map(([bone]) => bone)]);
+    for (const [bone, rest] of this.fingerRest) bone.quaternion.slerp(rest, .85);
+    this.root.updateWorldMatrix(true, true);
+    reach(this.rightHand, this.rightArm, rightTarget);
+    reach(this.leftHand, this.leftArm, leftTarget);
+  }
+
+  layupStride(fraction) {
+    // The right knee rises on the right-hand finish and settles on landing.
+    // Layer over the authored jump; never move or stretch the ankle directly.
+    const strength=Math.sin(Math.PI*Math.max(0,Math.min(1,(fraction-.18)/.72)));
+    if (strength<.01) return;
+    const foot=this.feet[1];if(!foot?.bone) return;
+    this._savePose(foot.joints);this.root.updateWorldMatrix(true,true);
+    const rotations=foot.joints.map(j=>j.quaternion.clone());
+    const target=foot.bone.getWorldPosition(new THREE.Vector3());
+    const forward=new THREE.Vector3(0,0,.65*strength).applyQuaternion(this.root.getWorldQuaternion(new THREE.Quaternion()));
+    target.add(forward);target.y+=1.05*strength;
+    const error=reach(foot.bone,foot.joints,target,16);
+    if(error>.08) {foot.joints.forEach((j,i)=>j.quaternion.copy(rotations[i]));this.root.updateWorldMatrix(true,true);}
+  }
+
+  _savePose(bones) {
+    for (const bone of bones) if (bone && !this.poseBase.has(bone)) this.poseBase.set(bone,bone.quaternion.clone());
+  }
+
+  gaze(target, bodyYaw) {
+    if (!this.head) return;
+    this._savePose([this.head]);
+    const at=this.head.getWorldPosition(new THREE.Vector3());
+    const desired=Math.atan2(target.x-at.x,target.z-at.z);
+    const delta=Math.max(-.45,Math.min(.45,Math.atan2(Math.sin(desired-bodyYaw),Math.cos(desired-bodyYaw))));
+    const parent=this.head.parent.getWorldQuaternion(new THREE.Quaternion());
+    const turn=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),delta);
+    turn.premultiply(parent.clone().invert()).multiply(parent);
+    this.head.quaternion.premultiply(turn).normalize();
+  }
+
+  setQuality(quality) {
+    const low = quality === 'low', lod = this.root.getObjectByName('HeadLOD');
+    if (!lod) return;
+    lod.visible = low;
+    const head = this.root.getObjectByName('AnatomicalHead'); if (head) head.visible = !low;
+    for(const [full,simplified] of [['AnatomicalBody','BodyLOD'],['JerseyHigh','JerseyLOD'],['ShortsHigh','ShortsLOD']]) {
+      const mesh=this.root.getObjectByName(full),mobile=this.root.getObjectByName(simplified);
+      if(mesh&&mobile){mesh.visible=!low;mobile.visible=low;}
+    }
+    for (const name of ['HairCrop', 'HairFull', 'HairCropLOD', 'HairFullLOD']) {
+      const hair = this.root.getObjectByName(name);
+      if (hair) hair.visible = name === this.hairStyle + (low ? 'LOD' : '');
+    }
+  }
+
+  plantFeet(moving) {
+    // Keep the authored swing; only stabilize its grounded section. Never lock
+    // the foot during a jump, catch or celebration action.
+    if (!moving || this.oneShot) { this.feet.forEach(f => f.planted = null); return; }
+    this.root.updateWorldMatrix(true, true);
+    for (const foot of this.feet) {
+      const at = foot.bone.getWorldPosition(new THREE.Vector3());
+      if (at.y > .65 || (foot.planted && at.distanceTo(foot.planted) > 2.2)) foot.planted = null;
+      if (at.y < .5 && !foot.planted) foot.planted = at.clone();
+      if (foot.planted) {
+        this._savePose(foot.joints);
+        const rotations = foot.joints.map(j => j.quaternion.clone());
+        foot.error = reach(foot.bone, foot.joints, foot.planted, 12);
+        if (foot.error > .08) {
+          // The root can accelerate farther than a planted leg can reach.
+          // Release that step instead of stretching or collapsing the knee.
+          foot.joints.forEach((j, i) => j.quaternion.copy(rotations[i]));
+          foot.planted = null; this.root.updateWorldMatrix(true, true);
+        }
+      }
+    }
   }
 
   dispose() {

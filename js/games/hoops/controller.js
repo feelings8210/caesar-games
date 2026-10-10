@@ -63,6 +63,9 @@ export class HoopsGame {
     this.menuTab = 'chapter';    // 'chapter' | 'read' | 'stats'
     this.current = null;
     this.previewLevel = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('hoopsPreview') : null;
+    const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+    this.arenaLook = params.get('hoopsLook') !== 'classic' && params.get('hoops2d') !== '1';
+    this.root.dataset.look = this.arenaLook ? 'arena' : 'classic';
     this._build();
     this.pb = new PlaybookMode(this);
     this.court = null;           // created on first level: 3D, or SVG fallback
@@ -470,7 +473,7 @@ export class HoopsGame {
       if (flow !== this.flow) return;
       const done = await this.court.play(opt.play);
       if (!done || flow !== this.flow) return;
-      if (opt.end === 'score') { this.homeBonus = 2; this._renderHud(); }
+      if (opt.end === 'score') { this.homeBonus = opt.points ?? 2; this._renderHud(); }
       this._endCue(opt.end);
       this._banner(L(opt.result), opt.end);
     } else {
@@ -494,6 +497,7 @@ export class HoopsGame {
     this.court.showCue(lvl.cue);
     this.$('.hp-hud').classList.toggle('is-cue', lvl.cue.at === 'clock');
     this.$$('.hp-verdict .hp-stars i').forEach(s => s.classList.remove('is-on'));
+    if (this.arenaLook && this.court.shot === 'finish') this.court.setShot('broadcast');
     this._setPhase('review');
     this._coach(opt, flow);
     for (let s = 0; s < this.stars; s++) {
@@ -551,12 +555,13 @@ export class HoopsGame {
     if (flow !== this.flow) return;
     const done = await this.court.play(best.play);
     if (!done || flow !== this.flow) return;
-    if (best.end === 'score') { this.homeBonus = 2; this._renderHud(); }
+    if (best.end === 'score') { this.homeBonus = best.points ?? 2; this._renderHud(); }
     this._endCue(best.end);
     this._banner(L(best.result), best.end);
     await wait(900);
     if (flow !== this.flow) return;
     this.demoShown = true;
+    if (this.arenaLook && this.court.shot === 'finish') this.court.setShot('broadcast');
     this._setPhase('review');
     this.$$('.hp-verdict .hp-stars i').forEach((s, k) => s.classList.toggle('is-on', k < this.stars));
   }
@@ -682,14 +687,14 @@ export class HoopsGame {
   _renderHud() {
     const hud = this.$('.hp-hud');
     const lvl = this.level;
-    const show = this.view === 'play' && !!lvl?.hud;
+    const show = this.view === 'play' && !!lvl && (!!lvl.hud || this.arenaLook);
     hud.classList.toggle('is-hidden', !show);
     if (!show) return;
     if (this.phase !== 'review' && this.phase !== 'demo') hud.classList.remove('is-cue');
-    const [a, b] = lvl.hud.score;
+    const [a, b] = lvl.hud?.score || [0, 0];
     this.$('.hp-hud-score').textContent = `${t('hoops.home')} ${a + (this.homeBonus || 0)}  ·  ${t('hoops.away')} ${b}`;
-    this.$('.hp-hud-clock').textContent = (this.clock ?? 0).toFixed(1);
-    this.$('.hp-hud-note').textContent = t('hoops.clockOff');
+    this.$('.hp-hud-clock').textContent = lvl.hud ? (this.clock ?? 0).toFixed(1) : 'HOOPS IQ';
+    this.$('.hp-hud-note').textContent = lvl.hud ? t('hoops.clockOff') : getLocale() === 'zh' ? '训练回合' : 'TRAINING';
   }
 
   /* ---------------------------------------------------------------- *
@@ -757,6 +762,7 @@ export class HoopsGame {
       court.onFrame = (dt, beat) => this._tickClock(dt, beat);
       this.court = court;
       this.root.dataset.court = court instanceof CourtView ? '2d' : '3d';
+      if (court instanceof CourtView) { this.arenaLook = false; this.root.dataset.look = 'classic'; }
       this._bindPointer();
       return court;
     })();

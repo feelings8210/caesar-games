@@ -1,9 +1,12 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HANDOFF
-STATE ID: HO-2026-10-09-hoops-v2.8.1   ← THIS NODE
-PARENT STATE ID: NONE（从 Claude Code 云端会话整段重建）
+STATE ID: HO-2026-10-10-hoops-local.9   ← THIS NODE
+PARENT STATE ID: HO-2026-10-09-hoops-v2.8.1（云端基线）
 WORKING MANUAL: embedded（见下方"协作规则"；根目录 AGENTS.md 有精简版）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+【本地开发更新 — 2026-10-10】
+Owner 新指令“继续 一直到到达nba观感”。当前 `codex/hoops-local`，`v2.9.0-local.9`；本地默认完整球馆、解剖人体/眼睛/平滑服装、侧线转播、持球联动、单手上篮/跳投、真正的身体/服装 LOD。`?hoopsLook=classic` 保留旧美术，`?hoopsSound=training` 可对比安静训练声场。没有 push/PR/发布。当前审美目标仍未标完成；详见 `docs/NBA_LOOK_PROGRESS_20261010.md`，最新对比入口 `/review/hoops-nba-20261010/`。第一、二版人体换权重试验拉丝，第三版露肤，均保留失败；A pose 骨架拟合、世界矩阵重烘焙、衣服覆盖面隐藏后的第四版已经进入本地游戏，随后加入眼睛/服装/LOD。不要回退成“全身模型仍未进入”的旧判断。下一步继续皮肤/服装细节、真实急停/转身与手指接触，再做更丰富的终结；不要将桌面测试、录像存在或形状数值合格写成 NBA 品质/实际听审/真机通过。
 
 【本地开发更新 — 2026-10-09】
 当前在 `codex/hoops-local`，试版 `v2.9.0-local.2`。Owner 已决定先本地开发，暂不 push、不创建 PR、不发布；以下云端基线和旧的 EXACT NEXT ACTION 留作历史，当前接手请先读 `docs/LOCAL_DEVELOPMENT_20261009.md` 与 `docs/LOCAL_AUDIT_20261009.md`。
@@ -14,7 +17,7 @@ Owner 已说明：球场、场景、球员、动作要向 NBA 游戏靠近；声
 1. 先读下面的"协作规则"，了解怎么和 Owner 配合。
 2. 读 PERSISTENT CORE，了解项目是什么。
 3. 从 EXACT NEXT ACTION 接着做。
-4. 本文写于 2026-10-09。动手前先 `git pull` 看 main 的最新状态，文档不等于当前现实。
+4. 下方云端基线写于 2026-10-09；本地最新方向在顶部更新与 NBA_LOOK_PROGRESS_20261010.md。当前 Owner 决定先本地开发，不 push/PR/发布；先核实本地分支与修改，不自动沿历史流程拉取/发布。
 
 ## 协作规则（Owner：Will）
 
@@ -84,7 +87,7 @@ Caesar Games 是 Will 给孩子做的 iPad 小游戏合集 PWA，里面有象棋
 - **象棋计时测试：** `tests/xiangqi-chess.test.mjs` 里有一个"国际象棋 AI 在时限内完成"的计时测试，在慢机器上会失败，main 上也一样，跟 Hoops 的改动无关。
 - **看不到的东西：** 真机的声音、触摸手感和流畅度，云端或本地无头浏览器都验证不了，要请 Will 在 iPad 上看。
 
-## 【ACTIVE STATE】
+## 【云端基线历史 ACTIVE STATE — 本地最新状态见顶部】
 
 **CURRENT STATE**
 - main 是 v2.8.1，PR #4 到 #9 都已合并，没有进行中的 PR 或未提交的改动。

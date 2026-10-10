@@ -11,6 +11,7 @@
  */
 
 import * as THREE from '../../vendor/three/three.module.min.js';
+import { mergeGeometries } from '../../vendor/three/addons/BufferGeometryUtils.js';
 
 const GROUND_Y = -2.4;
 
@@ -74,9 +75,9 @@ function rod(a, b, r, mat) {
  * One bank of stands. Built along local +x (length) rising toward local -z,
  * then placed by the caller. `aisles` are local x positions of stairways.
  */
-function stand(length, mats, seats, led, aisles = []) {
+function stand(length, mats, seats, led, aisles = [], rows = 6) {
   const g = new THREE.Group();
-  const rows = 6, depth = 2.7, rise = 1.45, aw = 3.6;
+  const depth = 2.7, rise = 1.45, aw = 3.6;
   // Bench runs between the aisles.
   const cuts = aisles.map(a => [a - aw / 2, a + aw / 2]).sort((p, q) => p[0] - q[0]);
   const runs = [];
@@ -268,8 +269,8 @@ export function buildArena(scene, { hoop, rimY, populated = false }) {
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(0, GROUND_Y, 20);
   root.add(ground);
-  const plinth = slab(-29, 29, -11, 53, 2.4, 1.2, mats.lacquer);
-  plinth.position.y = -0.02;
+  const plinth = populated ? box(58,.12,114,mats.lacquer,0,-.08,47) : slab(-29, 29, -11, 53, 2.4, 1.2, mats.lacquer);
+  plinth.position.y = populated ? -0.08 : -0.02;
   plinth.receiveShadow = true;
   root.add(plinth);
   if (!populated) root.add(frame(-28.2, 28.2, -10.2, 52.2, 0.1, -0.005, mats.gold));
@@ -277,14 +278,14 @@ export function buildArena(scene, { hoop, rimY, populated = false }) {
   // Stands: behind the basket and along both sidelines; the camera side stays open.
   const seats = [];
   const led = ledBoard();
-  const back = stand(58, mats, seats, led.mat, [0]);
+  const back = stand(populated ? 84 : 58, mats, seats, led.mat, populated ? [-24, 0, 24] : [0], populated ? 16 : 6);
   back.position.set(0, 0, -14);
-  const left = stand(58, mats, seats, led.mat, [-14, 14]);
+  const left = stand(populated ? 124 : 58, mats, seats, led.mat, populated ? [-42,-14,14,42] : [-14,14], populated ? 14 : 6);
   left.rotation.y = Math.PI / 2;               // rows rise away from the court (-x)
-  left.position.set(-33, 0, 23);
-  const right = stand(58, mats, seats, led.mat, [-14, 14]);
+  left.position.set(-33, 0, populated ? 47 : 23);
+  const right = stand(populated ? 124 : 58, mats, seats, led.mat, populated ? [-42,-14,14,42] : [-14,14], populated ? 14 : 6);
   right.rotation.y = -Math.PI / 2;
-  right.position.set(33, 0, 23);
+  right.position.set(33, 0, populated ? 47 : 23);
   root.add(back, left, right);
   const seatMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1.5, 1.1, 1.3), mats.seat, seats.length);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), v = new THREE.Vector3();
@@ -299,12 +300,19 @@ export function buildArena(scene, { hoop, rimY, populated = false }) {
   // Distant spectators: code-native silhouettes, one instanced draw per part.
   // A stable layout avoids random crowd changes on every scene load.
   let spectators = null;
+  let crowdArms = null, armRows = [], cheerTime = 10;
   if (populated) {
-    const people = seats.filter((_, i) => i % 7 !== 0);
+    const people = seats.filter((_, i) => i % 13 !== 0);
+    // Interleave across every stand so the low tier doesn't empty one end.
+    people.sort((a, b) => Math.sin(a[1] * 91 + a[2] * 43 + a[3] * 17) - Math.sin(b[1] * 91 + b[2] * 43 + b[3] * 17));
     const torso = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.32, 0.75, 2, 5),
       new THREE.MeshStandardMaterial({ roughness: 1, envMapIntensity: 0.15 }), people.length);
     const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.25, 6, 4),
       new THREE.MeshStandardMaterial({ roughness: 1, envMapIntensity: 0.15 }), people.length);
+    const hair = new THREE.InstancedMesh(new THREE.SphereGeometry(.26,6,3,0,Math.PI*2,0,Math.PI*.55),
+      new THREE.MeshStandardMaterial({roughness:1,envMapIntensity:.1}),people.length);
+    crowdArms = new THREE.InstancedMesh(new THREE.CylinderGeometry(.11, .11, 1, 5),
+      new THREE.MeshStandardMaterial({ roughness: 1, envMapIntensity: .15 }), people.length * 2);
     const shirts = [0x254574, 0x7E8A98, 0xC4BDAE, 0x8D3C35, 0x1B2330, 0x496474];
     const skins = [0xBD8A66, 0x815438, 0xD4A581, 0x5B3828];
     const col = new THREE.Color();
@@ -317,8 +325,21 @@ export function buildArena(scene, { hoop, rimY, populated = false }) {
       v.y += 0.88;
       heads.setMatrixAt(i, m4.compose(v, q, s));
       heads.setColorAt(i, col.setHex(skins[i % skins.length]));
+      hair.setMatrixAt(i, m4.compose(v,q,s));
+      hair.setColorAt(i,col.setHex([0x181616,0x473123,0x78685A,0x272220][i%4]));
+      for (const side of [-1, 1]) {
+        const shoulder = new THREE.Vector3(x + side * .32, y + .85, z + .2).applyMatrix4(g.matrixWorld);
+        const down = new THREE.Vector3(x + side * .48, y + .38, z + .54).applyMatrix4(g.matrixWorld);
+        const up = new THREE.Vector3(x + side * .68, y + 1.55, z + .2).applyMatrix4(g.matrixWorld);
+        const index = i * 2 + (side === 1 ? 1 : 0);
+        armRows.push({ index, shoulder, down, up, fan: i % 9 === 0 });
+        const centre = shoulder.clone().lerp(down, .5), direction = down.clone().sub(shoulder);
+        const rotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), direction.clone().normalize());
+        crowdArms.setMatrixAt(index, m4.compose(centre, rotation, new THREE.Vector3(1,direction.length(),1)));
+        crowdArms.setColorAt(index, col.setHex(skins[i % skins.length]));
+      }
     });
-    spectators = new THREE.Group(); spectators.add(torso, heads); root.add(spectators);
+    spectators = new THREE.Group(); spectators.add(torso, heads, hair, crowdArms); root.add(spectators);
   }
 
   // The name on the apron behind the baseline, either side of the basket.
@@ -326,11 +347,11 @@ export function buildArena(scene, { hoop, rimY, populated = false }) {
 
   // Walls with pilasters, far enough to sit in the haze.
   const wallH = 70;
-  const backWall = box(150, wallH, 1, mats.wall, 0, GROUND_Y + wallH / 2, -36);
+  const backWall = box(populated ? 220 : 150, wallH, 1, mats.wall, 0, GROUND_Y + wallH / 2, populated ? -80 : -36);
   root.add(backWall);
-  for (const sx of [-1, 1]) root.add(box(1, wallH, 140, mats.wall, sx * 55, GROUND_Y + wallH / 2, 34));
-  for (let x = -60; x <= 60; x += 15) root.add(box(3.4, wallH, 2.6, mats.pilaster, x, GROUND_Y + wallH / 2, -34.6));
-  for (const sx of [-1, 1]) for (let z = -20; z <= 80; z += 15) root.add(box(2.6, wallH, 3.4, mats.pilaster, sx * 53.6, GROUND_Y + wallH / 2, z));
+  for (const sx of [-1, 1]) root.add(box(1, wallH, 140, mats.wall, sx * (populated ? 90 : 55), GROUND_Y + wallH / 2, 34));
+  for (let x = -60; x <= 60; x += 15) root.add(box(3.4, wallH, 2.6, mats.pilaster, x, GROUND_Y + wallH / 2, populated ? -79 : -34.6));
+  for (const sx of [-1, 1]) for (let z = -20; z <= 80; z += 15) root.add(box(2.6, wallH, 3.4, mats.pilaster, sx * (populated ? 89 : 53.6), GROUND_Y + wallH / 2, z));
 
   // Light shafts from high behind the basket, fading out above the court so
   // they never haze the players.
@@ -339,18 +360,61 @@ export function buildArena(scene, { hoop, rimY, populated = false }) {
     beams.add(beam(new THREE.Vector3(x0, 78, -30), new THREE.Vector3(x1, 6, 12), 1.4, 7.5, 0xE4ECF6, 0.17 * k));
   });
   root.add(beams);
+  if (populated) {
+    // Visible roof structure and banks of arena lamps replace museum shafts.
+    beams.visible = false;
+    const lampMat = new THREE.MeshBasicMaterial({ color: 0xDBE8FF });
+    for (const z of [-32]) {
+      root.add(box(154, 0.7, 0.7, mats.rail, 0, 62, z));
+      for (let x = -56; x <= 56; x += 14) root.add(box(4, 0.2, 1.2, lampMat, x, 61.3, z));
+    }
+  }
 
   // Swap the stand-in net for the cord net.
   hoop?.traverse(o => { if (o.name === 'Net') o.visible = false; });
   const cords = net(hoop?.userData.rim || [0, 5.25], rimY);
   root.add(cords.obj);
 
+  if (populated) {
+    // Batch static arena structures by material. Seats/crowd, LED and net retain
+    // their own dynamic buffers; hundreds of separate rails need no draw each.
+    root.updateMatrixWorld(true);
+    const groups = new Map();
+    root.traverse(o => {
+      if (!o.isMesh || o.isInstancedMesh || o === cords.obj || o.material === led.mat || o.parent === beams || Array.isArray(o.material)) return;
+      if (!groups.has(o.material)) groups.set(o.material, []);
+      groups.get(o.material).push(o);
+    });
+    for (const [material, objects] of groups) {
+      if (objects.length < 2) continue;
+      const geometries = objects.map(o => o.geometry.clone().applyMatrix4(o.matrixWorld));
+      const merged = mergeGeometries(geometries);
+      geometries.forEach(g => g.dispose());
+      if (!merged) continue;
+      objects.forEach(o => { o.removeFromParent(); o.geometry.dispose(); });
+      root.add(new THREE.Mesh(merged, material));
+    }
+  }
+
   return {
     root,
-    swish: () => cords.kick(),
-    update(dt) { cords.update(dt); led.update(dt); },
+    swish: () => { cords.kick(); cheerTime = 0; },
+    update(dt) {
+      cords.update(dt); led.update(dt);
+      if (crowdArms && cheerTime < 3.5) {
+        cheerTime += dt;
+        const weight = Math.max(0, Math.min(1, cheerTime / .3, (3.5 - cheerTime) / .8));
+        for (const row of armRows) {
+          if (!row.fan) continue;
+          const hand = row.down.clone().lerp(row.up, weight), direction = hand.clone().sub(row.shoulder);
+          const rotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), direction.clone().normalize());
+          crowdArms.setMatrixAt(row.index, new THREE.Matrix4().compose(row.shoulder.clone().lerp(hand,.5), rotation, new THREE.Vector3(1,direction.length(),1)));
+        }
+        crowdArms.instanceMatrix.needsUpdate = true;
+      }
+    },
     setQuality(q) {
-      beams.visible = q !== 'low';
+      beams.visible = !populated && q !== 'low';
       if (spectators) spectators.children.forEach(m => { m.count = q === 'low' ? Math.ceil(m.instanceMatrix.count / 2) : m.instanceMatrix.count; });
     }
   };
