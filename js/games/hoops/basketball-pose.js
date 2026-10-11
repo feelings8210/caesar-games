@@ -27,8 +27,9 @@ export function basketballBeat(beat, holder) {
   const movement = beat.move?.[holder.id];
   const end = movement ? (Array.isArray(movement[0]) ? movement.at(-1) : movement) : holder.at;
   const close = Math.hypot(end[0],end[1]-5.25)<11;
-  return { ...beat, ms: Math.max(beat.ms || 600, close ? 1150 : 1250),
-    prepareMs: close ? 650 : 600, finish: close ? 'layup' : 'jump' };
+  const ms=Math.max(beat.ms || 600, close ? 1150 : 1250);
+  return { ...beat, ms,
+    prepareMs: close ? Math.round(ms*650/1150) : 600, finish: close ? 'layup' : 'jump' };
 }
 
 /** Round an authored change of direction inside its original convex hull.

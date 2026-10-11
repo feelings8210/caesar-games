@@ -186,7 +186,7 @@ class Athlete {
     this.actions = {};
     for (const [name, clip] of Object.entries(kit.clips)) {
       const a = this.mixer.clipAction(clip);
-      if (['Pass', 'Catch', 'Shot', 'Celebrate'].includes(name)) {
+      if (['Pass', 'Catch', 'Shot', 'LayupR', 'Celebrate'].includes(name)) {
         a.setLoop(THREE.LoopOnce, 1);
         a.clampWhenFinished = true;
       }
@@ -228,6 +228,10 @@ class Athlete {
   trigger(name, timeScale = 1) {
     const a = this.actions[name];
     if (!a) return;
+    if(name==='LayupR') {
+      this.layupPlants=new Map();
+      this.layupOutgoing=[this.oneShot,this.actions[this.loopName]].filter(old=>old&&old!==a);
+    }
     if (this.oneShot && this.oneShot !== a) this.oneShot.fadeOut(0.1);
     const loop = this.actions[this.loopName];
     if (loop) loop.fadeOut(0.12);
@@ -238,7 +242,7 @@ class Athlete {
     this.oneShot = a;
   }
 
-  update(dt) {
+  update(dt, actionFraction = null) {
     // Undo the previous frame's procedural layer before the mixer. Constant
     // animation tracks may skip writes, so leaving IK edits in place drifts.
     for (const [bone, quaternion] of this.poseBase) bone.quaternion.copy(quaternion);
@@ -247,6 +251,17 @@ class Athlete {
       const goal = !this.oneShot && CROUCH.has(this.loopName) ? 0.6 : 0;
       const w = this.stand.getEffectiveWeight();
       this.stand.setEffectiveWeight(w + (goal - w) * (1 - Math.exp(-6 * dt)));
+    }
+    if(this.oneShot?.getClip().name==='LayupR'&&Number.isFinite(actionFraction)) {
+      // The ball runner uses wall time. Seek the baked action to that same
+      // phase, so a clamped render delta cannot leave the feet behind release.
+      const duration=this.oneShot.getClip().duration;
+      if(actionFraction*duration/Math.max(.000001,this.oneShot.timeScale)>=.12) {
+        this.layupOutgoing?.forEach(old=>old.stop());this.layupOutgoing=[];
+        this.oneShot.stopFading().setEffectiveWeight(1);
+        this.stand?.setEffectiveWeight(0);
+      }
+      this.oneShot.time=Math.max(0,Math.min(duration,actionFraction*duration)-dt*this.oneShot.timeScale);
     }
     this.mixer.update(dt);
     // PropertyMixer may skip writes for unchanged scale tracks; assign absolute
@@ -351,6 +366,42 @@ class Athlete {
     target.add(forward);target.y+=1.05*strength;
     const error=reach(foot.bone,foot.joints,target,16);
     if(error>.08) {foot.joints.forEach((j,i)=>j.quaternion.copy(rotations[i]));this.root.updateWorldMatrix(true,true);}
+  }
+
+  plantLayupFeet(fraction) {
+    // The baked clip provides the step order; world-space anchors adapt its
+    // grounded sections to the runner's tactical path without stretching legs.
+    this.layupContacts=[];
+    if(this.oneShot?.getClip().name!=='LayupR')return;
+    const support=fraction<.20?'r':fraction>.225&&fraction<.34?'l':fraction>.83?'both':null;
+    this.layupPlants ||= new Map();
+    this.root.updateWorldMatrix(true,true);
+    for(let i=0;i<this.feet.length;i++) {
+      const foot=this.feet[i],side=i===0?'l':'r';
+      if(support!==side&&support!=='both'){this.layupPlants.delete(side);continue;}
+      const sole=()=>Math.min(...this.soles.filter(p=>p?.parent===foot.bone).map(p=>p.getWorldPosition(new THREE.Vector3()).y));
+      const height=sole();
+      if(!this.layupPlants.has(side)&&height<.12) {
+        const at=foot.bone.getWorldPosition(new THREE.Vector3());at.y-=height;
+        this.layupPlants.set(side,at);
+      }
+      const anchor=this.layupPlants.get(side);if(!anchor)continue;
+      // An ankle is not a floor contact: its height changes as the sole rocks.
+      // Keep horizontal placement and derive its height from the actual sole.
+      anchor.y=foot.bone.getWorldPosition(new THREE.Vector3()).y-height;
+      this._savePose([...foot.joints,foot.bone]);
+      const rotations=foot.joints.map(j=>j.quaternion.clone());
+      const world=foot.bone.getWorldQuaternion(new THREE.Quaternion());
+      const error=reach(foot.bone,foot.joints,anchor,12);
+      if(error>.08) {
+        foot.joints.forEach((j,n)=>j.quaternion.copy(rotations[n]));
+        this.layupPlants.delete(side);this.root.updateWorldMatrix(true,true);continue;
+      }
+      // Preserve the authored sole pitch after the thigh/shin correction.
+      foot.bone.quaternion.copy(foot.bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(world));
+      foot.bone.updateWorldMatrix(false,true);
+      this.layupContacts.push({side,anchor:anchor.toArray(),at:foot.bone.getWorldPosition(new THREE.Vector3()).toArray(),height:sole(),error});
+    }
   }
 
   balance(direction, angle) {

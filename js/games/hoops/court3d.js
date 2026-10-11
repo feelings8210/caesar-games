@@ -153,14 +153,15 @@ export class Court3D extends BeatRunner {
     const image = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
     const optional = p => p.catch(() => null);    // environment art is a bonus, never a blocker
     const tex = new THREE.TextureLoader();
-    const [figs, mark, wood, nor, rough, hdr, crowd] = await Promise.all([
+    const [figs, mark, wood, nor, rough, hdr, crowd, motions] = await Promise.all([
       loader.loadAsync(ASSETS + (this.arenaLook ? 'athlete-arena.glb' : 'athlete.glb')),
       optional(image(ASSETS + '../cd_home_mark_transparent.png')),
       optional(image(ASSETS + 'env/wood_diff_1k.jpg')),
       optional(tex.loadAsync(ASSETS + 'env/wood_nor_1k.jpg')),
       optional(tex.loadAsync(ASSETS + 'env/wood_rough_1k.jpg')),
       optional(new HDRLoader().loadAsync(ASSETS + 'env/env_1k.hdr')),
-      this.arenaLook ? optional(loader.loadAsync(ASSETS + 'crowd-head.glb')) : null
+      this.arenaLook ? optional(loader.loadAsync(ASSETS + 'crowd-head.glb')) : null,
+      this.arenaLook ? optional(loader.loadAsync(ASSETS + 'basketball-actions.glb')) : null
     ]);
 
     if (hdr) {
@@ -224,6 +225,10 @@ export class Court3D extends BeatRunner {
     this._applyQuality();
 
     this.kit = new AthleteKit(figs);
+    if(motions) {
+      for(const clip of motions.animations)this.kit.clips[clip.name]=clip;
+      disposeObject(motions.scene);
+    }
     this.materials = {};
     this.ballMesh = this._makeBall();
     this.scene.add(this.ballMesh);
@@ -1205,7 +1210,7 @@ export class Court3D extends BeatRunner {
 
   _prepareAction(b, flight, ms) {
     const who = this.players[this.ball.holder];
-    const name = b.pass ? 'Pass' : b.shot ? 'Shot' : null;
+    const name = b.pass ? 'Pass' : b.shot ? (b.finish==='layup'&&this.kit.clips.LayupR?'LayupR':'Shot') : null;
     const clip = this.kit.clips[name];
     if (!who || !clip) return;
     if (this.arenaLook) who.action = {
@@ -1325,7 +1330,7 @@ export class Court3D extends BeatRunner {
       if (!this.frozen) p.yaw += angleDelta(p.yaw, goalYaw) * (1 - Math.exp(-9 * dt));
       p.root.rotation.y = p.yaw;
       this._pickLoop(p);
-      if (!this.frozen) p.athlete.update(dt * PLAY_SPEED);
+      if (!this.frozen) p.athlete.update(dt * PLAY_SPEED,p.action?.style==='layup'?(now-p.action.start)/p.action.duration:null);
       if(!this.frozen&&this.arenaLook&&speed>1.5&&!p.athlete.oneShot)
         p.athlete.balance(new THREE.Vector3(vx,0,vz).normalize(),Math.max(-.06,Math.min(.07,p.acceleration*.0025)));
     }
@@ -1335,7 +1340,7 @@ export class Court3D extends BeatRunner {
         const elapsed=now-(finisher.action?.start||now)-(finisher.action?.releaseMs||0);
         finisher.athlete.releaseFingers(Math.min(1,Math.max(0,elapsed/160)));
       }
-      if(finisher?.action?.style==='layup'&&now-finisher.action.start<finisher.action.duration)
+      if(finisher?.action?.style==='layup'&&finisher.athlete.oneShot?.getClip().name!=='LayupR'&&now-finisher.action.start<finisher.action.duration)
         finisher.athlete.layupStride((now-finisher.action.start)/finisher.action.duration);
       const receiver = this.players[this._receivingId];
       if (receiver && (this.ball.flight?.kind === 'pass' || this.ball.preparing && this.ball.holder !== receiver.id)) {
@@ -1358,11 +1363,24 @@ export class Court3D extends BeatRunner {
         const guide = holder.root.localToWorld(new THREE.Vector3(.35, 0, 0)).sub(holder.root.position).add(handTarget);
         const releaseProgress = holder.action ? (now-holder.action.start)/holder.action.releaseMs : 0;
         const oneHand = this.ball.preparing && holder.action?.style==='layup' && releaseProgress>.55;
-        const balance=oneHand?holder.root.localToWorld(new THREE.Vector3(.9,4.1,.25)):guide;
+        let balance=guide;
+        if(oneHand) {
+          const free=holder.root.localToWorld(new THREE.Vector3(.9,4.1,.25));
+          free.y+=holder.athlete.root.getObjectByName('root')?.getWorldPosition(new THREE.Vector3()).y||0;
+          // Let the guide wrist leave its contact point continuously, keeping
+          // the free arm relative to the rising torso rather than the floor.
+          const wrist=holder.athlete.leftHand.getWorldPosition(new THREE.Vector3());
+          const grip=holder.athlete.grips?.[1]?.anchor.getWorldPosition(new THREE.Vector3());
+          const heldWrist=grip?handTarget.clone().sub(grip.sub(wrist)):guide;
+          const t=Math.min(1,Math.max(0,(releaseProgress-.55)/.3));
+          balance=heldWrist.lerp(free,t*t*(3-2*t));
+        }
         holder.athlete.reachBall(handTarget, oneHand || this.ball.preparing || holder.speed < 2.5 ? balance : null,
           {grip:this.ball.preparing||holder.speed<2.5,leftGrip:!oneHand});
       }
       for (const player of Object.values(this.players)) player.athlete.plantFeet(player.speed > 2.5);
+      if(finisher?.action?.style==='layup')
+        finisher.athlete.plantLayupFeet((now-finisher.action.start)/finisher.action.duration);
       if(finisher&&!finisher.landingDone) {
         const height=finisher.athlete.soleHeight();
         const contact=landingStep(finisher.airborne,height);finisher.airborne=contact.airborne;

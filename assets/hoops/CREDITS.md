@@ -264,3 +264,7 @@
 ## Front-row audience study (local.18)
 
 `crowd-head.glb` is a project-specific CC0 derivative of the approved Blender Human Base Meshes v1.4.1, via this project's anatomical athlete. It is not an NBA player scan. Source, license, SHA256 and the reproducible Blender builder are recorded in `crowd-head.provenance.json`. High quality uses it only in the first row; low quality retains simple heads. Owner/iPad visual review remains pending.
+
+## Original layup animation (local.24)
+
+`basketball-actions.glb` contains an original project-authored right-hand layup on the approved fitted athlete rig. The underlying rig/human sources remain CC0; this package does not contain NBA video, player scans, or extracted motion. Its timings are authored, not measured NBA timing. The reproducible CPU Blender builder and source/output SHA256 are in `basketball-actions.provenance.json`. The tiny skin carrier is discarded at load time; existing player geometry is reused. Owner/iPad/continuous audiovisual review remains pending.

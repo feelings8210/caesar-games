@@ -1,8 +1,18 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HANDOFF
-STATE ID: HO-2026-10-11-hoops-local.18   ← THIS NODE
+STATE ID: HO-2026-10-11-hoops-local.24   ← THIS NODE
 
-## 当前 local.18：Owner 明确仍远未达标
+## 当前 local.24：独立上篮已接入，整体品质仍未达标
+
+持续 goal ACTIVE，Owner 目标仍是最好的视听/NBA 2K Mobile 球员、动作与比赛氛围，未暂停、未达成。当前 `codex/hoops-local`、`v2.9.0-local.24`，未 push/PR。新增 83,484 字节的原创 Blender `LayupR` 动画包；旧人物 GLB 不变。右、左两步、左脚蹬地/右膝上抬、单手离球、左手平衡、手腕跟随、连续腾空和落地屈膝已接入真实回合。保持原有跳投与失败时的原有终结路线。详见 `docs/LAYUP_PROGRESS_20261011.md`。
+
+当前输出 SHA `90406f46c50330edb779e45813862c8cf3222257572a37344c894d63700470d8`，builder SHA `47da99e63272a96431eaf67821586ea720974ff2d8d1707fad8bfb1d8e693b5e`。`assets/hoops/basketball-actions.provenance.json` 指向 worker v5；此前 v1 鞋陷地、v19 锚脚踝悬空和 v20 QA 导航失败均保留在 SSD。新片段以回合时钟定位；起手渐变掉帧后须结束旧姿态混合，不能仅快进新片段而仍混在站姿里。
+
+最终 SSD `layup-study/motion-v24`、`layup-study/finishes-v24`、`layup-v24/runtime-report.json` 均通过对应检查：高低档实际鞋面、两种掉帧边界、四种终结/晚期接触/落地/取景、无异常/外部请求、资源计数稳定、带新片段的 v24 3D 离线重开与手机布局。高低档仍约 132 万 / 56 万面、276 calls，是桌面计数，不是 iPad 性能。新旧同回合录像分别为 `layup-v24` 与 `layup-v21-legacy`，worker/SSD `proof-layup-v24` 已导出，new.mp4 SHA `7af1e2458e02ee9d1ed3ee41663ddba0001714bccfe0dad116d8404997ea5c51`。观察了动作采样条与 review-v24 页面，review 页沿用原入口。
+
+完整参考周期仍没观察到：Jr. NBA 官方上篮视频看到 25 秒教练示范后约 34 秒报错，Kyrie 官方页 Access Denied。动作顺序来自官方文字，节奏和曲线原创，不能声称 NBA mocap/已复刻球员。没有实际听审、独立连续 1x/iPad/Owner 品质验收。下一步专门的接球急停/双脚跳投与瞄筐姿态，同时提升脸/皮肤/头发/鞋、前排完整人和场边/场馆材质。不要仅再堆场外几何或把测试通过当 NBA 品质。
+
+## 前一检查点 local.18：Owner 明确仍远未达标
 
 Owner 最新要求：动作参照真实 NBA 球员；球场、环境、观众席和灯光仍简陋，离 NBA 2K 很远。接受反馈，持续 goal 仍 ACTIVE；未暂停、未达成，不要把版本号增长当成审美进展。当前本地 `codex/hoops-local`、`v2.9.0-local.18`，无 push/PR。
 
