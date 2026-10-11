@@ -15,9 +15,11 @@ try {
  await page.goto('http://127.0.0.1:8000/?hoopsDecide=150&hoopsQuality=high');
  await page.click('#btn-hoops');await page.click('.hp-level[data-index="0"]');
  await page.waitForFunction(()=>window.caesarApp.hoops.phase==='decide');
- const motion=await page.evaluate(async()=>{
+ const motions=await page.evaluate(async()=>{
   const T=await import('./js/vendor/three/three.module.min.js'),c=window.caesarApp.hoops.court;c.cancel();c.sleep();
-  const a=c.players.o2.athlete,clip=c.kit.clips.LayupR;
+  const a=c.players.o2.athlete,results=[];
+  for(const name of ['LayupR','JumpShot']){
+  const clip=c.kit.clips[name],release=name==='LayupR'?650/1150:.48,beat=name==='LayupR'?1.15:1.25;
   const missing=clip.tracks.map(t=>t.name.split('.')[0]).filter(n=>!a.root.getObjectByName(n));
   const skinMinimum=()=>{
    let min=Infinity;a.root.updateWorldMatrix(true,true);
@@ -27,27 +29,29 @@ try {
   };
   const tiers=[];
   for(const quality of ['high','low']) {
-   a.setQuality(quality);a.mixer.stopAllAction();const action=a.actions.LayupR;action.reset().setEffectiveWeight(1).play();
+   a.setQuality(quality);a.mixer.stopAllAction();const action=a.actions[name];action.reset().setEffectiveWeight(1).play();
    const frames=[];
    for(let frame=0;frame<=75;frame++) {
-    a.mixer.setTime(Math.min(clip.duration-.00001,frame/60));a.root.updateWorldMatrix(true,true);
+    a.mixer.setTime(Math.min(clip.duration-.00001,frame/75*clip.duration));a.root.updateWorldMatrix(true,true);
     const phase=frame/75;frames.push({phase,shoeSkinMin:skinMinimum(),markerMin:a.soleHeight()});
    }
    tiers.push({quality,frames});
   }
   // Fade is already established before the simulated stall; the next render
   // gets a tiny delta but the ball runner is at the authored release phase.
-  a.mixer.stopAllAction();a.setQuality('high');a.trigger('LayupR',clip.duration/1.15);
-  a.update(.14,.12);a.update(.001,650/1150);
-  const recovered={time:a.oneShot.time,expected:clip.duration*650/1150,shoeSkinMin:skinMinimum()};
+  a.mixer.stopAllAction();a.setQuality('high');a.trigger(name,clip.duration/beat);
+  a.update(.14,.12);a.update(.001,release);
+  const recovered={time:a.oneShot.time,expected:clip.duration*release,shoeSkinMin:skinMinimum()};
   a.mixer.stopAllAction();a.oneShot=null;a.loopName=null;a.setLoop('Idle');
-  a.trigger('LayupR',clip.duration/1.15);a.update(.001,650/1150);
-  const startupStall={time:a.oneShot.time,expected:clip.duration*650/1150,shoeSkinMin:skinMinimum()};
+  a.trigger(name,clip.duration/beat);a.update(.001,release);
+  const startupStall={time:a.oneShot.time,expected:clip.duration*release,shoeSkinMin:skinMinimum()};
   c.renderer.render(c.scene,c.camera);
-  return {clip:clip.name,duration:clip.duration,missing,tiers,recovered,startupStall};
+  results.push({clip:clip.name,duration:clip.duration,missing,tiers,recovered,startupStall});
+  }return results;
  });
- report.checks.push(motion);
- assert.equal(motion.clip,'LayupR');assert.deepEqual(motion.missing,[]);
+ report.checks.push(...motions);
+ for(const motion of motions){
+ assert.ok(['LayupR','JumpShot'].includes(motion.clip));assert.deepEqual(motion.missing,[]);
  for(const tier of motion.tiers) {
   assert.ok(tier.frames.every(f=>Number.isFinite(f.shoeSkinMin)&&f.shoeSkinMin>-.035),'actual shoe skin must not cross the floor');
   assert.ok(tier.frames.some(f=>f.shoeSkinMin>1),'layup must leave the ground');
@@ -56,6 +60,7 @@ try {
  }
  assert.ok(Math.abs(motion.recovered.time-motion.recovered.expected)<.001&&motion.recovered.shoeSkinMin>.8,'baked pose must recover to airborne release after a stalled render');
  assert.ok(Math.abs(motion.startupStall.time-motion.startupStall.expected)<.001&&motion.startupStall.shoeSkinMin>.8,'a stall during fade-in must not keep release blended into a grounded pose');
+ }
  await page.screenshot({path:`${out}/recovered-release.png`});
  assert.deepEqual(report.errors,[]);report.passed=true;
 }catch(e){report.failure=e.stack;process.exitCode=1;}finally{await browser?.close();fs.writeFileSync(`${out}/report.json`,JSON.stringify(report,null,2));}

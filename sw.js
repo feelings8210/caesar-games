@@ -11,7 +11,7 @@
  * discards every older cache in one pass.
  */
 
-const BUILD_VERSION = 'v2.9.0-local.24';
+const BUILD_VERSION = 'v2.9.0-local.26';
 const CACHE = `caesar-games-${BUILD_VERSION}`;
 
 const PRECACHE = [
@@ -44,6 +44,8 @@ const PRECACHE = [
   './js/games/gomoku/engine.js',
   './js/games/gomoku/ai.js',
   './js/games/hoops/audio.js',
+  './js/games/hoops/arena-courtside.js',
+  './assets/hoops/seated-audience.glb',
   './js/games/hoops/court.js',
   './js/games/hoops/levels.js',
   './js/games/hoops/controller.js',
@@ -64,6 +66,7 @@ const PRECACHE = [
   './assets/hoops/athlete-arena.glb',
   './assets/hoops/crowd-head.glb',
   './assets/hoops/basketball-actions.glb',
+  './assets/hoops/jump-shot.glb',
   './js/vendor/three/three.core.min.js',
   './js/vendor/three/three.module.min.js',
   './js/vendor/three/addons/GLTFLoader.js',

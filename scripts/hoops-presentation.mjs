@@ -76,7 +76,7 @@ try {
       desktopFrameMs:{median:intervals[Math.floor(intervals.length*.5)],p95:intervals[Math.floor(intervals.length*.95)]}};
   });
   assert.ok(shot.frames.length>5);
-  assert.ok(shot.gatherClips.length>5&&shot.gatherClips.every(name=>name==='Shot'),'late Catch must not replace the prepared Shot animation');
+  assert.ok(shot.gatherClips.length>5&&shot.gatherClips.every(name=>name==='JumpShot'),'late Catch must not replace the prepared jump animation');
   assert.ok(shot.frames.every(p=>Math.abs(p.x)<1&&Math.abs(p.y)<1&&p.z<1),'shot ball must stay in view');
   assert.equal(shot.shot,'broadcast');assert.equal(shot.score,3);
   report.checks.push({name:'shot-framing-and-return',...shot});

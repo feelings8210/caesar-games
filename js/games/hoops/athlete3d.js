@@ -11,6 +11,7 @@ import { clone as cloneSkinned } from '../../vendor/three/addons/SkeletonUtils.j
 import { reach, gripPoint } from './basketball-pose.js';
 
 const FADE = 0.22;
+const BAKED_FINISHES = new Set(['LayupR','JumpShot']);
 /** Loops that crouch deep enough to want some standing pose mixed in. */
 const CROUCH = new Set(['DefStance', 'DefSlideL', 'DefSlideR']);
 /** Feet travelled per loop, from the animation library's root motion. */
@@ -186,7 +187,7 @@ class Athlete {
     this.actions = {};
     for (const [name, clip] of Object.entries(kit.clips)) {
       const a = this.mixer.clipAction(clip);
-      if (['Pass', 'Catch', 'Shot', 'LayupR', 'Celebrate'].includes(name)) {
+      if (['Pass', 'Catch', 'Shot', 'LayupR', 'JumpShot', 'Celebrate'].includes(name)) {
         a.setLoop(THREE.LoopOnce, 1);
         a.clampWhenFinished = true;
       }
@@ -228,7 +229,7 @@ class Athlete {
   trigger(name, timeScale = 1) {
     const a = this.actions[name];
     if (!a) return;
-    if(name==='LayupR') {
+    if(BAKED_FINISHES.has(name)) {
       this.layupPlants=new Map();
       this.layupOutgoing=[this.oneShot,this.actions[this.loopName]].filter(old=>old&&old!==a);
     }
@@ -252,7 +253,7 @@ class Athlete {
       const w = this.stand.getEffectiveWeight();
       this.stand.setEffectiveWeight(w + (goal - w) * (1 - Math.exp(-6 * dt)));
     }
-    if(this.oneShot?.getClip().name==='LayupR'&&Number.isFinite(actionFraction)) {
+    if(BAKED_FINISHES.has(this.oneShot?.getClip().name)&&Number.isFinite(actionFraction)) {
       // The ball runner uses wall time. Seek the baked action to that same
       // phase, so a clamped render delta cannot leave the feet behind release.
       const duration=this.oneShot.getClip().duration;
@@ -372,8 +373,10 @@ class Athlete {
     // The baked clip provides the step order; world-space anchors adapt its
     // grounded sections to the runner's tactical path without stretching legs.
     this.layupContacts=[];
-    if(this.oneShot?.getClip().name!=='LayupR')return;
-    const support=fraction<.20?'r':fraction>.225&&fraction<.34?'l':fraction>.83?'both':null;
+    const clip=this.oneShot?.getClip().name;
+    if(!BAKED_FINISHES.has(clip))return;
+    const support=clip==='JumpShot'?(fraction<.255||fraction>.665?'both':null):
+      fraction<.20?'r':fraction>.225&&fraction<.34?'l':fraction>.83?'both':null;
     this.layupPlants ||= new Map();
     this.root.updateWorldMatrix(true,true);
     for(let i=0;i<this.feet.length;i++) {
@@ -451,6 +454,9 @@ class Athlete {
     const delta=Math.max(-.45,Math.min(.45,Math.atan2(Math.sin(desired-bodyYaw),Math.cos(desired-bodyYaw))));
     const parent=this.head.parent.getWorldQuaternion(new THREE.Quaternion());
     const turn=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),delta);
+    const pitch=Math.max(-.18,Math.min(.32,Math.atan2(target.y-at.y,Math.hypot(target.x-at.x,target.z-at.z))));
+    const right=new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),bodyYaw+delta);
+    turn.premultiply(new THREE.Quaternion().setFromAxisAngle(right,-pitch));
     turn.premultiply(parent.clone().invert()).multiply(parent);
     this.head.quaternion.premultiply(turn).normalize();
   }

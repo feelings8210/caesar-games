@@ -80,6 +80,7 @@ export class Court3D extends BeatRunner {
     // Quality starts high and steps down once if the first frames run slow.
     const forced = new URLSearchParams(location.search).get('hoopsQuality');
     this.arenaLook = new URLSearchParams(location.search).get('hoopsLook') !== 'classic';
+    this.venueLook = this.arenaLook && new URLSearchParams(location.search).get('hoopsVenue') !== 'legacy';
     this.quality = forced === 'low' ? 'low' : 'high';
     this._qualityLocked = !!forced;
     this._probe = [];
@@ -127,9 +128,10 @@ export class Court3D extends BeatRunner {
    * ---------------------------------------------------------------- */
 
   _lights() {
-    this.scene.add(new THREE.HemisphereLight(this.arenaLook ? 0xECEEF0 : 0xDCE6F5, 0x1E2228, this.arenaLook ? 0.65 : 0.32));
+    this.scene.add(new THREE.HemisphereLight(this.arenaLook ? 0xECEEF0 : 0xDCE6F5, 0x1E2228, this.venueLook ? .4 : this.arenaLook ? 0.65 : 0.32));
     // A museum spot over the table: full light on the court, falling off over the stands.
     const key = new THREE.SpotLight(0xFFF0DC, 2.45, 0, 0.46, 0.5, 0);
+    if(this.venueLook){key.color.setHex(0xFFF5E7);key.intensity=2.15;key.angle=.58;key.penumbra=.8;}
     key.position.set(-14, 84, 6);
     key.target.position.set(0, 0, 22);
     key.castShadow = true;
@@ -140,10 +142,12 @@ export class Court3D extends BeatRunner {
     this.scene.add(key, key.target);
     this.key = key;
     const rim = new THREE.DirectionalLight(0xBFD3FF, 0.7);
+    if(this.venueLook){rim.color.setHex(0xE4E7EE);rim.intensity=.42;}
     rim.position.set(10, 18, -30);
     this.scene.add(rim);
     if (this.arenaLook) {
       const fill = new THREE.DirectionalLight(0xE7EDFF, 0.9);
+      if(this.venueLook){fill.color.setHex(0xECE7DE);fill.intensity=.55;}
       fill.position.set(-28, 28, 30); this.scene.add(fill);
     }
   }
@@ -153,7 +157,7 @@ export class Court3D extends BeatRunner {
     const image = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
     const optional = p => p.catch(() => null);    // environment art is a bonus, never a blocker
     const tex = new THREE.TextureLoader();
-    const [figs, mark, wood, nor, rough, hdr, crowd, motions] = await Promise.all([
+    const [figs, mark, wood, nor, rough, hdr, crowd, motions, jumps, seated] = await Promise.all([
       loader.loadAsync(ASSETS + (this.arenaLook ? 'athlete-arena.glb' : 'athlete.glb')),
       optional(image(ASSETS + '../cd_home_mark_transparent.png')),
       optional(image(ASSETS + 'env/wood_diff_1k.jpg')),
@@ -161,13 +165,16 @@ export class Court3D extends BeatRunner {
       optional(tex.loadAsync(ASSETS + 'env/wood_rough_1k.jpg')),
       optional(new HDRLoader().loadAsync(ASSETS + 'env/env_1k.hdr')),
       this.arenaLook ? optional(loader.loadAsync(ASSETS + 'crowd-head.glb')) : null,
-      this.arenaLook ? optional(loader.loadAsync(ASSETS + 'basketball-actions.glb')) : null
+      this.arenaLook ? optional(loader.loadAsync(ASSETS + 'basketball-actions.glb')) : null,
+      this.arenaLook ? optional(loader.loadAsync(ASSETS + 'jump-shot.glb')) : null,
+      this.venueLook ? optional(loader.loadAsync(ASSETS + 'seated-audience.glb')) : null
     ]);
 
     if (hdr) {
       hdr.mapping = THREE.EquirectangularReflectionMapping;
       this.scene.environment = this.pmrem.fromEquirectangular(hdr).texture;
       this.scene.environmentIntensity = 0.7;
+      if(this.venueLook)this.scene.environmentIntensity=.38;
       hdr.dispose();
     }
 
@@ -189,8 +196,10 @@ export class Court3D extends BeatRunner {
       floorMat[key] = m;
     }
     if (nor) floorMat.normalScale.set(0.35, 0.35);
+    if(nor&&this.venueLook)floorMat.normalScale.set(.12,.12);
     if (rough) floorMat.roughness = 0.78;                // satin: the spot leaves a soft sheen
     if (this.arenaLook) { floorMat.clearcoat = .2; floorMat.clearcoatRoughness = .4; floorMat.specularIntensity = .16; }
+    if(this.venueLook){floorMat.clearcoat=.32;floorMat.clearcoatRoughness=.26;floorMat.roughness=.7;floorMat.envMapIntensity=.22;}
     this.floor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), floorMat);
     this.floor.rotation.x = -Math.PI / 2;
     this.floor.position.set(0, 0, 25);
@@ -220,8 +229,10 @@ export class Court3D extends BeatRunner {
     if (this.arenaLook) { const farHoop=buildHoop({hoop:HOOP,rimY:RIM_Y,mark});farHoop.name='FarHoop';farHoop.rotation.y=Math.PI;farHoop.position.z=94;this.scene.add(farHoop); }
     let crowdHead=null;
     crowd?.scene.traverse(o=>{if(o.isMesh)crowdHead=o.geometry;});
-    this.arena = buildArena(this.scene, { hoop, rimY: RIM_Y, populated: this.arenaLook, crowdHead });
+    this.arena = buildArena(this.scene, { hoop, rimY: RIM_Y, populated: this.arenaLook, crowdHead,
+      seatedAudience:seated?.scene,refined:this.venueLook });
     if(crowd)disposeObject(crowd.scene);
+    if(seated)disposeObject(seated.scene);
     this._applyQuality();
 
     this.kit = new AthleteKit(figs);
@@ -229,6 +240,7 @@ export class Court3D extends BeatRunner {
       for(const clip of motions.animations)this.kit.clips[clip.name]=clip;
       disposeObject(motions.scene);
     }
+    if(jumps){for(const clip of jumps.animations)this.kit.clips[clip.name]=clip;disposeObject(jumps.scene);}
     this.materials = {};
     this.ballMesh = this._makeBall();
     this.scene.add(this.ballMesh);
@@ -298,7 +310,7 @@ export class Court3D extends BeatRunner {
     for (let i = 0; i < d.length; i += 64) { r += d[i]; gr += d[i + 1]; b += d[i + 2]; }
     const n = d.length / 64;
     // Honey maple, with the grain and plank-to-plank variation drawn out.
-    const mean = [r / n, gr / n, b / n], tone = this.arenaLook ? [175, 153, 114] : [186, 133, 80], k = this.arenaLook ? 0.52 : 1.3;
+    const mean = [r / n, gr / n, b / n], tone = this.venueLook ? [184,155,112] : this.arenaLook ? [175, 153, 114] : [186, 133, 80], k = this.venueLook ? .82 : this.arenaLook ? 0.52 : 1.3;
     for (let i = 0; i < d.length; i += 4) {
       for (let c = 0; c < 3; c++) d[i + c] = tone[c] + (d[i + c] - mean[c]) * k;
     }
@@ -584,7 +596,7 @@ export class Court3D extends BeatRunner {
       let local = moving ? [-.8, 3.4 - bounce * (3.4 - BALL_R), .65] : [-.65,3.8,.7];
       if (b.preparing && action) {
         const fraction = (performance.now() - action.start) / action.releaseMs;
-        local = actionBall(action.style === 'layup' ? 'layup' : action.kind, fraction);
+        local = actionBall(action.clip==='JumpShot'?'jump-shot':action.style === 'layup' ? 'layup' : action.kind, fraction);
       }
       const point = held.root.localToWorld(new THREE.Vector3(...local));
       point.y = Math.max(BALL_R, point.y);
@@ -1210,12 +1222,13 @@ export class Court3D extends BeatRunner {
 
   _prepareAction(b, flight, ms) {
     const who = this.players[this.ball.holder];
-    const name = b.pass ? 'Pass' : b.shot ? (b.finish==='layup'&&this.kit.clips.LayupR?'LayupR':'Shot') : null;
+    const name = b.pass ? 'Pass' : b.shot ? (b.finish==='layup'?(this.kit.clips.LayupR?'LayupR':'Shot'):(this.kit.clips.JumpShot?'JumpShot':'Shot')) : null;
     const clip = this.kit.clips[name];
     if (!who || !clip) return;
     if (this.arenaLook) who.action = {
       kind: b.pass ? 'pass' : 'shot', target: b.pass,
       style: b.finish || 'jump',
+      clip:name,
       start: performance.now(), duration: ms,
       releaseMs: ms * (b.prepareMs || 0) / (b.ms || 600),
       from: new THREE.Vector3(this.ball.at[0], this._ballY ?? 3.4, this.ball.at[1])
@@ -1330,7 +1343,7 @@ export class Court3D extends BeatRunner {
       if (!this.frozen) p.yaw += angleDelta(p.yaw, goalYaw) * (1 - Math.exp(-9 * dt));
       p.root.rotation.y = p.yaw;
       this._pickLoop(p);
-      if (!this.frozen) p.athlete.update(dt * PLAY_SPEED,p.action?.style==='layup'?(now-p.action.start)/p.action.duration:null);
+      if (!this.frozen) p.athlete.update(dt * PLAY_SPEED,p.action?.kind==='shot'?(now-p.action.start)/p.action.duration:null);
       if(!this.frozen&&this.arenaLook&&speed>1.5&&!p.athlete.oneShot)
         p.athlete.balance(new THREE.Vector3(vx,0,vz).normalize(),Math.max(-.06,Math.min(.07,p.acceleration*.0025)));
     }
@@ -1379,7 +1392,7 @@ export class Court3D extends BeatRunner {
           {grip:this.ball.preparing||holder.speed<2.5,leftGrip:!oneHand});
       }
       for (const player of Object.values(this.players)) player.athlete.plantFeet(player.speed > 2.5);
-      if(finisher?.action?.style==='layup')
+      if(finisher?.action?.kind==='shot')
         finisher.athlete.plantLayupFeet((now-finisher.action.start)/finisher.action.duration);
       if(finisher&&!finisher.landingDone) {
         const height=finisher.athlete.soleHeight();
@@ -1396,7 +1409,12 @@ export class Court3D extends BeatRunner {
         hoopsAudio.setCourtPosition(point.x,brakingPlayer.root.position.distanceTo(this.camera.position));
         hoopsAudio.squeak();this._shoeSoundAt=now;
       }
-      for (const player of Object.values(this.players)) player.athlete.gaze(this.ballMesh.position,player.yaw);
+      for (const player of Object.values(this.players)) {
+        const aiming=player.id===this._shooter&&(this.ball.preparing||this.ball.flight?.kind==='shot');
+        const target=aiming?new THREE.Vector3(HOOP[0],RIM_Y,HOOP[1]):this.ballMesh.position.clone();
+        if(!aiming)target.y=Math.max(4.5,target.y);
+        player.athlete.gaze(target,player.yaw);
+      }
     }
     if (this.ball.holder && !this.ball.flight && this.players[this.ball.holder]?.speed < 2.5) this._renderBall(0);
     if (this._madeBall && this.ball.rest === 'made' && !this.ball.holder && !this.ball.flight && !this.frozen) {

@@ -268,3 +268,7 @@
 ## Original layup animation (local.24)
 
 `basketball-actions.glb` contains an original project-authored right-hand layup on the approved fitted athlete rig. The underlying rig/human sources remain CC0; this package does not contain NBA video, player scans, or extracted motion. Its timings are authored, not measured NBA timing. The reproducible CPU Blender builder and source/output SHA256 are in `basketball-actions.provenance.json`. The tiny skin carrier is discarded at load time; existing player geometry is reused. Owner/iPad/continuous audiovisual review remains pending.
+
+## Original jump shot and seated crowd (local.26)
+
+`jump-shot.glb` contains an authored 1.3-second jump shot on the same approved CC0 rig; no NBA scans or motion capture are included. `seated-audience.glb` bakes three original seated poses from the fitted CC0 athlete, with separate high/low meshes. The native Blender builders, parent/canonical paths, licenses and output SHA256 are in the corresponding `.provenance.json` files. Runtime palette variation and courtside furniture are original code. These are project-specific derivatives, not globally promoted assets. Close-up art, continuous audiovisual and iPad/Owner review remain pending; there is no NBA 2K quality approval.

@@ -13,6 +13,12 @@ export function actionBall(kind, fraction) {
     return t < .35 ? mix([-.7,3.3,.6],gathered,smooth(t/.35))
       : mix(gathered,lifted,smooth((t-.35)/.65));
   }
+  if(kind==='jump-shot') {
+    const loaded=[-.45,3.1,.6],set=[-.32,6.35,.48],release=[-.30,7.0,.4];
+    if(t<.35)return mix([-.7,3.5,.55],loaded,smooth(t/.35));
+    if(t<.85)return mix(loaded,set,smooth((t-.35)/.5));
+    return mix(set,release,smooth((t-.85)/.15));
+  }
   const loaded = [-.45, 3.1, .6], set = [-.32, 5.95, .72], release = [-.3, 6.35, .78];
   if (t < .35) return mix([-.7, 3.5, .55], loaded, smooth(t / .35));
   if (t < .85) return mix(loaded, set, smooth((t - .35) / .5));

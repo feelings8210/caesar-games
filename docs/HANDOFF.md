@@ -1,6 +1,20 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HANDOFF
-STATE ID: HO-2026-10-11-hoops-local.24   ← THIS NODE
+STATE ID: HO-2026-10-11-hoops-local.26   ← THIS NODE
+
+## 当前 local.26：场边设施/完整首排与跳投，整体仍未达标
+
+持续 goal ACTIVE；目标仍是最好的视听/NBA 2K Mobile，未达成、未暂停。`codex/hoops-local`、`v2.9.0-local.26`，无push/PR/发布。同期原创 JumpShot 接入跳投（上篮保持LayupR）、球与动作时钟/鞋底支撑同步、有限俯仰瞄筐；来源与builder在 `jump-shot.provenance.json`。皮肤AO试验未替换当前人物。
+
+球馆默认增加前排完整坐姿、球队替补席、记录台/显示器、场边摄像设备/饮水箱；减少冷蓝色灯光，调整扫描木纹/法线/清漆。`?hoopsVenue=legacy` 查看同人物动作的前一场馆。坐姿由批准CC0人体原创新作，三姿态/高低网格，native worker v7 SHA与builder在 `seated-audience.provenance.json`。按姿势合批、原创palette shader，少数首排和替补用细网格，其余完整低网格。
+
+**近景美术仍不足**：脸/衣物/皮肤同质化、远排比例和肢体仍简化。v3鞋/腕问题、v5–v6袖口像肩垫、v7放大远排出现悬空头部/细长手臂均保留并处理/撤回；不要声称完整写实观众或NBA观感已实现。详见 `docs/NBA_MOTION_AND_ARENA_REVIEW_20261011.md` local.26。
+
+SSD `arena-v26/` 最终 `check-v8` 新旧约131.66万/56.14万→171.89万/84.94万面、293→323 calls；仍增加成本，iPad未知。`presentation-v8`无遮挡/LOD/投篮取景/返回/手机通过，`finishes`四种终结、`motion`两个片段实际鞋面与掉帧恢复通过，21个顶层单测串行通过。`runtime-v8` errors/外部requests空、6次重建geometry110/texture129稳定、3D离线v26含两个片段与首排坐姿加载成功、手机无溢出。没有持续1x视听、实际听审、iPad/Owner美术验收。
+
+最终新/旧场馆AV在 worker/SSD `proof-arena-v26`，new.mp4 SHA `5e9f64fc0ae73421acd05b63a8f185f46ca3fb18b7475238a8a686c0e8e279ea`；本地 review 同原URL已换 local.26，实际两段 metadata/readyState 通过。可重复场馆截图检查：`scripts/hoops-venue.mjs <SSD输出目录>`，仍需本机8000服务。
+
+下一步继续真实衣物/皮肤/头发/身份多样性，以及主机位可见的球馆光照和地板反射。首排模型是局部结构进展，不能当整体品质成功；不要只堆场外几何或拿测试通过当验收。
 
 ## 当前 local.24：独立上篮已接入，整体品质仍未达标
 

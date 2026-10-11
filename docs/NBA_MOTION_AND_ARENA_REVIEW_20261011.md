@@ -40,3 +40,23 @@ SSD 根：`/Volumes/MiniStorage/media-projects/caesar-hoops-20261011/`。
 - 最终 local.18 的当前回合、缓存/离线与高低档检查在 `arena-v18/`：errors 和外部 requests 为空；相邻关卡高低档为 1,315,709 / 560,504 面、276 calls；六次重建 geometries=80、textures=128 稳定；离线 3D loaded=true、version=v2.9.0-local.18、online=false；手机未溢出。`proof-v18/arena.mp4` 已 native CPU 导出 H.264/AAC，SHA `32b6c862e708a98baf1970ea3dc9c8cc66df3313bf4a98b1e39257df7b95b512`；观察了回合采样条与最终比赛截图，仍不构成连续视听。
 
 没有实际音频听审、独立连续 1x 审美验收、iPad 真机或 Owner 品质通过。未上传 GitHub。
+
+## local.26 场边结构与灯光检查点
+
+Owner 仍认为球场、环境、观众和蓝光简陋，NBA 2K Mobile 整体目标仍未达成。当前改动仅在 `codex/hoops-local` 本地，未 push/PR/发布。默认加入首排完整坐姿人体、球队替补席、记录台/显示器/场边摄影器材/饮水设备；首排座椅改到适合人体的高度，远排保留轻量模型。球馆顶光/补光/轮廓光偏中性，环境强度降低；地板保留批准的木纹来源，降低法线起伏，增加原扫描纹理对比并调整清漆。`?hoopsVenue=legacy` 对照此前场馆，当前球员/动作相同。
+
+人体库已按 canonical policy/preflight/search/resolve 查证：CC0 Blender Human Base Meshes v1.4.1，`blender-human-base-meshes:3c121505651140ce`。通过既有批准运动员 GLB 烘焙三种原创坐姿与高低网格，native CPU Blender v7 输出、许可、canonical 路径、SHA256 在 `assets/hoops/seated-audience.provenance.json`。没有下载 NBA 游戏资产、扫描球员或提取动作，也没有上传私有项目。
+
+试验不是一次成功：v1 因骨名 Head 大小写失败；v3 首排鞋/腕破面且约184万面；v4 修腕朝向/保留鞋；v5–v6 加袖口后仍像肩垫、服装连接差，最终撤回袖口；v7 远排放大导致细长手臂/悬空头部，撤回远排比例。所有 worker 构建脚本、日志和 SSD 捕获保留。当前三种姿态仍用同一人物基础，近景衣服/皮肤/脸部明显粗糙、同质化，不能标美术通过。
+
+首排/替补模型按姿态合并材质几何，以原创建色 shader 提供皮肤、衣物、头发、眼睛/鞋的调色；高档少数首排/替补用细网格，其余使用完整低网格。低档切换真实网格；高档低网格单独分组，不再缩到0却照样提交其全部面数。功能检查与美术品质分别记录。
+
+最终 SSD `/Volumes/MiniStorage/media-projects/caesar-hoops-20261011/arena-v26/`：`check-v8/` 新旧同关截图通过载入检查、无 pageerror；相同视图旧约131.66万/56.14万面，新约171.89万/84.94万面，293→323 calls。增加成本仍是风险，不能从桌面推断 iPad 性能。`presentation-v8/` 通过实际 LOD、10名球员视线无遮挡、跳投持续在画内和镜头返回、手机无横向溢出；`finishes/` 四种终结通过；`motion/` 两个片段的实际鞋面和掉帧恢复通过；`unit.log` 21个顶层单元测试串行通过。
+
+`runtime-v8/runtime-report.json` 保留实际回合、6次重建资源、v26带 LayupR/JumpShot/首排坐姿的3D离线重开、手机布局与外部请求检查。没有独立连续1x审美观察、实际音频听审、iPad/Owner美术验收。下一步应改真实衣物/人体材质、多样性和比赛主机位中可见的场馆光照/地板反射；不要继续只堆场外几何。
+
+## 同期独立跳投
+
+`jump-shot.glb` 新增1.3秒原创 JumpShot：加载/双脚起跳/随球瞄筐/跟随/屈膝落地；上篮仍使用 LayupR。按回合时钟定位和已有实际鞋底支撑，修正起手掉帧时旧姿态混合。射手头部新增有限俯仰瞄筐，非射手的目光不追到地板。动作基本顺序参考 [Jr. NBA jump shot](https://jr.nba.com/how-to-shoot-a-jump-shot/)，时长曲线原创；不能说NBA mocap或完整录像测量。source/output/builder SHA在 `jump-shot.provenance.json`。此前皮肤AO候选留在 SSD `jump-study/skin-after-fresh`，没有替换当前人物，也没有宣称它解决写实材质。
+
+最终带声音回合与此前场馆对照均已 native CPU 导出：worker/SSD `proof-arena-v26`，new.mp4 10.833333秒、H.264/AAC 48kHz双声道，SHA `5e9f64fc0ae73421acd05b63a8f185f46ca3fb18b7475238a8a686c0e8e279ea`；legacy.mp4 10.797秒，SHA `c8bd339ba35a70294390dd57960adbdb29d905a934c3d1e5be2d08ccff10a57f`。相同种子/关卡/动作/混音，场馆参数不同，真实执行时长略不同。review 页两段实际readyState=4及尺寸/时长已核对，仍不能声称持续1x或听审通过。页面沿用 `/review/hoops-nba-20261010/`，本机8000服务器需实际存活。重复场馆检查入口 `scripts/hoops-venue.mjs <SSD输出目录>`，其余 motion/presentation/finishes 入口不变。

@@ -12,6 +12,7 @@
 
 import * as THREE from '../../vendor/three/three.module.min.js';
 import { mergeGeometries } from '../../vendor/three/addons/BufferGeometryUtils.js';
+import { buildCourtside } from './arena-courtside.js';
 
 const GROUND_Y = -2.4;
 
@@ -75,7 +76,7 @@ function rod(a, b, r, mat) {
  * One bank of stands. Built along local +x (length) rising toward local -z,
  * then placed by the caller. `aisles` are local x positions of stairways.
  */
-function stand(length, mats, seats, led, aisles = [], rows = 6) {
+function stand(length, mats, seats, led, aisles = [], rows = 6, humanScale = false) {
   const g = new THREE.Group();
   const depth = 2.7, rise = 1.45, aw = 3.6;
   // Bench runs between the aisles.
@@ -92,7 +93,7 @@ function stand(length, mats, seats, led, aisles = [], rows = 6) {
     g.add(box(length, 0.22, depth - 0.25, mats.tread, 0, top - 0.11, z + 0.12));
     for (const [a, b] of runs) {
       const n = Math.floor((b - a) / 1.9);
-      for (let i = 0; i < n; i++) seats.push([g, a + (b - a) * (i + 0.5) / n, top + 0.55, z - depth / 2 + 0.95]);
+      for (let i = 0; i < n; i++) seats.push([g, a + (b - a) * (i + 0.5) / n, top + (humanScale && k===0 ? 1.5 : .55), z - depth / 2 + 0.95]);
     }
     for (const x of aisles) g.add(box(aw - 0.3, 0.06, depth - 0.4, mats.step, x, top + 0.03, z + 0.1));
   }
@@ -259,7 +260,7 @@ function net(center, rimY) {
   };
 }
 
-export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = null }) {
+export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = null, seatedAudience = null, refined = false }) {
   const mats = Object.fromEntries(Object.entries(MAT).map(([k, f]) => [k, f()]));
   const root = new THREE.Group();
   scene.add(root);
@@ -278,26 +279,26 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
   // Stands: behind the basket and along both sidelines; the camera side stays open.
   const seats = [];
   const led = ledBoard();
-  const back = stand(populated ? 84 : 58, mats, seats, led.mat, populated ? [-24, 0, 24] : [0], populated ? 16 : 6);
+  const back = stand(populated ? 84 : 58, mats, seats, led.mat, populated ? [-24, 0, 24] : [0], populated ? 16 : 6, refined);
   back.position.set(0, 0, -14);
-  const left = stand(populated ? 124 : 58, mats, seats, led.mat, populated ? [-42,-14,14,42] : [-14,14], populated ? 14 : 6);
+  const left = stand(populated ? 124 : 58, mats, seats, led.mat, populated ? [-42,-14,14,42] : [-14,14], populated ? 14 : 6, refined);
   left.rotation.y = Math.PI / 2;               // rows rise away from the court (-x)
   left.position.set(-33, 0, populated ? 47 : 23);
-  const right = stand(populated ? 124 : 58, mats, seats, led.mat, populated ? [-42,-14,14,42] : [-14,14], populated ? 14 : 6);
+  const right = stand(populated ? 124 : 58, mats, seats, led.mat, populated ? [-42,-14,14,42] : [-14,14], populated ? 14 : 6, refined);
   right.rotation.y = -Math.PI / 2;
   right.position.set(33, 0, populated ? 47 : 23);
   root.add(back, left, right);
   if (populated) {
     // A second deck and lit concourse give the bowl a continuous silhouette.
     // Keep the camera-side upper deck open: it lies behind the broadcast lens.
-    const upperBack = stand(136, mats, seats, led.mat, [-48,-24,0,24,48], 8);
+    const upperBack = stand(136, mats, seats, led.mat, [-48,-24,0,24,48], 8, refined);
     upperBack.position.set(0, 25, -61);
-    const upperRight = stand(146, mats, seats, led.mat, [-48,-24,0,24,48], 8);
+    const upperRight = stand(146, mats, seats, led.mat, [-48,-24,0,24,48], 8, refined);
     upperRight.rotation.y = -Math.PI / 2;
     upperRight.position.set(76, 23, 47);
     root.add(upperBack, upperRight);
     for (const side of [-1,1]) {
-      const corner = stand(29, mats, seats, led.mat, [0], 11);
+      const corner = stand(29, mats, seats, led.mat, [0], 11, refined);
       corner.rotation.y = -side * Math.PI / 4;
       corner.position.set(side * 41, 0, -12);
       root.add(corner);
@@ -326,13 +327,27 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
     seatBack.setMatrixAt(i,m4.compose(v,q,s));
   });
   root.add(seatMesh,seatBack);
+  if(refined){
+    const fabric=new THREE.MeshStandardMaterial({color:0x242B34,roughness:.95});
+    // Padded end walls and numbered entrances break the uninterrupted row grid.
+    for(const x of [-24,0,24]){
+      const portal=box(3.4,5,.7,mats.backing,x,23,-57);root.add(portal);
+      const c=document.createElement('canvas');c.width=128;c.height=64;
+      const g=c.getContext('2d');g.fillStyle='#14171B';g.fillRect(0,0,128,64);
+      g.fillStyle='#CCC9C0';g.font='600 40px Arial';g.textAlign='center';g.fillText(String(110+x/24),64,47);
+      const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;
+      const sign=new THREE.Mesh(new THREE.PlaneGeometry(3,1.5),new THREE.MeshBasicMaterial({map:tex}));sign.position.set(x,26.4,-56.6);root.add(sign);
+    }
+    root.add(box(84,.4,.35,fabric,0,1.3,-14.1));
+  }
 
   // Distant spectators: code-native silhouettes, one instanced draw per part.
   // A stable layout avoids random crowd changes on every scene load.
   let spectators = null;
+  const courtside = refined ? buildCourtside(root,seats,seatedAudience) : null;
   let crowdArms = null, armRows = [], cheerTime = 10;
   if (populated) {
-    const people = seats.filter(([g], i) => i % 13 !== 0 && (g.position.y < 1 || i % 3 === 0));
+    const people = seats.filter(([g,x,y], i) => i % 13 !== 0 && (g.position.y < 1 || i % 3 === 0) && !(refined && seatedAudience && g.position.y<1 && y<2 && i%17!==0));
     // Interleave across every stand so the low tier doesn't empty one end.
     people.sort((a, b) => Math.sin(a[1] * 91 + a[2] * 43 + a[3] * 17) - Math.sin(b[1] * 91 + b[2] * 43 + b[3] * 17));
     const torso = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.32, 0.75, 2, 5),
@@ -340,7 +355,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
     const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.25, 6, 4),
       new THREE.MeshStandardMaterial({ roughness: 1, envMapIntensity: 0.15 }), people.length);
     heads.name='AudienceDistantHeads';
-    const detailed = people.map((seat,i)=>({seat,i})).filter(({seat})=>seat[0].position.y<1&&seat[2]<2);
+    const detailed = people.map((seat,i)=>({seat,i})).filter(({seat})=>seat[0].position.y<1&&seat[2]<(refined?4:2));
     const nearIds = new Set(detailed.map(({i})=>i));
     let faceGeometry = crowdHead?.clone();
     if(faceGeometry) { faceGeometry.translate(0,-.369,0);faceGeometry.scale(.68,.68,.68); }
@@ -369,18 +384,21 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
     const col = new THREE.Color();
     let near=0, legIndex=0;
     people.forEach(([g, x, y, z], i) => {
-      const jitter = Math.sin(i * 9.7) * 0.14;
-      v.set(x + jitter, y + 0.7, z + 0.2).applyMatrix4(g.matrixWorld);
+      const jitter = Math.sin(i * 9.7) * (refined?.22:.14);
+      const bodyScale = refined ? .88 + (Math.sin(i*73.31)*.5+.5)*.23 : 1;
+      s.set(refined?bodyScale*(.9+(Math.sin(i*13.7)*.5+.5)*.25):1,bodyScale,bodyScale);
+      v.set(x + jitter, y + .7, z + 0.2).applyMatrix4(g.matrixWorld);
       g.getWorldQuaternion(q);
       torso.setMatrixAt(i, m4.compose(v, q, s));
-      torso.setColorAt(i, col.setHex(shirts[i % shirts.length]));
+      const colourIndex=refined?Math.floor((Math.sin(i*127.1+31.7)*.5+.5)*shirts.length):i%shirts.length;
+      torso.setColorAt(i, col.setHex(shirts[colourIndex]));
       if(seatedIds.has(i)) {
         legs.setMatrixAt(legIndex,m4.compose(v,q,s));
         legs.setColorAt(legIndex,col.setHex([0x262A30,0x344459,0x414449,0x282429][i%4]));legIndex++;
       }
-      v.y += 0.88;
+      v.y += .88 * bodyScale;
       heads.setMatrixAt(i, m4.compose(v, q, nearIds.has(i)&&faces ? new THREE.Vector3(0,0,0) : s));
-      heads.setColorAt(i, col.setHex(skins[i % skins.length]));
+      heads.setColorAt(i, col.setHex(skins[refined?Math.floor((Math.sin(i*37.3)*.5+.5)*skins.length):i%skins.length]));
       if(faces&&nearIds.has(i)) {
         const faceQ=q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),Math.sin(i*4.1)*.16));
         faces.setMatrixAt(near,m4.compose(v,faceQ,s));faces.setColorAt(near,col.setHex(skins[i%skins.length]));
@@ -389,7 +407,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
       hair.setMatrixAt(i, m4.compose(v,q,s));
       hair.setColorAt(i,col.setHex([0x181616,0x473123,0x78685A,0x272220][i%4]));
       for (const side of [-1, 1]) {
-        const shoulder = new THREE.Vector3(x + side * .32, y + .85, z + .2).applyMatrix4(g.matrixWorld);
+        const shoulder = new THREE.Vector3(x + side *  .32, y + .85, z + .2).applyMatrix4(g.matrixWorld);
         const down = new THREE.Vector3(x + side * .48, y + .38, z + .54).applyMatrix4(g.matrixWorld);
         const up = new THREE.Vector3(x + side * .68, y + 1.55, z + .2).applyMatrix4(g.matrixWorld);
         const index = i * 2 + (side === 1 ? 1 : 0);
@@ -404,6 +422,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
     if(faces){spectators.add(faces,fallback);fallback.visible=false;}
     root.add(spectators);
   }
+  s.set(1,1,1);
 
   // The name on the apron behind the baseline, either side of the basket.
   for (const [text, x] of [['CAESAR', -13.5], ['GAMES', 13.5]]) root.add(apronWord(text, x, -3.2));
@@ -477,6 +496,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
       }
     },
     setQuality(q) {
+      courtside?.setQuality(q);
       beams.visible = !populated && q !== 'low';
       if (spectators) spectators.children.forEach(m => {
         m.count = q === 'low' ? Math.ceil(m.instanceMatrix.count / 2) : m.instanceMatrix.count;

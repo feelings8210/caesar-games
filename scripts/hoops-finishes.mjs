@@ -43,7 +43,7 @@ try {
     report.finishes.push({level:index+1,style:expected,frames,landings});
     assert.ok(landings.length===1&&landings[0].height<.12,'one shoe cue must coincide with the actual shooter landing');
     const gather=frames.filter(f=>f.phase==='gather'),flight=frames.filter(f=>f.phase==='flight');
-    assert.ok(gather.length>5&&gather.every(f=>f.style===expected&&f.clip===(expected==='layup'?'LayupR':'Shot')));
+    assert.ok(gather.length>5&&gather.every(f=>f.style===expected&&f.clip===(expected==='layup'?'LayupR':'JumpShot')));
     if(expected==='layup') {
       const contacts=gather.flatMap(f=>f.grounding||[]);
       assert.ok(contacts.some(c=>c.side==='r')&&contacts.some(c=>c.side==='l'),'two-step layup must contain both grounded supports');
