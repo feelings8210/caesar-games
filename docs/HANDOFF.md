@@ -12,6 +12,8 @@ Owner 的持续目标为「继续 我要看到最好的视听效果 中间不要
 
 最新视频 `arena-v16`，worker/SSD `proof-v16`；同种子声音对照在 `proof-v15` 的 arena/legacy 两段。详见 `docs/NBA_LOOK_PROGRESS_20261010.md` 的 local.16 章节。下一步继续脸部身份/真实皮肤头发细节、专门篮球动作与场馆观众，让实际比赛观感接近目标；仍须真实视听与真机证据。不要停在材质噪声或机检层；新素材继续先查 canonical 库与批准来源，未批准皮肤/mocap 来源不自行下载。
 
+下一项已启动 CPU 观众头部候选：worker `/srv/ai-data/media-work/projects/caesar-hoops-20261011/crowd-head/run.sh`（rjob 日志/输出同目录），脚本镜像 SSD `crowd-head/build_crowd_head.py`，输入为已批准的 local.12 GLB。先读实际 run.sh.log / receipt 验证 terminal，再取候选与现有球体头对比；候选未接入。当前 arena 头部是 SphereGeometry(.25,6,4)，观众量很大，不能把高面数新头盲目替换全部实例；需要前排/远排分级和实际 triangles/calls 测量。
+
 以下 local.12 为前一检查点：
 
 ## 当前补充：人物/服装/握球已进入 local.12
