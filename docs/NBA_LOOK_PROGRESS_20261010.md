@@ -106,3 +106,5 @@ Owner 后续已明确选择 **NBA 2K Mobile：优先球员、动作与比赛氛�
 失败保留：`mobile-refinement` 的 anatomical-jersey v1–v3 切袖口后出现外侧面、panel-jersey 未贴人体导致露肤、game-jersey 侧面颈部翘片，以及 `finishes-v10` / `finishes-palm-wrist` 的上篮目标仍高于手掌可达范围。改动在实际近景与回合中验证后进入 local.12，未用机检合格替代审美。
 
 下一步仍是皮肤/头发/球鞋、专门篮球动作的重心与衔接、脚步接触、镜头与真实听感。整体 NBA 2K Mobile 品质、iPad Pro/普通 iPad 的持续性能、触控与音频未验收。
+
+本轮游戏代码已本地提交 `7ed3bd8`，工作区干净，无远端操作。共享媒体仓库 `relay.sh out` 的证据/存储闸门通过，落盘闸门仍被无关 EP03/health/缩略图修改与 NOW 更新时间挡住；未修改、提交或清理那些文件，也未声称共享媒体交接成功。游戏的交接与证据独立保存在本仓库和上述 worker/SSD 路径。
