@@ -127,7 +127,7 @@ export class Court3D extends BeatRunner {
    * ---------------------------------------------------------------- */
 
   _lights() {
-    this.scene.add(new THREE.HemisphereLight(0xDCE6F5, 0x1E2228, this.arenaLook ? 0.65 : 0.32));
+    this.scene.add(new THREE.HemisphereLight(this.arenaLook ? 0xECEEF0 : 0xDCE6F5, 0x1E2228, this.arenaLook ? 0.65 : 0.32));
     // A museum spot over the table: full light on the court, falling off over the stands.
     const key = new THREE.SpotLight(0xFFF0DC, 2.45, 0, 0.46, 0.5, 0);
     key.position.set(-14, 84, 6);
@@ -153,13 +153,14 @@ export class Court3D extends BeatRunner {
     const image = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
     const optional = p => p.catch(() => null);    // environment art is a bonus, never a blocker
     const tex = new THREE.TextureLoader();
-    const [figs, mark, wood, nor, rough, hdr] = await Promise.all([
+    const [figs, mark, wood, nor, rough, hdr, crowd] = await Promise.all([
       loader.loadAsync(ASSETS + (this.arenaLook ? 'athlete-arena.glb' : 'athlete.glb')),
       optional(image(ASSETS + '../cd_home_mark_transparent.png')),
       optional(image(ASSETS + 'env/wood_diff_1k.jpg')),
       optional(tex.loadAsync(ASSETS + 'env/wood_nor_1k.jpg')),
       optional(tex.loadAsync(ASSETS + 'env/wood_rough_1k.jpg')),
-      optional(new HDRLoader().loadAsync(ASSETS + 'env/env_1k.hdr'))
+      optional(new HDRLoader().loadAsync(ASSETS + 'env/env_1k.hdr')),
+      this.arenaLook ? optional(loader.loadAsync(ASSETS + 'crowd-head.glb')) : null
     ]);
 
     if (hdr) {
@@ -216,7 +217,10 @@ export class Court3D extends BeatRunner {
     const hoop = buildHoop({ hoop: HOOP, rimY: RIM_Y, mark });
     this.scene.add(hoop);
     if (this.arenaLook) { const farHoop=buildHoop({hoop:HOOP,rimY:RIM_Y,mark});farHoop.name='FarHoop';farHoop.rotation.y=Math.PI;farHoop.position.z=94;this.scene.add(farHoop); }
-    this.arena = buildArena(this.scene, { hoop, rimY: RIM_Y, populated: this.arenaLook });
+    let crowdHead=null;
+    crowd?.scene.traverse(o=>{if(o.isMesh)crowdHead=o.geometry;});
+    this.arena = buildArena(this.scene, { hoop, rimY: RIM_Y, populated: this.arenaLook, crowdHead });
+    if(crowd)disposeObject(crowd.scene);
     this._applyQuality();
 
     this.kit = new AthleteKit(figs);

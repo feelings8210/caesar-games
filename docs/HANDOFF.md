@@ -1,8 +1,18 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HANDOFF
-STATE ID: HO-2026-10-11-hoops-local.16   ← THIS NODE
+STATE ID: HO-2026-10-11-hoops-local.18   ← THIS NODE
 
-## 当前目标与 local.16（2026-10-11）
+## 当前 local.18：Owner 明确仍远未达标
+
+Owner 最新要求：动作参照真实 NBA 球员；球场、环境、观众席和灯光仍简陋，离 NBA 2K 很远。接受反馈，持续 goal 仍 ACTIVE；未暂停、未达成，不要把版本号增长当成审美进展。当前本地 `codex/hoops-local`、`v2.9.0-local.18`，无 push/PR。
+
+本轮增加转角/上层看台、包厢层、分体座椅、近排坐姿腿、第一排 Blender 解剖头（低档保持便宜头），减弱座椅蓝色重复。头来自既有批准人体衍生，provenance/builder 已存。第一版高档 184 万面太贵，保留失败后缩减到约 132 万；最终另一个相邻场景为 1,315,709 / 560,504 三角形、276 calls。新看台仍有额外成本，没有 iPad 性能证明。上层结构常在比赛画幅外，不能将它的存在夸大为主画面提升。
+
+研究与下一动作入口：`docs/NBA_MOTION_AND_ARENA_REVIEW_20261011.md`。实际看过 Klay 官方教学 25 秒全身/52 秒脚部、Brunson 官方 30 秒跑动帧及 2K Mobile 官方宣传比赛图片。进一步视频 seek 卡住/报错已保留，未测完整急停、起跳、离手和落地周期。重点缺陷：当前上篮还是通用双脚 Shot 加右腿覆盖。下一步先取得完整可观察的收球→两步→左脚蹬地→右手上篮周期，制作原创 Blender `LayupR`，保留原有跳投。同步研究急停接球动作；不要根据搜索描述声称已量出动作。canonical 库暂无适用篮球动作，NBA 解说频道素材例外不能扩成游戏资产许可。
+
+SSD `/Volumes/MiniStorage/media-projects/caesar-hoops-20261011/`：`arena-v17-presentation-first`、`arena-v17-presentation-trimmed`、`arena-v17-unit-serial.log`、`arena-v17-regression` 均有实际结果；最终 `arena-v18/runtime-report.json` errors/外部请求为空、六次资源计数稳定、3D 离线重开 v18、手机无溢出。worker/SSD `proof-v18/arena.mp4` SHA `32b6c862e708a98baf1970ea3dc9c8cc66df3313bf4a98b1e39257df7b95b512`；片段采样已观察，未连续 1x 视听/实际听审/iPad/Owner 品质验收。Loopback review 页仍 `/review/hoops-nba-20261010/`，须服务器实际存活。不要用 SW 缓存假象确认服务正常。
+
+## 前一检查点 local.16（2026-10-11）
 
 Owner 的持续目标为「继续 我要看到最好的视听效果 中间不要停」，目标仍是 NBA 2K Mobile 的球员、动作与比赛氛围，当前 goal ACTIVE，未达成、未暂停。不要以一次试版或测试通过替代整体视听品质。
 

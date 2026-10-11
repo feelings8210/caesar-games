@@ -260,3 +260,7 @@
 | `assets/hoops/voice/en/streak_3.mp3` | `streak_3` | Three in a row! | 激动 | Apache-2.0 | 1.22x, -16 LUFS |
 | `assets/hoops/voice/en/streak_5.mp3` | `streak_5` | Five straight — you're on fire! | 激动 | Apache-2.0 | 1.22x, -16 LUFS |
 | `assets/hoops/voice/en/streak_8.mp3` | `streak_8` | Eight in a row — the defense is scared of you! | 激动 | Apache-2.0 | 1.22x, -16 LUFS |
+
+## Front-row audience study (local.18)
+
+`crowd-head.glb` is a project-specific CC0 derivative of the approved Blender Human Base Meshes v1.4.1, via this project's anatomical athlete. It is not an NBA player scan. Source, license, SHA256 and the reproducible Blender builder are recorded in `crowd-head.provenance.json`. High quality uses it only in the first row; low quality retains simple heads. Owner/iPad visual review remains pending.
