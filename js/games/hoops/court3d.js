@@ -20,8 +20,9 @@ import { buildHoop } from './hoop3d.js';
 import { AthleteKit, STRIDE } from './athlete3d.js';
 import { madeBallAt } from './ball-motion.js';
 import { hoopsAudio } from './audio.js';
-import { actionBall, basketballBeat, roundedRoute, travelYaw } from './basketball-pose.js';
-import { framePosition } from './camera-frame.js';
+import { actionBall, basketballBeat, roundedRoute, travelYaw, landingStep } from './basketball-pose.js';
+import { framePosition, broadcastFrame } from './camera-frame.js';
+import { athleteSurface } from './athlete-surface.js';
 
 const ASSETS = new URL('../../../assets/hoops/', import.meta.url).href;
 const RIM_Y = 10;
@@ -333,7 +334,9 @@ export class Court3D extends BeatRunner {
     switch (slot) {
       case 'Jersey': m = new THREE.MeshStandardMaterial({ color: t.jersey, roughness: 0.22 }); break;
       case 'Shorts': m = new THREE.MeshStandardMaterial({ color: t.shorts, roughness: 0.26 }); break;
-      case 'Skin': m = new THREE.MeshStandardMaterial({ color: you ? TEAM.you.body : t.body, metalness: 1, roughness: you ? 0.3 : 0.38 }); break;
+      case 'Skin': m = this.arenaLook
+        ? new THREE.MeshPhysicalMaterial({roughness:.66,clearcoat:.12,clearcoatRoughness:.4})
+        : new THREE.MeshStandardMaterial({ color: you ? TEAM.you.body : t.body, metalness: 1, roughness: you ? 0.3 : 0.38 }); break;
       case 'Base': m = new THREE.MeshStandardMaterial({ color: t.base, roughness: 0.25, metalness: 0.05, ...ABOVE_FLOOR }); break;
       case 'Trim': m = new THREE.MeshStandardMaterial({ color: GOLD, metalness: 1, roughness: 0.3, ...ABOVE_FLOOR }); break;
       case 'Hair': m = new THREE.MeshStandardMaterial({ color: number % 3 === 0 ? 0x35281E : 0x171514, roughness: 0.95 }); break;
@@ -370,6 +373,7 @@ export class Court3D extends BeatRunner {
         m.customProgramCacheKey=()=> 'hoops-kit-trim-1';
       }
       if (slot === 'Shoe') { m.color.setHex(side === 'o' ? 0xE8E6E0 : 0x252D39); m.roughness = 0.8; }
+      if(['Skin','Hair','Shoe'].includes(slot))athleteSurface(m,slot,side);
     }
     m.name=slot;
     this.materials[key] = m;
@@ -416,6 +420,7 @@ export class Court3D extends BeatRunner {
   setScene(setup, you) {
     this.cancel();
     this.resetState(setup);
+    this._framingPositions=null;
     this.you = you;
     this._lean = null;
     this._trailPts = [];
@@ -483,7 +488,7 @@ export class Court3D extends BeatRunner {
     // Open on the display case, low and wide, then glide down to the game
     // camera while the title card is up.
     this.setShot('broadcast', true);
-    this.cam.pos.set(0, 30, 96);
+    if(!this.arenaLook)this.cam.pos.set(0, 30, 96);
     this.cam.target.set(0, 2, 20);
     this.goal.k = 1.6;
     this._renderBall(0);
@@ -775,13 +780,8 @@ export class Court3D extends BeatRunner {
       g.target.set(0, 0.5, 15);
       g.pos.copy(this._orbit(g.target, 44, this._fit(25)));
       if (this.arenaLook) {
-        const front = Math.max(33, ...Object.values(this.pos).map(p => p[1] + 4));
-        g.target.set(0, 2, front * .43);
-        const direction = (this._aspect < .9 ? new THREE.Vector3(-.25,.66,.71) : new THREE.Vector3(-.75,.62,.24)).normalize();
-        const points = [];
-        for (const x of [-27, 27]) for (const z of [-2, front]) points.push(new THREE.Vector3(x, 0, z));
-        points.push(new THREE.Vector3(0, 15, 5.25));
-        g.pos.copy(framePosition(points, g.target, direction, this.baseFov || 44, this._aspect || 1.2, 1.03));
+        const framing=broadcastFrame(this._framingPositions||this.pos,this.baseFov||44,this._aspect||1.2);
+        g.target.copy(framing.target);g.pos.copy(framing.position);
       }
       g.k = 2.4;
     } else if (name === 'finish' && this.arenaLook) {
@@ -789,7 +789,10 @@ export class Court3D extends BeatRunner {
       g.target.set((shooter[0] + HOOP[0]) / 2, 5, (shooter[1] + HOOP[1]) / 2);
       const points = [new THREE.Vector3(shooter[0], 0, shooter[1]), new THREE.Vector3(shooter[0], 9, shooter[1]),
         new THREE.Vector3(HOOP[0], 13, HOOP[1]), new THREE.Vector3((shooter[0] + HOOP[0]) / 2, 17, (shooter[1] + HOOP[1]) / 2)];
-      g.pos.copy(framePosition(points, g.target, new THREE.Vector3(.62, .3, .73), this.baseFov || 44, this._aspect || 1.2, 1.1));
+      // Push in from the same side of the court; reversing sides mid-shot
+      // makes the basket and defensive relationships switch screen direction.
+      const direction=this._aspect<.9?new THREE.Vector3(-.25,.56,.79):new THREE.Vector3(-.91,.39,.14);
+      g.pos.copy(framePosition(points,g.target,direction,this.baseFov||44,this._aspect||1.2,1.1));
       g.k = 4.8;
     } else if (name === 'push') {
       // Look at "you" from the middle of the floor so the read sits centre frame.
@@ -813,6 +816,16 @@ export class Court3D extends BeatRunner {
     const me = this.players[this.you];
     if (me) me.root.visible = name !== 'pov';
     if (snap) { this.cam.pos.copy(g.pos); this.cam.target.copy(g.target); }
+  }
+
+  /** Include authored runs and every decision spot before the opening beat,
+   * so a mirrored read cannot move a target below the screen. */
+  setReadFrame(level) {
+    this._framingPositions=Object.values(this.pos).map(p=>[...p]);
+    for(const beat of level.intro||[])for(const path of Object.values(beat.move||{}))
+      this._framingPositions.push(...(Array.isArray(path[0])?path:[path]).map(p=>[...p]));
+    for(const option of level.options||[])if(option.at)this._framingPositions.push([...option.at]);
+    if(this.arenaLook)this.setShot('broadcast',true);
   }
 
   setFrozen(on) {
@@ -1201,7 +1214,7 @@ export class Court3D extends BeatRunner {
     if (this.arenaLook && b.pass) this._receivingId = b.pass;
     who.athlete.trigger(name, clip.duration / (ms * PLAY_SPEED / 1000));
     flight.prepared = true;
-    if (b.shot) { this._receivingId = null; this._shooter = who.id; if (this.arenaLook) this.setShot('finish'); }
+    if (b.shot) { this._receivingId = null; this._shooter = who.id; who.airborne=false; who.landingDone=false; if (this.arenaLook) this.setShot('finish'); }
   }
 
   /** One-shots from what the ball just did: passes, catches, shots. */
@@ -1314,7 +1327,10 @@ export class Court3D extends BeatRunner {
     }
     if (this.arenaLook && !this.frozen) {
       const finisher=this.players[this._shooter];
-      if(finisher&&this.ball.flight?.kind==='shot')finisher.athlete.releaseFingers();
+      if(finisher&&this.ball.flight?.kind==='shot') {
+        const elapsed=now-(finisher.action?.start||now)-(finisher.action?.releaseMs||0);
+        finisher.athlete.releaseFingers(Math.min(1,Math.max(0,elapsed/160)));
+      }
       if(finisher?.action?.style==='layup'&&now-finisher.action.start<finisher.action.duration)
         finisher.athlete.layupStride((now-finisher.action.start)/finisher.action.duration);
       const receiver = this.players[this._receivingId];
@@ -1343,6 +1359,16 @@ export class Court3D extends BeatRunner {
           {grip:this.ball.preparing||holder.speed<2.5,leftGrip:!oneHand});
       }
       for (const player of Object.values(this.players)) player.athlete.plantFeet(player.speed > 2.5);
+      if(finisher&&!finisher.landingDone) {
+        const height=finisher.athlete.soleHeight();
+        const contact=landingStep(finisher.airborne,height);finisher.airborne=contact.airborne;
+        if(contact.landed) {
+          finisher.landingDone=true;
+          const point=finisher.root.position.clone().project(this.camera);
+          hoopsAudio.setCourtPosition(point.x,finisher.root.position.distanceTo(this.camera.position));
+          hoopsAudio.squeak(.35);
+        }
+      }
       if(brakingPlayer&&now-(this._shoeSoundAt||0)>220&&brakingPlayer.athlete.feet.some(f=>f.bone?.getWorldPosition(new THREE.Vector3()).y<.75)) {
         const point=brakingPlayer.root.position.clone().project(this.camera);
         hoopsAudio.setCourtPosition(point.x,brakingPlayer.root.position.distanceTo(this.camera.position));
@@ -1369,7 +1395,9 @@ export class Court3D extends BeatRunner {
     if ((this.shot === 'broadcast' || this.shot === 'decide') && this.ballMesh) {
       // A gentle lean toward the ball, never a chase — and frozen means frozen.
       const bp = this.ballMesh.position;
-      if (!this.frozen && Number.isFinite(bp.x) && Number.isFinite(bp.z)) this._lean = [bp.x * 0.12, (bp.z - target.z) * 0.08];
+      if (!this.frozen && Number.isFinite(bp.x) && Number.isFinite(bp.z)) this._lean = this.arenaLook
+        ? [Math.max(-1.2,Math.min(1.2,bp.x*.06)),Math.max(-.8,Math.min(.8,(bp.z-target.z)*.04))]
+        : [bp.x * 0.12, (bp.z - target.z) * 0.08];
       const [lx, lz] = this._lean || [0, 0];
       target.x += lx;
       target.z += lz;

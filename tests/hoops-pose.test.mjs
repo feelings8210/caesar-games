@@ -1,7 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../js/vendor/three/three.module.min.js';
-import { actionBall, basketballBeat, reach, roundedRoute, travelYaw, gripPoint } from '../js/games/hoops/basketball-pose.js';
+import { actionBall, basketballBeat, reach, roundedRoute, travelYaw, gripPoint, landingStep } from '../js/games/hoops/basketball-pose.js';
+
+test('a landing cue requires leaving the ground and does not repeat on grounded frames',()=>{
+  let airborne=false,count=0;
+  for(const height of [.2,.4,.7,1.2,1.9,.8,.6,.3,.2,.1]){
+    const next=landingStep(airborne,height);airborne=next.airborne;if(next.landed)count++;
+  }
+  assert.equal(count,1);assert.equal(airborne,false);
+  assert.equal(landingStep(false,.2).landed,false);
+  assert.equal(landingStep(true,NaN).landed,false);
+});
 
 test('shot set points stay continuous through gather and reach above the forehead at release', () => {
   const start = actionBall('shot', 0), end = actionBall('shot', 1);

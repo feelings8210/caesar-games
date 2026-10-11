@@ -373,6 +373,7 @@ export class HoopsGame {
     this.clock = lvl.hud ? lvl.hud.clock : null;
     this.buzzed = false;
     this.court.setScene(lvl.setup, lvl.you);
+    this.court.setReadFrame?.(lvl);
     this.court.el.classList.toggle('has-hud', !!lvl.hud);
     this.court.setYouLabel(t('hoops.you'));
     this.court.setFrozen(false);

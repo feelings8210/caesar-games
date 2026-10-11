@@ -24,6 +24,21 @@ export class AthleteKit {
     const base = this.template.getObjectByName('Base');
     if (base) base.position.y += 0.1;
     this.template.updateMatrixWorld(true);
+    this.soles={};
+    this.template.traverse(mesh=>{
+      if(!mesh.isSkinnedMesh||mesh.material?.name!=='Shoe')return;
+      for(const side of ['l','r']) {
+        const foot=this.template.getObjectByName(`foot_${side}`),joint=mesh.skeleton.bones.indexOf(foot);
+        const si=mesh.geometry.attributes.skinIndex,sw=mesh.geometry.attributes.skinWeight,points=[];
+        for(let i=0;i<si.count;i++){
+          let weight=0;for(let k=0;k<4;k++)if(si.getComponent(i,k)===joint)weight+=sw.getComponent(i,k);
+          if(weight>.5)points.push(mesh.getVertexPosition(i,new THREE.Vector3()).applyMatrix4(mesh.matrixWorld));
+        }
+        if(points.length){const y=Math.min(...points.map(p=>p.y)),bottom=points.filter(p=>p.y<y+.025);
+          this.soles[side]=bottom.map(point=>foot.worldToLocal(point));
+        }
+      }
+    });
     this.palms={};
     const body=this.template.getObjectByName('AnatomicalBody');
     if(body?.isSkinnedMesh)for(const side of ['r','l']) {
@@ -161,6 +176,10 @@ class Athlete {
     this.restFinger=new Map(this.fingerRest);
     this.feet = ['l', 'r'].map(side => ({ bone: this.root.getObjectByName(`foot_${side}`),
       joints: [`calf_${side}`, `thigh_${side}`].map(n => this.root.getObjectByName(n)), planted: null }));
+    this.soles=['l','r'].flatMap(side=>{
+      if(!kit.soles[side])return [null];
+      return kit.soles[side].map(local=>{const point=new THREE.Object3D();point.position.copy(local);this.root.getObjectByName(`foot_${side}`).add(point);return point;});
+    });
     this.opacity = 1;
 
     this.mixer = new THREE.AnimationMixer(this.root);
@@ -345,10 +364,28 @@ class Athlete {
     spine.quaternion.premultiply(delta).normalize();spine.updateWorldMatrix(false,true);
   }
 
-  releaseFingers() {
+  releaseFingers(follow=0) {
     this._savePose(this.fingerRest.map(([bone])=>bone));
     for(const [bone,rest] of this.fingerRest)bone.quaternion.slerp(rest,.8);
     this.root.updateWorldMatrix(true,true);
+    if(follow>0&&this.grips?.[0]) {
+      // A bounded wrist follow-through after the ball has actually left.
+      // Work in world space: fitted wrist bone axes are not camera axes.
+      this._savePose([this.rightHand]);
+      const middle=this.root.getObjectByName('middle_01_r');
+      const direction=middle.getWorldPosition(new THREE.Vector3()).sub(this.rightHand.getWorldPosition(new THREE.Vector3())).normalize();
+      const change=new THREE.Quaternion().setFromUnitVectors(direction,new THREE.Vector3(0,-1,0));
+      const angle=change.angleTo(new THREE.Quaternion());
+      if(angle>.0001)change.slerp(new THREE.Quaternion(),1-Math.min(angle,.45*follow)/angle);
+      const parent=this.rightHand.parent.getWorldQuaternion(new THREE.Quaternion());
+      change.premultiply(parent.clone().invert()).multiply(parent);
+      this.rightHand.quaternion.premultiply(change).normalize();this.rightHand.updateWorldMatrix(false,true);
+    }
+  }
+
+  soleHeight() {
+    if(this.soles.some(p=>!p))return Infinity;
+    return Math.min(...this.soles.map(p=>p.getWorldPosition(new THREE.Vector3()).y));
   }
 
   _savePose(bones) {

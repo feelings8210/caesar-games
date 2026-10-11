@@ -1,6 +1,18 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HANDOFF
-STATE ID: HO-2026-10-10-hoops-local.12   ← THIS NODE
+STATE ID: HO-2026-10-11-hoops-local.16   ← THIS NODE
+
+## 当前目标与 local.16（2026-10-11）
+
+Owner 的持续目标为「继续 我要看到最好的视听效果 中间不要停」，目标仍是 NBA 2K Mobile 的球员、动作与比赛氛围，当前 goal ACTIVE，未达成、未暂停。不要以一次试版或测试通过替代整体视听品质。
+
+当前 `codex/hoops-local`、`v2.9.0-local.16`，本地开发，无 push/PR。保持 local.12 模型；运行层新增低机位、按实际球员/跑位/决策目标取景、同侧出手推近，修复镜像 catch-sag 目标掉到屏幕下方。皮肤/短发/鞋加入原创材质细节；离手后有限幅手腕跟随；从实际鞋底校准落地声，不再拿踝骨高度当鞋底。教练声对比赛音效压低/自然结束与取消后恢复；新早期反射声场；`?hoopsSound=legacy` 可对比旧混音逻辑。
+
+本轮证据在 `/Volumes/MiniStorage/media-projects/caesar-hoops-20261011/`：21 个顶层 Node 测试串行通过；20 个随机题型/镜像真实点击与评分通过；修正后的完整冒烟、静音/退出/资源/2D 回归、四类终结与脚底落地、取景/LOD、最终 v16 离线重开通过。早期镜像目标/踝骨落地检查失败、并发时棋类耗时测试失败已保留。原生音频输入试验明确返回 `audio content omitted because you do not support audio input`，不能写实际听审通过；同样没有独立持续 1x 视听、iPad/Owner 终验或 NBA 品质验收。
+
+最新视频 `arena-v16`，worker/SSD `proof-v16`；同种子声音对照在 `proof-v15` 的 arena/legacy 两段。详见 `docs/NBA_LOOK_PROGRESS_20261010.md` 的 local.16 章节。下一步继续脸部身份/真实皮肤头发细节、专门篮球动作与场馆观众，让实际比赛观感接近目标；仍须真实视听与真机证据。不要停在材质噪声或机检层；新素材继续先查 canonical 库与批准来源，未批准皮肤/mocap 来源不自行下载。
+
+以下 local.12 为前一检查点：
 
 ## 当前补充：人物/服装/握球已进入 local.12
 

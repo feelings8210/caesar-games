@@ -52,6 +52,14 @@ export function travelYaw(vx,vz,fallback) {
   return Math.hypot(vx,vz)>1.5?Math.atan2(vx,vz):fallback;
 }
 
+/** Ground contact after a verified airborne phase, once per jump. */
+export function landingStep(airborne,height) {
+  if(!Number.isFinite(height))return {airborne,landed:false};
+  if(height>.9)return {airborne:true,landed:false};
+  if(airborne&&height<.12)return {airborne:false,landed:true};
+  return {airborne,landed:false};
+}
+
 /** Sphere centre measured from the actual palm surface. Ancestor bone scales
  * can be nonuniform, so root scale alone cannot preserve the ball radius. */
 export function gripPoint(centre,normal,matrixWorld,radius,skinDepth) {

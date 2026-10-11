@@ -108,3 +108,31 @@ Owner 后续已明确选择 **NBA 2K Mobile：优先球员、动作与比赛氛�
 下一步仍是皮肤/头发/球鞋、专门篮球动作的重心与衔接、脚步接触、镜头与真实听感。整体 NBA 2K Mobile 品质、iPad Pro/普通 iPad 的持续性能、触控与音频未验收。
 
 本轮游戏代码已本地提交 `7ed3bd8`，工作区干净，无远端操作。共享媒体仓库 `relay.sh out` 的证据/存储闸门通过，落盘闸门仍被无关 EP03/health/缩略图修改与 NOW 更新时间挡住；未修改、提交或清理那些文件，也未声称共享媒体交接成功。游戏的交接与证据独立保存在本仓库和上述 worker/SSD 路径。
+
+
+## 最新 local.16：持续视听目标（2026-10-11）
+
+Owner 新持续目标「继续 我要看到最好的视听效果 中间不要停」，goal ACTIVE。当前不是完成验收；继续向 NBA 2K Mobile 的整体观感推进。模型仍为 local.12 的 canonical CC0 派生，未新下载或生成音频；素材库 skin/basketball 查询没有得到合适皮肤纹理/篮球 mocap，批准来源登记也未含 MakeHuman/CMU，因此没有绕过来源政策取用。材质细节由原创运行代码生成，不是摄影皮肤贴图。
+
+实现：
+
+- 主镜头俯角约 23°，按实际球员身体、开场跑位和所有决策点取景，出手推近保持同一球场侧，不再在回合中反转球场方向；竖屏单独适配。经典版保持原有路径。
+- 原创 `athlete-surface.js`：微弱不规则皮肤/短发细节随像素覆盖衰减，避免远景摩尔纹；少量皮肤清漆层，鞋底/鞋面分区。仍未达到真实皮肤、毛发、球鞋资产品质。
+- 离手后的手腕转动限制在 .45 rad；指骨恢复与先前握球层每帧还原，避免累积。落地音使用鞋底顶点校准的接触点，经过起跳后只触发一次轻微鞋声。
+- 比赛混音与教练声分路：教练播放时压低比赛音效，结束/取消后平滑恢复。新混响加入可控早期反射；`hoopsSound=legacy` 保留旧的混响/无音效压低逻辑，以便比较。两版仍使用现有 CC0 SFX 与现有教练声。
+
+本轮 SSD 证据：
+
+- `unit-serial-v14.log`：21 个顶层、239 个内部/独立用例通过。并发第一轮 `unit-v14.log` 的 Chess 深搜耗时用例失败，未改门限，串行复测通过。
+- `read-targets/report.json`：全部 20 原始/镜像题型的真实最佳目标点击及评分通过；并非直接调用 choose 凑分。先前 `catch-sag` 镜像最佳点 y=845.924，球场底部 y=804，确实不可点；修正覆盖真实路径/目标后通过。第一次报告/图在复跑时意外被覆盖，失败控制台保留，具体数据由真实 tool 输出恢复在 `read-targets-first-failure.json`，不冒充原始文件。后续 QA 输出须使用独立目录。
+- `smoke-final-v14/report.json`：10 主关、连续随机/战术 Watch/Walk、错误/示范/超时/退出/手机完整流程通过，errors=[]。早期 `smoke-v13` 在随机题点击后超时，保留失败。
+- `audio-natural/report.json`：隔离真实教练源，以校准信号测量比赛总线实际输出 RMS：正常约 .007427、说话时 .004083、自然结束 .007191、取消后 .007421；证明输出压低与恢复，不是主观听感。
+- `regression-final/report.json`：最终运行代码的静音、退出取消语音、30 次资源持平、接球/篮网和 2D 输入通过。
+- `same-side-finishes/report.json`：四个实际终结的准备/取景/持球目标与一次落地鞋声通过。早期 `landing-first` 用踝骨导致没有落地事件，保留；鞋底点修正后最终触发位置低于 .12 ft。是参考接触点，不是所有鞋顶点完全无穿透证明。
+- `same-side-presentation/report.json`：身份、几何 LOD、球馆视线、出手/回全景、三分与手机布局通过；同侧推近的关键帧已查看。
+- `athlete-v15/report.json`：材质层后的高低档手掌/五指实际皮肤响应与颈部混合通过，三面近景已查看。
+- `arena-v16/runtime-report.json`：最终 v16 断网重开 3D loaded=true，online=false，外部 requests=[]、errors=[]；包含最新 shader 模块预缓存。
+
+最终 AV：worker `/srv/ai-data/media-work/projects/caesar-hoops-20261011/proof-v16` 与 SSD 同名目录的 `arena.mp4`。新旧混音对照在 `proof-v15/arena.mp4` / `legacy.mp4`：相同随机种子/相同回合/同一最终输出节点，真实执行时长有差异，不是逐采样严格盲测。原 VP8/Opus保留，展示 H.264/AAC 48kHz 双声道；逐帧采样用于动作检查，不能等同持续原速审美观察。
+
+尝试把真实最终混音送入原生音频工具，返回「audio content omitted because you do not support audio input」。因此实际听审仍未完成；不能以波形、增益或转录代替。普通 iPad / iPad Pro 与 Owner 品质验收也未完成。下一步继续人物脸部/表面、专门篮球动作和观众细节，持续目标不收缩为当前技术检查点。
