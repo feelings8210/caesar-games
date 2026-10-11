@@ -8,11 +8,11 @@
 
 import * as THREE from '../../vendor/three/three.module.min.js';
 import { clone as cloneSkinned } from '../../vendor/three/addons/SkeletonUtils.js';
-import { reach } from './basketball-pose.js';
+import { reach, gripPoint } from './basketball-pose.js';
 
 const FADE = 0.22;
 /** Loops that crouch deep enough to want some standing pose mixed in. */
-const CROUCH = new Set(['DefStance', 'DefSlideL']);
+const CROUCH = new Set(['DefStance', 'DefSlideL', 'DefSlideR']);
 /** Feet travelled per loop, from the animation library's root motion. */
 export const STRIDE = { Jog: 17.7 / 0.92, Sprint: 19.85 / 0.67 };
 
@@ -24,6 +24,21 @@ export class AthleteKit {
     const base = this.template.getObjectByName('Base');
     if (base) base.position.y += 0.1;
     this.template.updateMatrixWorld(true);
+    this.palms={};
+    const body=this.template.getObjectByName('AnatomicalBody');
+    if(body?.isSkinnedMesh)for(const side of ['r','l']) {
+      const hand=this.template.getObjectByName(`hand_${side}`),joint=body.skeleton.bones.indexOf(hand);
+      if(joint<0)continue;
+      const indices=body.geometry.attributes.skinIndex,weights=body.geometry.attributes.skinWeight,points=[];
+      for(let i=0;i<indices.count;i++) {
+        let weight=0;for(let k=0;k<4;k++)if(indices.getComponent(i,k)===joint)weight+=weights.getComponent(i,k);
+        if(weight>.85)points.push(hand.worldToLocal(body.getVertexPosition(i,new THREE.Vector3()).applyMatrix4(body.matrixWorld)));
+      }
+      if(points.length>3) {
+        const centre=points.reduce((sum,p)=>sum.add(p),new THREE.Vector3()).divideScalar(points.length);
+        this.palms[side]={centre,vertices:points.length,points};
+      }
+    }
     // Numbers ride on the chest bone, laid on the jersey's own chest and back
     // surfaces as measured in the bind pose (the exported sockets sit inside
     // the torso), squared up to face straight out of the figure.
@@ -37,14 +52,12 @@ export class AthleteKit {
       const n = jersey.geometry.attributes.position.count;
       for (let i = 0; i < n; i++) {
         jersey.getVertexPosition(i, v);
-        jersey.applyBoneTransform(i, v);
         v.applyMatrix4(jersey.matrixWorld);
         y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y);
       }
       const cy = y0 + (y1 - y0) * 0.68;            // upper chest, below the neckline
       for (let i = 0; i < n; i++) {
         jersey.getVertexPosition(i, v);
-        jersey.applyBoneTransform(i, v);
         v.applyMatrix4(jersey.matrixWorld);
         if (Math.abs(v.x) > 0.3 || Math.abs(v.y - cy) > 0.25) continue;
         front = Math.max(front, v.z); back = Math.min(back, v.z);
@@ -88,14 +101,33 @@ class Athlete {
       const base = this.root.getObjectByName('Base');
       if (base) base.visible = false;
     }
+    const surfaceNumbers=!!(style&&kit.palms.r&&kit.palms.l&&numberMat?.map);
     this.root.traverse(o => {
       if (!o.isMesh) return;
-      o.material = materialFor(o.material.name).clone();   // own copy, so one figure can fade
+      const source=materialFor(o.material.name);
+      o.material = source.clone();   // own copy, so one figure can fade
+      o.material.onBeforeCompile=source.onBeforeCompile;
+      o.material.customProgramCacheKey=source.customProgramCacheKey;
+      if(surfaceNumbers&&o.material.name==='Jersey') {
+        const compile=o.material.onBeforeCompile;
+        o.material.onBeforeCompile=shader=>{
+          compile(shader);
+          shader.uniforms.hoopsNumber={value:numberMat.map};
+          shader.fragmentShader='uniform sampler2D hoopsNumber;\n'+shader.fragmentShader.replace('#include <color_fragment>',
+            `#include <color_fragment>
+             vec2 numberUV=vec2(.5+vKitRest.x*(vKitRest.z>=0.0?1.0:-1.0)/1.25,(vKitRest.y-3.72)/1.4);
+             if(numberUV.x>0.0&&numberUV.x<1.0&&numberUV.y>0.0&&numberUV.y<1.0&&abs(vKitRest.z)>.15){
+               vec4 ink=texture2D(hoopsNumber,numberUV);
+               diffuseColor.rgb=mix(diffuseColor.rgb,pow(ink.rgb,vec3(2.2)),ink.a);
+             }`);
+        };
+        o.material.customProgramCacheKey=()=> 'hoops-kit-surface-numbers-1';
+      }
       o.castShadow = true;
       o.receiveShadow = true;
       o.frustumCulled = false;           // skinned bounds lag behind the pose
     });
-    for (const d of kit.decals) {
+    for (const d of surfaceNumbers?[]:kit.decals) {
       const bone = this.root.getObjectByName(d.bone);
       if (!bone || !numberMat) continue;
       const m = new THREE.Mesh(new THREE.PlaneGeometry(d.size*(pedestal?1:1.5),d.size*(pedestal?1:1.35)), numberMat.clone());
@@ -108,8 +140,25 @@ class Athlete {
     this.leftArm = ['lowerarm_l', 'upperarm_l'].map(n => this.root.getObjectByName(n));
     this.leftHand = this.root.getObjectByName('hand_l');
     this.rightHand = this.root.getObjectByName('hand_r');
+    this.grips = style && kit.palms.r && kit.palms.l ? ['r','l'].map(side => {
+      const hand=this.root.getObjectByName(`hand_${side}`);
+      const index=this.root.getObjectByName(`index_01_${side}`),pinky=this.root.getObjectByName(`pinky_01_${side}`),middle=this.root.getObjectByName(`middle_01_${side}`);
+      if(!hand||!index||!pinky||!middle)return null;
+      const anchor=new THREE.Object3D();anchor.name=`grip_ball_${side}`;hand.add(anchor);
+      const normal=index.position.clone().cross(pinky.position).normalize();
+      if(side==='l')normal.negate();
+      const centre=kit.palms[side].centre.clone();
+      const depths=kit.palms[side].points.map(p=>p.clone().sub(centre).dot(normal)).sort((a,b)=>a-b);
+      return {anchor,centre,normal,skinOffset:Math.max(.03,depths[Math.floor(depths.length*.85)]),
+        fingers:['index','middle','ring','pinky','thumb'].map(name=>({
+          tip:this.root.getObjectByName(`${name}_04_leaf_${side}`),
+          joints:[3,2,1].map(n=>this.root.getObjectByName(`${name}_0${n}_${side}`))
+        })).filter(f=>f.tip&&f.joints.every(Boolean))};
+    }) : null;
+    if(this.grips?.[0])this.ballSocket=this.grips[0].anchor;
     this.fingerRest = [];
     this.root.traverse(o => { if (o.isBone && /^(index|middle|ring|pinky|thumb)_/.test(o.name)) this.fingerRest.push([o, o.quaternion.clone()]); });
+    this.restFinger=new Map(this.fingerRest);
     this.feet = ['l', 'r'].map(side => ({ bone: this.root.getObjectByName(`foot_${side}`),
       joints: [`calf_${side}`, `thigh_${side}`].map(n => this.root.getObjectByName(n)), planted: null }));
     this.opacity = 1;
@@ -203,14 +252,62 @@ class Athlete {
 
   ballPosition(out) {
     if (!this.ballSocket) return null;
+    this._gripAnchors();
     return this.ballSocket.getWorldPosition(out);
   }
 
-  reachBall(rightTarget, leftTarget = null) {
-    this._savePose([...this.rightArm, ...this.leftArm]);
+  _gripAnchors(radius=.45) {
+    if(!this.grips)return;
+    for(const grip of this.grips)if(grip) {
+      grip.anchor.parent.updateWorldMatrix(true,false);
+      grip.anchor.position.copy(gripPoint(grip.centre,grip.normal,grip.anchor.parent.matrixWorld,radius,grip.skinOffset));
+    }
+  }
+
+  _gripFingers(grip, centre, radius) {
+    if(!grip)return;
+    for(const finger of grip.fingers) {
+      this._savePose(finger.joints);
+      for(const joint of finger.joints)joint.quaternion.copy(this.restFinger.get(joint));
+      finger.joints.at(-1).updateWorldMatrix(false,true);
+      const rotations=finger.joints.map(j=>j.quaternion.clone());
+      const tip=finger.tip.getWorldPosition(new THREE.Vector3());
+      const radial=tip.clone().sub(centre);
+      if(radial.lengthSq()<1e-8)continue;
+      const target=radial.normalize().multiplyScalar(radius+.025).add(centre);
+      reach(finger.tip,finger.joints,target,8);
+      // Keep the anatomical rest knuckle directions. This is a bounded contact
+      // correction, not permission for the solver to spin fingers around.
+      finger.joints.forEach((joint,i)=>{
+        const angle=rotations[i].angleTo(joint.quaternion);
+        if(angle>.85)joint.quaternion.copy(rotations[i].clone().slerp(joint.quaternion,.85/angle));
+      });
+      finger.joints.at(-1).updateWorldMatrix(false,true);
+    }
+  }
+
+  reachBall(rightTarget, leftTarget = null, {grip=false,leftGrip=true,radius=.45}={}) {
+    this._savePose([...this.rightArm, ...this.leftArm, this.rightHand, this.leftHand]);
+    this._gripAnchors(radius);
     this.root.updateWorldMatrix(true, true);
-    const error = reach(this.ballSocket, this.rightArm, rightTarget);
-    if (leftTarget) reach(this.leftHand, this.leftArm, leftTarget);
+    const palmReach=(effector,hand,arm,target)=>{
+      if(!this.grips)return reach(effector,arm,target);
+      const before=hand.quaternion.clone();
+      reach(effector,[hand,...arm],target,24);
+      const angle=before.angleTo(hand.quaternion);
+      if(angle>1.2)hand.quaternion.copy(before.slerp(hand.quaternion,1.2/angle));
+      hand.updateWorldMatrix(false,true);
+      return reach(effector,arm,target,24);
+    };
+    const error = palmReach(this.ballSocket,this.rightHand,this.rightArm,rightTarget);
+    if (leftTarget) {
+      if(grip&&leftGrip&&this.grips?.[1])palmReach(this.grips[1].anchor,this.leftHand,this.leftArm,rightTarget);
+      else reach(this.leftHand,this.leftArm,leftTarget);
+    }
+    if(grip&&this.grips) {
+      this._gripFingers(this.grips[0],rightTarget,radius);
+      if(leftTarget&&leftGrip)this._gripFingers(this.grips[1],rightTarget,radius);
+    }
     this.contactError = error;
   }
 
@@ -235,6 +332,23 @@ class Athlete {
     target.add(forward);target.y+=1.05*strength;
     const error=reach(foot.bone,foot.joints,target,16);
     if(error>.08) {foot.joints.forEach((j,i)=>j.quaternion.copy(rotations[i]));this.root.updateWorldMatrix(true,true);}
+  }
+
+  balance(direction, angle) {
+    const spine=this.root.getObjectByName('spine_01');
+    if(!spine||direction.lengthSq()<.01||Math.abs(angle)<.001)return;
+    this._savePose([spine]);
+    const axis=new THREE.Vector3(0,1,0).cross(direction).normalize();
+    const parent=spine.parent.getWorldQuaternion(new THREE.Quaternion());
+    const delta=new THREE.Quaternion().setFromAxisAngle(axis,angle);
+    delta.premultiply(parent.clone().invert()).multiply(parent);
+    spine.quaternion.premultiply(delta).normalize();spine.updateWorldMatrix(false,true);
+  }
+
+  releaseFingers() {
+    this._savePose(this.fingerRest.map(([bone])=>bone));
+    for(const [bone,rest] of this.fingerRest)bone.quaternion.slerp(rest,.8);
+    this.root.updateWorldMatrix(true,true);
   }
 
   _savePose(bones) {

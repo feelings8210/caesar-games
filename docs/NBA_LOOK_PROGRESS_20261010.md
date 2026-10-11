@@ -72,4 +72,37 @@ SSD：`/Volumes/MiniStorage/media-projects/caesar-hoops-20261010`，源码快照
 
 候选仅研究、没有采购/下载：[Adobe Mixamo FAQ](https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html) 说明人物/动画可用于游戏且免费 Adobe ID 可访问，但本项目未获其素材、未上传项目模型；[MakeHuman system assets](https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html) 列 CC0 的皮肤/眼睛/头发/服装，尚非本库批准来源；[CMU mocap](https://mocap.cs.cmu.edu/) 搜索发现篮球目录，但本次原页超时，许可与具体片段未核实。均不能当作已解决的人物/动作方案，后续按资产政策受控引入。
 
-Owner 尚未回答移动版/主机版写实程度问题时，继续以 iPad NBA 2K Mobile 的比赛观感为目标。最终仍需 Owner 看实际回合，iPad Pro / 普通 iPad 测型号、Safari/PWA、持续运行、触控、音频、后台与离线；不能由桌面机检代替。
+Owner 后续已明确选择 **NBA 2K Mobile：优先球员、动作与比赛氛围**。最终仍需 Owner 看实际回合，iPad Pro / 普通 iPad 测型号、Safari/PWA、持续运行、触控、音频、后台与离线；不能由桌面机检代替。
+
+## Blender 研究与近景纠正（研究时检查点，后续已进入 local.12）
+
+详见 `docs/BLENDER_DECISION_20261010.md`。Blender 已用于资产制作，后续重点是模型/服装拓扑、贴合人体的骨架、权重修整、篮球动作与贴图烘焙；现有游戏代码承担实时播放、接触和交互。
+
+近景进一步发现 v9 AnatomicalBody 左右 hand 骨骼权重均为 0，部分手指没有有效影响。此前“42 个姿态未见拉丝”不能说明手指真的带动皮肤。拟合手部候选的手掌权重已有效；新球衣三次候选仍有肩部破面，最后的 `mobile-refinement/anatomical-jersey-v3.png` 已实际查看并退回。候选均留 SSD，未替换 v9 模型；未声称新回合或审美通过。
+
+工作区新增的握球/朝向/转角等源码实验全量 Node 测试 19 个顶层通过（原 222 内部用例和新增 15 个独立用例），浏览器、连续回合、实际听审与真机验证待完成；v9 的已有报告不能用于证明新实验通过。仍未 push/PR/发布。
+
+## 最新 local.12：球衣、颈部与真实手部绑定
+
+已进入本地游戏，覆盖上面的未安装实验状态。`sw.js` / `js/build.js` 同为 `v2.9.0-local.12`；无 push/PR/线上发布。GLB 2,693,760 bytes，SHA256 `0d4cd3774827a9c84338f86406016882471bf64e12e731d4eae4528a80b85940`。仓库生成器就是 worker 实际执行的 `build_neck_blend.py` 内容，SHA 及 canonical CC0 来源在 provenance。
+
+- 人物：手掌与手指骨架按同一人体的实际位置拟合，原生皮肤权重有效；头部下缘精确裁切，局部颈部权重与身体匹配，避免头部独占权重造成侧面皮肤翘片。平滑发际和眉毛，保留真实高低几何。
+- 球衣：原创前后片/肩带 quad 网格，明确领口、两个袖口和下摆的四个边界循环；按同一人体表面拟合与归一化局部权重，包含织纹 UV。号码直接混合到球衣表面，修复平面贴片在背面被身体遮住的问题；经典版仍用旧模型/贴片。
+- 动作：基于实际手掌表面校准球半径，考虑骨骼非均匀缩放；手腕、手臂、手指共同参与握球，离手后松指。上篮最高持球点从 7.1 调至 6.8 ft（运动员局部坐标，不是离地最终高度），避免超出可达范围。停步不再误转向 atan2(0,0)，回到面向比赛；小幅转角圆滑与加减速重心；左右防守动作同样混入站立姿态。
+
+最终检查在 SSD `/Volumes/MiniStorage/media-projects/caesar-hoops-20261010/`：
+
+- `unit-v11.log`：19 个顶层测试通过，原 222 内部用例 + 新增 15 个独立用例。之后运行代码未再变化，仅 GLB 颈部修正与 QA 脚本补查。
+- `smoke-v11/report.json`：10 主关、随机连续挑战、战术 Watch/Walk、错误选择/示范、150 秒超时、退出和手机检查，failure 未出现、errors=[]。测试加载颈部修正前的 v11 模型，不冒充完整 v12 冒烟。
+- `regression-v11/report.json`：静音、退出取消迟到语音、30 次场景资源持平、接球/篮网与 2D 输入通过；运行代码相同，模型颈部随后补查。
+- `athlete-v12/report.json`：24 组左右手掌/五指在高低档的有效权重与真实皮肤位移通过，最少 42 个有效顶点；颈部 514 个低位顶点有非 Head 骨骼混合。不是全表面接触/碰撞证明。正面/侧面/背面近景已实际查看。
+- `mobile-refinement/neck-blend-poses/`：最终模型 14 原动作的 25% / 50% / 75%，42 采样姿态已查看；不是全连续动画验收。
+- `finishes-v12/report.json`：第 1/2/4/6 关上篮/跳投、Shot 不被 Catch 覆盖、球的取景与临近离手手掌目标误差 < .08 ft 通过。前一最终运行代码样本最大约 .0191 ft；只证明虚拟掌心球中心接近目标，不证明每根手指都贴球或无脚滑。
+- `presentation-v12/report.json`：最终模型默认、新旧身份尺寸稳定、真实 LOD、球馆视线、出手取景、回全景、三分与手机布局通过。
+- `slice-v16/runtime-report.json`：最终 v12 断网重开 loaded=true、online=false，errors=[]、外部 requests=[]。同场景高/低 1,067,258 / 424,162 triangles，均 268 calls；桌面计数，不是真机性能。
+
+代表回合：`slice-v16` 的突破分球与 `pullup-v12` 的挡拆急停。最终压制在 worker `proof-v12/`，镜像 SSD 同名目录；H.264 + AAC 48kHz 双声道，10.933 / 10.139 秒，保留原 VP8/Opus。MP4 SHA 分别 `6ba504fd90136a2773a88d3b1b954edd716ab4ec721226f42fe97b0b98ec25af` / `de29aeff5e783ce71a43da2609781a4e2af2d0b64abc527a7ef4393abbf92ba5`。最终视频的密集采样帧已查看；声音沿用现有最终混音，未新生成配音/音乐，未实际听审。正常速度可在本地对比页播放；独立持续 1x 观察与 Owner 判词仍待完成。
+
+失败保留：`mobile-refinement` 的 anatomical-jersey v1–v3 切袖口后出现外侧面、panel-jersey 未贴人体导致露肤、game-jersey 侧面颈部翘片，以及 `finishes-v10` / `finishes-palm-wrist` 的上篮目标仍高于手掌可达范围。改动在实际近景与回合中验证后进入 local.12，未用机检合格替代审美。
+
+下一步仍是皮肤/头发/球鞋、专门篮球动作的重心与衔接、脚步接触、镜头与真实听感。整体 NBA 2K Mobile 品质、iPad Pro/普通 iPad 的持续性能、触控与音频未验收。

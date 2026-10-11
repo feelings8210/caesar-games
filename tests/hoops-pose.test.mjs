@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from '../js/vendor/three/three.module.min.js';
-import { actionBall, basketballBeat, reach } from '../js/games/hoops/basketball-pose.js';
+import { actionBall, basketballBeat, reach, roundedRoute, travelYaw, gripPoint } from '../js/games/hoops/basketball-pose.js';
 
 test('shot set points stay continuous through gather and reach above the forehead at release', () => {
   const start = actionBall('shot', 0), end = actionBall('shot', 1);
@@ -45,4 +45,27 @@ test('arm solver reaches in world space under a rotated and scaled player root',
   const target = root.localToWorld(new THREE.Vector3(.8, 3, .7));
   assert.ok(reach(wrist, [elbow, shoulder], target, 24) < .02);
   assert.ok([shoulder, elbow].every(b => Math.abs(b.quaternion.length() - 1) < 1e-10));
+});
+
+test('rounding cuts preserves tactical endpoints and cannot leave the route bounds',()=>{
+  const authored=[[0,0],[0,12],[10,12]],before=JSON.stringify(authored),route=roundedRoute(authored);
+  assert.deepEqual(route[0],authored[0]);assert.deepEqual(route.at(-1),authored.at(-1));
+  assert.equal(JSON.stringify(authored),before);
+  assert.ok(route.every(p=>p.every(Number.isFinite)&&p[0]>=0&&p[0]<=10&&p[1]>=0&&p[1]<=12));
+  assert.ok(route.some(p=>p[0]>0&&p[0]<1&&p[1]>11&&p[1]<12));
+  assert.ok(roundedRoute([[0,0],[0,0],[1,0]]).every(p=>p.every(Number.isFinite)));
+});
+
+test('a stopped player faces the play instead of spinning to atan2(0,0)',()=>{
+  assert.equal(travelYaw(0,0,Math.PI),Math.PI);
+  assert.equal(travelYaw(.1,.1,-.8),-.8);
+  assert.equal(travelYaw(12,0,-.8),Math.PI/2);
+});
+
+test('palm-to-ball contact keeps its radius under rotated nonuniform bone scales',()=>{
+  const matrix=new THREE.Matrix4().compose(new THREE.Vector3(2,5,7),new THREE.Quaternion().setFromEuler(new THREE.Euler(.4,.8,-.2)),new THREE.Vector3(.83,.95,1.12));
+  const centre=new THREE.Vector3(.01,.14,-.025),normal=new THREE.Vector3(.9,.1,.4).normalize();
+  const skin=centre.clone().addScaledVector(normal,.08).applyMatrix4(matrix);
+  const ball=gripPoint(centre,normal,matrix,.45,.08).applyMatrix4(matrix);
+  assert.ok(Math.abs(skin.distanceTo(ball)-.45)<1e-10);
 });

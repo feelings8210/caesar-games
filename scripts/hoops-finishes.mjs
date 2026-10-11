@@ -20,7 +20,7 @@ try {
     c._tick=function(now){tick(now);const a=this.players[this.ball.holder]?.action;
       if(this.ball.preparing&&a?.kind==='shot')window.__finishFrames.push({phase:'gather',style:a.style,
         clip:this.players[this.ball.holder].athlete.oneShot?.getClip().name,ball:this.ballMesh.position.toArray(),
-        contact:this.players[this.ball.holder].athlete.contactError});
+        fraction:(now-a.start)/a.releaseMs,contact:this.players[this.ball.holder].athlete.contactError});
       if(this.ball.flight?.kind==='shot'){const p=this.ballMesh.position.clone().project(this.camera);
         window.__finishFrames.push({phase:'flight',view:p.toArray(),ball:this.ballMesh.position.toArray()});}
     };
@@ -36,6 +36,8 @@ try {
     const frames=await page.evaluate(()=>window.__finishFrames);
     const gather=frames.filter(f=>f.phase==='gather'),flight=frames.filter(f=>f.phase==='flight');
     assert.ok(gather.length>5&&gather.every(f=>f.style===expected&&f.clip==='Shot'));
+    const release=gather.filter(f=>f.fraction>.8);
+    assert.ok(release.length>3&&release.every(f=>f.contact<.08),'prepared release must keep the palm sphere centre within .08 ft of the ball');
     assert.ok(flight.length>5&&flight.every(f=>Math.abs(f.view[0])<1&&Math.abs(f.view[1])<1&&f.view[2]<1),'complete shot must fit the finish camera');
     assert.ok(frames.every(f=>f.ball.every(Number.isFinite)&&f.ball[1]>=0&&f.ball[1]<22));
     report.finishes.push({level:index+1,style:expected,frames});

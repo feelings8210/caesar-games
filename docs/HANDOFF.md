@@ -1,6 +1,16 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HANDOFF
-STATE ID: HO-2026-10-10-hoops-local.9   ← THIS NODE
+STATE ID: HO-2026-10-10-hoops-local.12   ← THIS NODE
+
+## 当前补充：人物/服装/握球已进入 local.12
+
+Owner 已明确 **NBA 2K Mobile：优先球员、动作与比赛氛围**，并授权继续使用 Blender。当前 `codex/hoops-local`，`sw.js` / `js/build.js` 同为 `v2.9.0-local.12`，保持本地，无 push/PR/发布。新模型已进入游戏：解剖手指骨架、有效手掌/手指皮肤权重、原创贴合人体的球衣、表面号码、平滑发际/眉毛、颈部权重接缝。运行层修正手掌半径、手腕与手指参与握球、离手松指、可达上篮高度、停步朝向、转角与左右防守蹲姿。
+
+研究：`docs/BLENDER_DECISION_20261010.md`；交付与失败：`docs/NBA_LOOK_PROGRESS_20261010.md` 的 local.12 章节。final GLB SHA `0d4cd3774827a9c84338f86406016882471bf64e12e731d4eae4528a80b85940`，builder / 来源在 provenance。不得沿用 v9 的“手指接触已合格”判断；那版 AnatomicalBody hand 权重为 0。新 shader 号码贴球衣表面，经典版仍保留旧号码贴片。
+
+已检：19 个顶层 Node 测试；v11 完整主关/随机/战术/错误/超时/退出/手机冒烟与回归，随后 v12 只修 GLB 颈部，补查最终模型的 24 组手掌/手指高低档皮肤响应、颈部混合、近景三面、42 采样姿态、取景/LOD、四个终结与断网重开。代表回合 `slice-v16`（突破分球）与 `pullup-v12`（挡拆急停）；新页仍 `/review/hoops-nba-20261010/`。所有证据落 SSD `/Volumes/MiniStorage/media-projects/caesar-hoops-20261010`。独立持续 1x 审美观察、实际听审、iPad 与 Owner 验收未完成；不能标 NBA 品质已达成。
+
+下一步是人物皮肤/头发/球鞋细节及专门篮球动作的重心与过渡，检查跑动/急停脚滑、手指表面接触（不仅 socket 误差），并完成真机视听验证。保留 `mobile-refinement` 的失败候选，尤其 Boolean 肩部破面、旧颈部侧面翘片与上篮超出可达高度的证据；不要通过加光效掩盖模型问题。
 PARENT STATE ID: HO-2026-10-09-hoops-v2.8.1（云端基线）
 WORKING MANUAL: embedded（见下方"协作规则"；根目录 AGENTS.md 有精简版）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -20,7 +20,7 @@ import { buildHoop } from './hoop3d.js';
 import { AthleteKit, STRIDE } from './athlete3d.js';
 import { madeBallAt } from './ball-motion.js';
 import { hoopsAudio } from './audio.js';
-import { actionBall, basketballBeat } from './basketball-pose.js';
+import { actionBall, basketballBeat, roundedRoute, travelYaw } from './basketball-pose.js';
 import { framePosition } from './camera-frame.js';
 
 const ASSETS = new URL('../../../assets/hoops/', import.meta.url).href;
@@ -346,7 +346,7 @@ export class Court3D extends BeatRunner {
       if (slot === 'Skin') {
         const skins = [0xA36E4C, 0xD6A17C, 0x72452F, 0xBE885F, 0x8E5C40];
         m.color.setHex(skins[(number - 1 + (side === 'd' ? 2 : 0)) % skins.length]);
-        m.metalness = 0; m.roughness = 0.8; m.envMapIntensity = 0.3;
+        m.metalness = 0; m.roughness = 0.66; m.envMapIntensity = 0.35;
       }
       if (slot === 'Jersey' || slot === 'Shorts') { m.roughness = 0.85; m.envMapIntensity = 0.2; }
       if (slot === 'Jersey' || slot === 'Shorts') {
@@ -362,9 +362,16 @@ export class Court3D extends BeatRunner {
           this._clothNormal.wrapS=this._clothNormal.wrapT=THREE.RepeatWrapping; this._clothNormal.repeat.set(9,9);
         }
         m.normalMap=this._clothNormal; m.normalScale.set(.14,.14);
+        m.onBeforeCompile=shader=>{
+          shader.vertexShader='varying vec3 vKitRest;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvKitRest=position;');
+          shader.fragmentShader='varying vec3 vKitRest;\n'+shader.fragmentShader.replace('#include <color_fragment>',
+            '#include <color_fragment>\nfloat sideTrim=smoothstep(.53,.55,abs(vKitRest.x))*(1.0-smoothstep(.62,.65,abs(vKitRest.x)));\ndiffuseColor.rgb=mix(diffuseColor.rgb,vec3(.85,.80,.63),sideTrim*.94);');
+        };
+        m.customProgramCacheKey=()=> 'hoops-kit-trim-1';
       }
       if (slot === 'Shoe') { m.color.setHex(side === 'o' ? 0xE8E6E0 : 0x252D39); m.roughness = 0.8; }
     }
+    m.name=slot;
     this.materials[key] = m;
     return m;
   }
@@ -819,7 +826,7 @@ export class Court3D extends BeatRunner {
         player.speed = 0; this._renderBall(0);
         const target = this.ballMesh.position.clone();
         const guide = player.root.localToWorld(new THREE.Vector3(.35,0,0)).sub(player.root.position).add(target);
-        player.athlete.reachBall(target,guide);
+        player.athlete.reachBall(target,guide,{grip:true});
       }
     }
     // The camera stays put on the freeze; player view is the learner's choice.
@@ -1169,6 +1176,12 @@ export class Court3D extends BeatRunner {
   _beat(b, token, slow) {
     for (const id of [b.screen].flat().filter(Boolean)) this._screeners?.add(id);
     if (this.arenaLook) b = basketballBeat(b, this.ball.holder ? {id:this.ball.holder,at:this.pos[this.ball.holder]} : null);
+    if(this.arenaLook&&b.move) {
+      const move={...b.move};
+      for(const [id,path] of Object.entries(move))if(this.pos[id]&&Array.isArray(path[0])&&path.length>1)
+        move[id]=roundedRoute([this.pos[id],...path]).slice(1);
+      b={...b,move};
+    }
     if (this.arenaLook && b.sfx==='squeak') b={...b,sfx:undefined};
     return super._beat(b, token, slow);
   }
@@ -1214,12 +1227,13 @@ export class Court3D extends BeatRunner {
   }
 
   _pickLoop(p) {
-    const sp = p.speed;
+    const sp = this.arenaLook&&p.isStill ? 0 : p.speed;
     if (sp > 2.5) this._screeners?.delete(p.id);
     const shotUp = this.ball.flight?.kind === 'shot' && p.id !== this._shooter && dist(this.pos[p.id], HOOP) < 16;
-    if (sp > 18) p.athlete.setLoop('Sprint', Math.min(1.3, Math.max(0.7, sp / STRIDE.Sprint)));
+    const strideScale=this.arenaLook?p.athlete.root.scale.y:1;
+    if (sp > 18) p.athlete.setLoop('Sprint', Math.min(1.3, Math.max(0.7, sp / (STRIDE.Sprint*strideScale))));
     else if (sp > 2.5 && p.side === 'd' && sp < 11) p.athlete.setLoop(this.arenaLook && p.slideRight ? 'DefSlideR' : 'DefSlideL', Math.min(1.5, Math.max(0.8, sp / 6)));
-    else if (sp > 2.5) p.athlete.setLoop('Jog', Math.min(1.4, Math.max(0.6, sp / STRIDE.Jog)));
+    else if (sp > 2.5) p.athlete.setLoop('Jog', Math.min(1.4, Math.max(0.6, sp / (STRIDE.Jog*strideScale))));
     else if (shotUp) p.athlete.setLoop('BoxOut');
     else if (this._screeners?.has(p.id)) p.athlete.setLoop('Screen');
     else if (this.ball.holder === p.id) p.athlete.setLoop('TripleThreat');
@@ -1280,27 +1294,34 @@ export class Court3D extends BeatRunner {
       const vz = (z - p.prev[1]) / Math.max(dt, 1e-3);
       p.prev = [x, z];
       const speed = Math.hypot(vx, vz);
+      if(speed>1.5)p.lastMoveAt=now;
+      p.isStill=speed<1.5&&now-(p.lastMoveAt||0)>90;
       const braking=((p.rawSpeed || 0)-speed)/Math.max(dt,1e-3);
       if(!this.frozen&&this.arenaLook&&(p.rawSpeed||0)>7&&braking>45&&braking>largestBrake) {brakingPlayer=p;largestBrake=braking;}
       p.rawSpeed=speed;
+      const beforeSpeed=p.speed;
       p.speed = damp(p.speed, speed, 10, dt);
+      p.acceleration=damp(p.acceleration||0,(p.speed-beforeSpeed)/Math.max(dt,1e-3),12,dt);
       const slide = this.arenaLook && p.side === 'd' && p.speed < 11;
-      const goalYaw = p.speed > 1.5 && !slide ? Math.atan2(vx, vz) : this._idleYaw(p);
+      const goalYaw = !slide ? travelYaw(vx,vz,this._idleYaw(p)) : this._idleYaw(p);
       p.slideRight = vx*Math.cos(p.yaw)-vz*Math.sin(p.yaw)>0;
       if (!this.frozen) p.yaw += angleDelta(p.yaw, goalYaw) * (1 - Math.exp(-9 * dt));
       p.root.rotation.y = p.yaw;
       this._pickLoop(p);
       if (!this.frozen) p.athlete.update(dt * PLAY_SPEED);
+      if(!this.frozen&&this.arenaLook&&speed>1.5&&!p.athlete.oneShot)
+        p.athlete.balance(new THREE.Vector3(vx,0,vz).normalize(),Math.max(-.06,Math.min(.07,p.acceleration*.0025)));
     }
     if (this.arenaLook && !this.frozen) {
       const finisher=this.players[this._shooter];
+      if(finisher&&this.ball.flight?.kind==='shot')finisher.athlete.releaseFingers();
       if(finisher?.action?.style==='layup'&&now-finisher.action.start<finisher.action.duration)
         finisher.athlete.layupStride((now-finisher.action.start)/finisher.action.duration);
       const receiver = this.players[this._receivingId];
       if (receiver && (this.ball.flight?.kind === 'pass' || this.ball.preparing && this.ball.holder !== receiver.id)) {
         const target = receiver.root.localToWorld(new THREE.Vector3(-.65,3.8,.7));
         const guide = receiver.root.localToWorld(new THREE.Vector3(.35,0,0)).sub(receiver.root.position).add(target);
-        receiver.athlete.reachBall(target,guide);
+        receiver.athlete.reachBall(target,guide,{grip:true});
       }
       for (const player of Object.values(this.players)) {
         if (player.side !== 'd' || player.speed > 14) continue;
@@ -1318,7 +1339,8 @@ export class Court3D extends BeatRunner {
         const releaseProgress = holder.action ? (now-holder.action.start)/holder.action.releaseMs : 0;
         const oneHand = this.ball.preparing && holder.action?.style==='layup' && releaseProgress>.55;
         const balance=oneHand?holder.root.localToWorld(new THREE.Vector3(.9,4.1,.25)):guide;
-        holder.athlete.reachBall(handTarget, oneHand || this.ball.preparing || holder.speed < 2.5 ? balance : null);
+        holder.athlete.reachBall(handTarget, oneHand || this.ball.preparing || holder.speed < 2.5 ? balance : null,
+          {grip:this.ball.preparing||holder.speed<2.5,leftGrip:!oneHand});
       }
       for (const player of Object.values(this.players)) player.athlete.plantFeet(player.speed > 2.5);
       if(brakingPlayer&&now-(this._shoeSoundAt||0)>220&&brakingPlayer.athlete.feet.some(f=>f.bone?.getWorldPosition(new THREE.Vector3()).y<.75)) {
