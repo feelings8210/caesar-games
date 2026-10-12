@@ -1150,7 +1150,7 @@ export class Court3D extends BeatRunner {
       if (!v) continue;
       const [sx, sy] = this._project(v);
       let d = Math.hypot(sx - x, sy - y);
-      if (t.label) {
+      if (t.label && t.label.style.visibility !== 'hidden') {
         const lr = t.label.getBoundingClientRect();
         if (clientX >= lr.left && clientX <= lr.right && clientY >= lr.top && clientY <= lr.bottom) d = 0;
       }
@@ -1557,12 +1557,41 @@ export class Court3D extends BeatRunner {
       const p = this.pos[c.id];
       if (p) place(c.el, new THREE.Vector3(p[0], 9.0, p[1]));
     }
+    if (!this.targets.some(t => t.label)) return;
+    // Labels must leave the touch centres and player numbers visible. World
+    // offsets alone cannot do this when the side panel changes the camera crop.
+    const occupied = this.targets.map(t => {
+      const [x, y] = this._project(this._target3(t.opt));
+      return { left: x - 24, right: x + 24, top: y - 24, bottom: y + 24 };
+    });
+    const bounds = this.overlay.getBoundingClientRect();
+    for (const el of [...Object.values(this.labels), this.youTag, ...this.el.parentElement.querySelectorAll('.hp-view')]) {
+      if (!el || getComputedStyle(el).visibility === 'hidden' || getComputedStyle(el).display === 'none') continue;
+      const r = el.getBoundingClientRect();
+      occupied.push({ left: r.left - bounds.left - 6, right: r.right - bounds.left + 6,
+        top: r.top - bounds.top - 6, bottom: r.bottom - bounds.top + 6 });
+    }
+    const overlaps = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
     for (const t of this.targets) {
       if (!t.label) continue;
-      const v = this._target3(t.opt);
-      if (t.opt.kind === 'shoot') v.y += 2.6;
-      else v.z += 2.8;
-      place(t.label, v, 0, true);
+      const [ax, ay, z] = this._project(this._target3(t.opt));
+      const hw = t.label.offsetWidth / 2, hh = t.label.offsetHeight / 2;
+      let chosen = null;
+      const offsets = [[0, -24-hh], [0, 24+hh], [24+hw, 0], [-24-hw, 0]];
+      for (const radius of [60, 90, 125, 165]) {
+        for (const [dx, dy] of [[0,-1],[0,1],[1,0],[-1,0],[1,-1],[-1,-1],[1,1],[-1,1]]) offsets.push([dx*radius,dy*radius]);
+      }
+      for (const [dx, dy] of offsets) {
+        const x = Math.max(hw+8, Math.min(W-hw-8, ax+dx));
+        const y = Math.max(hh+8, Math.min(H-hh-8, ay+dy));
+        const rect = {left:x-hw-4,right:x+hw+4,top:y-hh-4,bottom:y+hh+4};
+        if (!occupied.some(r => overlaps(rect,r))) { chosen={x,y,rect}; break; }
+      }
+      t.label.style.visibility = chosen && z < 1 ? 'visible' : 'hidden';
+      if (chosen) {
+        t.label.style.transform = `translate(${chosen.x.toFixed(1)}px, ${chosen.y.toFixed(1)}px) translate(-50%, -50%)`;
+        occupied.push(chosen.rect);
+      }
     }
   }
 

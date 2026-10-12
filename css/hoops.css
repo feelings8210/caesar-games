@@ -409,11 +409,12 @@
   .hp-menu-head { flex-direction: column; align-items: stretch; }
   .hp-rank { align-items: flex-start; }
   .hoops[data-view="play"] { overflow-y: auto; }
-  .hp-play { grid-template-columns: 1fr; grid-template-rows: auto auto; }
+  .hp-play { grid-template-columns: 1fr; grid-template-rows: max-content max-content; align-content: start; }
   .hp-stage { display: block; }
   .hp-court { height: auto; width: min(100%, 62vh); margin: 0 auto; }
   .hp-panel { overflow: visible; }
   .hoops[data-court="3d"] .hp-court { width: 100%; height: min(64vh, 110vw); }
+  .hoops[data-look="arena"] .hp-play { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ------------------------------------------------------------------ *
@@ -495,6 +496,19 @@
   transition: background 160ms ease, color 160ms ease;
 }
 .hc3-target-label.is-hot { background: #C9A76A; color: #0E1F3A; }
+
+/* Keep the decision court clear of the broadcast score graphic. */
+.hoops[data-phase="decide"] .hp-stage {
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 8px;
+}
+.hoops[data-phase="decide"] .hp-hud {
+  position: static; transform: none; justify-self: start;
+  max-width: 100%; box-sizing: border-box; flex-wrap: wrap;
+}
+@media (max-width: 860px), (orientation: portrait) {
+  .hoops[data-court="3d"] .hp-court { height: min(64vh, 110vw); }
+  .hoops[data-phase="decide"] .hp-stage { grid-template-rows: auto auto; }
+}
 
 /* ------------------------------------------------------------------ *
  * Menu tabs, Read & React, stats

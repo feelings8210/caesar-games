@@ -12,7 +12,11 @@ Owner 已授权继续本地开发。没有 push、PR 或公开发布。市场研
 - 新画面：`http://127.0.0.1:8000/?hoopsLook=arena&hoopsPreview=drive-kick`，进入 Hoops IQ 第 2 关“突破分球”。
 - 原有画面：`http://127.0.0.1:8000/`。两种画面共用本轮逻辑修复；修复前的原版视频单独保留。
 
-`review/hoops-*` 在 .gitignore 中，截图、视频和测试报告留在本机。页面是本机审阅入口，不是在线交付。运行服务器的进程停止后链接需要重新启动；目前仅绑定 loopback，iPad 不能直接访问这个地址。
+`review/hoops-*` 在 .gitignore 中，截图、视频和测试报告留在本机。页面是本机审阅入口，不是在线交付。运行服务器的进程停止后链接需要重新启动。
+
+2026-10-11：Mac 的原 8000 服务仍绑定 `127.0.0.1`，另开 8001 服务绑定 Wi-Fi 地址 `192.168.1.125`。同局域网 iPad Safari 可尝试 `http://192.168.1.125:8001/?hoopsPreview=drive-kick`；Mac 必须保持开机和服务运行，Wi-Fi 地址改变后要更新入口。Mac 浏览器已实测局域网 URL 可加载游戏；尚未在 iPad 验证。局域网 HTTP 是非安全上下文，没有 service worker，不能用此入口验证 PWA 离线缓存；参考 MDN Service Worker API。无需上传 GitHub。
+
+当前服务命令：`python3 -m http.server 8001 --bind 192.168.1.125`（仓库根目录）。不改动原 8000 入口。
 
 ## 已实现
 
