@@ -455,6 +455,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
   // Swap the stand-in net for the cord net.
   hoop?.traverse(o => { if (o.name === 'Net') o.visible = false; });
   const cords = net(hoop?.userData.rim || [0, 5.25], rimY);
+  if(refined)cords.obj.layers.enable(1);
   root.add(cords.obj);
 
   if (populated) {

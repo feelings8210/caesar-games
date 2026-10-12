@@ -1,6 +1,16 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HANDOFF
-STATE ID: HO-2026-10-11-hoops-local.26   ← THIS NODE
+STATE ID: HO-2026-10-11-hoops-local.27   ← THIS NODE
+
+## 当前 local.27：实时局部地板反射，整体品质仍未达标
+
+持续goal ACTIVE，NBA 2K Mobile最好视听未达成、未暂停。`codex/hoops-local`、`v2.9.0-local.27`，无push/PR/发布。新增 `floor-reflection.js`：实时镜像相机/裁切面，实际球员低档网格/球/篮架/篮网反射，柔化并保留原PBR木纹/涂装；恢复主画面LOD和renderer状态。高低目标宽512/256，默认.32强度、较柔清漆，`?hoopsReflection=off`可对照。几何/动作/音频不因反射替换，也无新媒体下载。
+
+SSD `reflection-study/physical-final` 真GPU像素球倒影射线误差0.57–1.43px/UV约1e-16、地板下球0像素、每主绘制一次反射、LOD/renderer状态恢复、6次重建geometry123/texture220稳定。总高档约171.95万→183.83万面、318→443 calls，低约85.01万→96.89万；仍增加调用/资源，iPad未知。桌面rAF/CPU提交采样不是GPU计时或真机性能。
+
+21个顶层单测、`presentation-final`、`regression`、`finishes`均通过对应范围。`runtime-on/off`同种子L2带声回合，最终v27断网3D/on反射更新196次、off更新0，错误/外部请求空，手机不溢出。没有连续1x视听、实际耳听、iPad/Owner美术验收。人物/观众脸、衣物、皮肤仍粗糙同质化，整体未达NBA；下一步优先这些素材/身份与动作的真实细节。详见 `docs/NBA_MOTION_AND_ARENA_REVIEW_20261011.md` local.27。
+
+最终worker/SSD `proof-reflection-v27/on.mp4` SHA `5184f29dc66ef5d5136857bb3e9f629399ec21cfb17f5d885ebf238c4994d007`，off为同种子/当前材质/动作/混音对照。原review URL已更新local.27，图与两段metadata/readyState实际通过；帧板采样已观察，不是持续1x或听审。
 
 ## 当前 local.26：场边设施/完整首排与跳投，整体仍未达标
 

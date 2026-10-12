@@ -60,3 +60,21 @@ Owner 仍认为球场、环境、观众和蓝光简陋，NBA 2K Mobile 整体目
 `jump-shot.glb` 新增1.3秒原创 JumpShot：加载/双脚起跳/随球瞄筐/跟随/屈膝落地；上篮仍使用 LayupR。按回合时钟定位和已有实际鞋底支撑，修正起手掉帧时旧姿态混合。射手头部新增有限俯仰瞄筐，非射手的目光不追到地板。动作基本顺序参考 [Jr. NBA jump shot](https://jr.nba.com/how-to-shoot-a-jump-shot/)，时长曲线原创；不能说NBA mocap或完整录像测量。source/output/builder SHA在 `jump-shot.provenance.json`。此前皮肤AO候选留在 SSD `jump-study/skin-after-fresh`，没有替换当前人物，也没有宣称它解决写实材质。
 
 最终带声音回合与此前场馆对照均已 native CPU 导出：worker/SSD `proof-arena-v26`，new.mp4 10.833333秒、H.264/AAC 48kHz双声道，SHA `5e9f64fc0ae73421acd05b63a8f185f46ca3fb18b7475238a8a686c0e8e279ea`；legacy.mp4 10.797秒，SHA `c8bd339ba35a70294390dd57960adbdb29d905a934c3d1e5be2d08ccff10a57f`。相同种子/关卡/动作/混音，场馆参数不同，真实执行时长略不同。review 页两段实际readyState=4及尺寸/时长已核对，仍不能声称持续1x或听审通过。页面沿用 `/review/hoops-nba-20261010/`，本机8000服务器需实际存活。重复场馆检查入口 `scripts/hoops-venue.mjs <SSD输出目录>`，其余 motion/presentation/finishes 入口不变。
+
+## local.27：实时地板反射
+
+Owner 的NBA 2K Mobile整体目标仍ACTIVE/未达成。新增原创 `floor-reflection.js`：使用镜像相机与地板斜裁切面，仅反射实际球员/篮球/篮架/篮网，保留原PBR木纹与涂装，透明空像素不覆盖地板。算法入口参照 [Three.js 官方 MIT Reflector](https://github.com/mrdoob/three.js/blob/dev/examples/jsm/objects/Reflector.js)，使用当前本地 r186 引擎，不增加外部媒体资产或上传项目。球员反射通道使用当前骨骼姿态的低档网格，完成后恢复主画面档位；每次主绘制只做一遍反射，两个半场共用目标。高/低目标宽512/256、按画幅设高，五点柔化、有限强度与视角变化；支持 `?hoopsReflection=off` 的同场对照。
+
+近景按强度0/.22/.32/.44和清漆三档分别比较，默认强度.32、清漆.16/粗糙.4/基础镜面.12；降低禁区大块环境高光并保留局部人体倒影。没有把光泽提升当写实人物通过。截图与失败首检查在SSD `reflection-study/first` / `close`：first的passed=false只因为把已知的Playwright禁SW/音频启动警告计入失败；无pageerror/Shader Error，原记录保留，正式检查区分警告。
+
+真实GPU像素检查入口 `scripts/hoops-reflection.mjs <SSD输出目录>`。最终 `reflection-study/physical-final`：两位置×高低档的可见球倒影相对物理镜像射线的加权像素质心误差0.57–1.43px，世界投影UV误差约1e-16；完全低于地板的球产生0个改变像素。不是只检查matrices存在。每次主render反射更新1次，主球员LOD和renderer背景/clearAlpha/shadow/XR/RT/autoReset恢复；6次重建几何/纹理123/220稳定。texture计数包含骨骼数据和反射目标，不能当新增外部图像张数。
+
+同一视图总绘制：关闭反射318 calls/1,719,518面，开启443 calls/1,838,324面；低档850,097→968,903面。额外125 calls/118,806面仍有成本，不能从三角形小幅增长推断iPad流畅。首次单独桌面采样rAF约16.7ms、CPU提交中位数1.5→4ms；最终同时跑其他浏览器检查时2.6→8.6ms。两者均不是GPU计时、实际掉帧统计或iPad结果。
+
+21个顶层单元测试串行通过；最终 `presentation-final`取景/身份/真实LOD/10名球员无遮挡/跳投返回/手机布局通过；`regression`静音、退出、GPU资源回收、2D输入等原有检查通过；`finishes`四种真实终结通过。`runtime-on`与`runtime-off`为同种子L2/当前灯光/动作/混音的完整带声回合；on重新断网进入v27的3D并反射更新196次，off启用=false/更新0；两者pageerror/外部请求为空。on六次重建geometry120/texture220稳定，手机无溢出。
+
+仍无连续1x审美观察、实际音频听审、iPad或Owner品质通过。人物、观众衣物/皮肤/身份仍明显落后于目标。下一步优先真实人体材质与衣物/身份细节，不靠反射掩盖几何/动作缺陷。
+
+最终worker/SSD `proof-reflection-v27` 已导出 H.264/AAC 48kHz双声道：on.mp4 10.947333秒，SHA `5184f29dc66ef5d5136857bb3e9f629399ec21cfb17f5d885ebf238c4994d007`；off.mp4 10.900秒，SHA `e71bd197aad1cf3cb291dd7dfbfdb321e487fc7e5bb6f6432f761c26bcbfe891`。native CPU recipe `reflection-study/export.sh`；观察了3fps/6×6帧板（末3格是布局空格，不是影片黑场）与最终比赛图，不是持续1x/实际听审。原本地review URL已更新local.27，头两张图加载成功、两段实际readyState=4及时长已查；app面板打开请求返回queued，不能说用户已看到。
+
+另通过真实 `.hp-view` 按钮取得球员视角的 on/off 近景，位于 `reflection-study/pov/`，未隐藏球员、未用隔离单人物画面冒充实际比赛。已观察：局部人物倒影更清楚、没有整体发白；上方场馆黑墙、人物/观众身份与衣物仍明显简陋。review页加入这个实际角度，继续保持整体品质未通过。

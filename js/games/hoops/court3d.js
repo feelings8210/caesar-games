@@ -23,6 +23,7 @@ import { hoopsAudio } from './audio.js';
 import { actionBall, basketballBeat, roundedRoute, travelYaw, landingStep } from './basketball-pose.js';
 import { framePosition, broadcastFrame } from './camera-frame.js';
 import { athleteSurface } from './athlete-surface.js';
+import { FloorReflection } from './floor-reflection.js';
 
 const ASSETS = new URL('../../../assets/hoops/', import.meta.url).href;
 const RIM_Y = 10;
@@ -199,7 +200,7 @@ export class Court3D extends BeatRunner {
     if(nor&&this.venueLook)floorMat.normalScale.set(.12,.12);
     if (rough) floorMat.roughness = 0.78;                // satin: the spot leaves a soft sheen
     if (this.arenaLook) { floorMat.clearcoat = .2; floorMat.clearcoatRoughness = .4; floorMat.specularIntensity = .16; }
-    if(this.venueLook){floorMat.clearcoat=.32;floorMat.clearcoatRoughness=.26;floorMat.roughness=.7;floorMat.envMapIntensity=.22;}
+    if(this.venueLook){floorMat.clearcoat=.16;floorMat.clearcoatRoughness=.4;floorMat.specularIntensity=.12;floorMat.roughness=.7;floorMat.envMapIntensity=.22;}
     this.floor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), floorMat);
     this.floor.rotation.x = -Math.PI / 2;
     this.floor.position.set(0, 0, 25);
@@ -225,8 +226,9 @@ export class Court3D extends BeatRunner {
     this.scene.add(this.floor);
 
     const hoop = buildHoop({ hoop: HOOP, rimY: RIM_Y, mark });
+    if(this.venueLook)hoop.traverse(o=>o.layers.enable(1));
     this.scene.add(hoop);
-    if (this.arenaLook) { const farHoop=buildHoop({hoop:HOOP,rimY:RIM_Y,mark});farHoop.name='FarHoop';farHoop.rotation.y=Math.PI;farHoop.position.z=94;this.scene.add(farHoop); }
+    if (this.arenaLook) { const farHoop=buildHoop({hoop:HOOP,rimY:RIM_Y,mark});farHoop.name='FarHoop';farHoop.rotation.y=Math.PI;farHoop.position.z=94;if(this.venueLook)farHoop.traverse(o=>o.layers.enable(1));this.scene.add(farHoop); }
     let crowdHead=null;
     crowd?.scene.traverse(o=>{if(o.isMesh)crowdHead=o.geometry;});
     this.arena = buildArena(this.scene, { hoop, rimY: RIM_Y, populated: this.arenaLook, crowdHead,
@@ -243,10 +245,18 @@ export class Court3D extends BeatRunner {
     if(jumps){for(const clip of jumps.animations)this.kit.clips[clip.name]=clip;disposeObject(jumps.scene);}
     this.materials = {};
     this.ballMesh = this._makeBall();
+    if(this.venueLook)this.ballMesh.layers.enable(1);
     this.scene.add(this.ballMesh);
     this.trail = this._makeTrail();
     this.trail.visible = !this.arenaLook;
     this.scene.add(this.trail);
+    if(this.venueLook){
+      this.scene.traverse(o=>{if(o.isLight)o.layers.enable(1);});
+      this.floorReflection=new FloorReflection(this.renderer,this.scene,floorMat,
+        [this.floor,this.scene.getObjectByName('FarCourt')],()=>Object.values(this.players).map(p=>p.athlete));
+      this.floorReflection.enabled=new URLSearchParams(location.search).get('hoopsReflection')!=='off';
+      this.floorReflection.setQuality(this.quality,this.camera.aspect);
+    }
     this.loaded = true;
     if (this._pending) { const [s, y] = this._pending; this._pending = null; this.setScene(s, y); }
   }
@@ -465,6 +475,7 @@ export class Court3D extends BeatRunner {
       decalMat.dispose();
       const root = new THREE.Group();
       root.add(athlete.root);
+      if(this.venueLook)athlete.root.traverse(o=>o.layers.enable(1));
       if (this.arenaLook) {
         const scale = [0.95, 0.98, 1, 1.04, 1.08][n - 1] || 1;
         athlete.root.scale.set(scale, scale, scale);
@@ -1201,6 +1212,7 @@ export class Court3D extends BeatRunner {
     this._aspect = w / h;
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
+    this.floorReflection?.setQuality(this.quality,this.camera.aspect);
     this.baseFov = this.arenaLook ? (w / h < 0.9 ? 54 : 36) : (w / h < 0.9 ? 50 : 38);
     if (this.shot !== 'pov') this.camera.fov = this.baseFov;
     this.camera.updateProjectionMatrix();
@@ -1547,6 +1559,7 @@ export class Court3D extends BeatRunner {
   destroy() {
     this.sleep();
     this._ro?.disconnect();
+    this.floorReflection?.dispose();
     this.renderer.dispose();
     this.el.remove();
   }
