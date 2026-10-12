@@ -1,5 +1,5 @@
-/* Original courtside set and near audience, using the project's approved
- * Blender seated geometry. Static instances share buffers; no remote assets. */
+/* Original courtside set and near audience, using approved Blender geometry.
+ * Instance buffers carry event-driven clap weights; no remote assets. */
 import * as THREE from '../../vendor/three/three.module.min.js';
 import { mergeGeometries } from '../../vendor/three/addons/BufferGeometryUtils.js';
 
@@ -7,7 +7,7 @@ const shirts = [0xD9D1C2,0x354351,0x812E28,0xA89984,0x262729,0x6C7880,0xC1B39D,0
 const skins = [0xB47B56,0x70472E,0xD4A17B,0x4E3021,0xBD8E6C];
 const hash = n => { const v=Math.sin(n*127.1+31.7)*43758.5453; return v-Math.floor(v); };
 
-export function buildCourtside(root, seats, template, {casual=false}={}) {
+export function buildCourtside(root, seats, template, {casual=false,reactions=false}={}) {
   const source=[];
   template?.updateMatrixWorld(true);
   template?.traverse(o=>{if(o.isMesh){const g=o.geometry.clone().applyMatrix4(o.matrixWorld);source.push({name:o.name,g});}});
@@ -45,19 +45,19 @@ export function buildCourtside(root, seats, template, {casual=false}={}) {
       if(wardrobeSlot>4.5&&wardrobeSlot<5.5)vFanColour=vec3(.68,.57,.46);
       if(wardrobeSlot>5.5)vFanColour=vec3(.012,.009,.007);`);
     if(casual){
-      shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nif(transformed.y>1.65)transformed.y=1.65+(transformed.y-1.65)*fanHeight;');
-      shader.vertexShader=shader.vertexShader.replace('#include <beginnormal_vertex>','#include <beginnormal_vertex>\nif(position.y>1.65)objectNormal.y/=fanHeight;');
+      shader.vertexShader=shader.vertexShader.replace('#include <morphtarget_vertex>','#include <morphtarget_vertex>\nif(transformed.y>1.65)transformed.y=1.65+(transformed.y-1.65)*fanHeight;');
+      shader.vertexShader=shader.vertexShader.replace('#include <morphnormal_vertex>','#include <morphnormal_vertex>\nif(position.y>1.65)objectNormal.y/=fanHeight;');
     }
     shader.fragmentShader='varying vec3 vFanColour;\n'+shader.fragmentShader;
     shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb*=vFanColour;');
   };
-  mat.customProgramCacheKey=()=> `hoops-seated-palette-v${casual?2:1}`;
+  mat.customProgramCacheKey=()=> `hoops-seated-palette-v${casual?3:1}`;
   const shadow=casual?new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking}):null;
   if(shadow){
     shadow.onBeforeCompile=shader=>{
-      shader.vertexShader='attribute float fanHeight;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nif(transformed.y>1.65)transformed.y=1.65+(transformed.y-1.65)*fanHeight;');
+      shader.vertexShader='attribute float fanHeight;\n'+shader.vertexShader.replace('#include <morphtarget_vertex>','#include <morphtarget_vertex>\nif(transformed.y>1.65)transformed.y=1.65+(transformed.y-1.65)*fanHeight;');
     };
-    shadow.customProgramCacheKey=()=> 'hoops-casual-shadow-v1';
+    shadow.customProgramCacheKey=()=> 'hoops-casual-shadow-v2';
   }
   const metal = new THREE.MeshStandardMaterial({color:0x222529,roughness:.48,metalness:.55});
   const upholstery = new THREE.MeshStandardMaterial({color:0x222D39,roughness:.85});
@@ -112,7 +112,11 @@ export function buildCourtside(root, seats, template, {casual=false}={}) {
   const meshes=[]; const m4=new THREE.Matrix4(), scale=new THREE.Vector3();
   const detailed=row=>row.role!=='fan'||row.seed%8===0;
   for(const [name,parts] of batches){
-    const merged=mergeGeometries(parts);parts.forEach(p=>p.dispose());if(!merged)continue;
+    const merged=mergeGeometries(parts);
+    // Our bundled merger concatenates target attributes but does not copy this
+    // flag. GLTF targets are deltas; treating them as positions collapses limbs.
+    if(merged)merged.morphTargetsRelative=parts[0].morphTargetsRelative;
+    parts.forEach(p=>p.dispose());if(!merged)continue;
     const variant=Number(name.match(/^Seated(?:Low)?(\d)$/)?.[1]);
     if(!Number.isFinite(variant)){merged.dispose();continue;}
     const low=name.startsWith('SeatedLow');
@@ -121,6 +125,11 @@ export function buildCourtside(root, seats, template, {casual=false}={}) {
       if(!people.length)continue;
       const g=merged.clone(),mesh=new THREE.InstancedMesh(g,mat,people.length);
       mesh.name=`Courtside_${name}_${cohort}`;mesh.receiveShadow=true;mesh.userData.cohort=cohort;
+      if(reactions&&g.morphAttributes.position?.length===3){
+        mesh.userData.reactionPeople=people;
+        for(let i=0;i<people.length;i++)mesh.setMorphAt(i,{morphTargetInfluences:[0,0,0]});
+        mesh.morphTexture.needsUpdate=true;
+      }
       if(shadow){mesh.castShadow=true;mesh.customDepthMaterial=shadow;}
       g.setAttribute('fanSeed',new THREE.InstancedBufferAttribute(new Float32Array(people.map(p=>p.seed)),1));
       g.setAttribute('fanRole',new THREE.InstancedBufferAttribute(new Float32Array(people.map(p=>({fan:0,home:1,away:2,staff:3}[p.role]))),1));
@@ -139,5 +148,29 @@ export function buildCourtside(root, seats, template, {casual=false}={}) {
     if(casual)m.castShadow=q!=='low'||m.userData.cohort==='fallback';
   }}
   setQuality('high');
-  return {meshes,rows:rows.length,setQuality,dispose:()=>shadow?.dispose()};
+  let reactionStart=null;
+  const ease=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
+  const weights={morphTargetInfluences:[0,0,0]};
+  function update(now=performance.now()){
+    if(reactionStart===null)return;
+    const elapsed=(now-reactionStart)/1000;
+    for(const mesh of meshes){
+      const people=mesh.userData.reactionPeople;if(!people)continue;
+      people.forEach((person,i)=>{
+        const t=elapsed-(.08+hash(person.seed+51)*.32);
+        const active=(person.role==='fan'||person.role==='home')&&hash(person.seed+41)<.78;
+        const envelope=active?ease(t/.5)*ease((3.7-t)/.6):0;
+        const close=t<.5?0:.5-.5*Math.cos((t-.5)*Math.PI*2*(2.4+hash(person.seed+3)*.4));
+        const lift=envelope<.5?envelope*2:(1-envelope)*2;
+        weights.morphTargetInfluences[0]=lift;
+        weights.morphTargetInfluences[1]=Math.max(0,envelope*2-1)*(1-close);
+        weights.morphTargetInfluences[2]=Math.max(0,envelope*2-1)*close;
+        mesh.setMorphAt(i,weights);
+      });mesh.morphTexture.needsUpdate=true;
+    }
+    if(elapsed>=4.2)reactionStart=null;
+  }
+  function reset(){reactionStart=performance.now()-5000;update();}
+  return {meshes,rows:rows.length,setQuality,update,cheer:()=>{if(reactions)reactionStart=performance.now();},reset,
+    dispose:()=>{shadow?.dispose();for(const mesh of meshes)mesh.dispose();}};
 }

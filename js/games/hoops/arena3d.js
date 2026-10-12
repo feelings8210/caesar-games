@@ -263,7 +263,7 @@ function net(center, rimY) {
   };
 }
 
-export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = null, seatedAudience = null, refined = false, structure = false, casual = false, crowdAtlas = null }) {
+export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = null, seatedAudience = null, refined = false, structure = false, casual = false, crowdAtlas = null, reactions = false }) {
   const mats = Object.fromEntries(Object.entries(MAT).map(([k, f]) => [k, f()]));
   const root = new THREE.Group();
   scene.add(root);
@@ -353,7 +353,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
   // Distant spectators: code-native silhouettes, one instanced draw per part.
   // A stable layout avoids random crowd changes on every scene load.
   let spectators = null;
-  const courtside = refined ? buildCourtside(root,seats,seatedAudience,{casual}) : null;
+  const courtside = refined ? buildCourtside(root,seats,seatedAudience,{casual,reactions}) : null;
   let crowdArms = null, armRows = [], cheerTime = 10;
   const impostors=populated&&crowdAtlas?buildCrowdImpostors(root,seats,crowdAtlas,{seatedAudience}):null;
   if (populated && !impostors) {
@@ -493,9 +493,11 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
     root,
     dispose:()=>{courtside?.dispose();impostors?.dispose();},
     setScore: data=>architecture?.setScore(data),
-    swish: () => { cords.kick(); cheerTime = 0; },
+    swish: () => { cords.kick(); cheerTime = 0; courtside?.cheer(); },
+    resetReactions:()=>courtside?.reset(),
     update(dt) {
       cords.update(dt); led.update(dt);
+      courtside?.update();
       if (crowdArms && cheerTime < 3.5) {
         cheerTime += dt;
         const weight = Math.max(0, Math.min(1, cheerTime / .3, (3.5 - cheerTime) / .8));

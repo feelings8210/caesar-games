@@ -1,0 +1,998 @@
+{
+  "athlete_sha256": "0d4cd3774827a9c84338f86406016882471bf64e12e731d4eae4528a80b85940",
+  "crowd_sha256": "8c15aeaaf5c1b575cc0e4915697d53c547aaf47e1c093ef271939cbee810ab86",
+  "output_sha256": "2f1f8f1fcc4bc42d8818476c4255f5b64197731b224ce66aea394efa98eabe11",
+  "builder_sha256": "1d1018b1b4aa2ff71e9145218d4e46c96c95710bf98c8a0e17dbe6b4951ae94b",
+  "targets": [
+    "ClapLift",
+    "ClapOpen",
+    "ClapClosed"
+  ],
+  "stats": [
+    {
+      "mesh": "Seated0_EyeIris",
+      "target": "ClapLift",
+      "max_delta_ft": 1.1920928955078125e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_EyePupil",
+      "target": "ClapLift",
+      "max_delta_ft": 1.1920928955078125e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_EyeSclera",
+      "target": "ClapLift",
+      "max_delta_ft": 1.1926748300777466e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Face",
+      "target": "ClapLift",
+      "max_delta_ft": 5.092623081992585e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Hair",
+      "target": "ClapLift",
+      "max_delta_ft": 1.1926748300777466e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Jersey",
+      "target": "ClapLift",
+      "max_delta_ft": 0.2338144891658611,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Shoe",
+      "target": "ClapLift",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Shorts",
+      "target": "ClapLift",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Skin",
+      "target": "ClapLift",
+      "max_delta_ft": 1.4119873653691186,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_EyeIris",
+      "target": "ClapLift",
+      "max_delta_ft": 1.1920928955078125e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_EyePupil",
+      "target": "ClapLift",
+      "max_delta_ft": 1.1920928955078125e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_EyeSclera",
+      "target": "ClapLift",
+      "max_delta_ft": 1.1926748300777466e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Face",
+      "target": "ClapLift",
+      "max_delta_ft": 5.092623081992585e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Hair",
+      "target": "ClapLift",
+      "max_delta_ft": 1.1926748300777466e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Jersey",
+      "target": "ClapLift",
+      "max_delta_ft": 0.23981926786089147,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Shoe",
+      "target": "ClapLift",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Shorts",
+      "target": "ClapLift",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Skin",
+      "target": "ClapLift",
+      "max_delta_ft": 1.4085652921344034,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_EyeIris",
+      "target": "ClapOpen",
+      "max_delta_ft": 1.1920928955078125e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_EyePupil",
+      "target": "ClapOpen",
+      "max_delta_ft": 1.1920928955078125e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_EyeSclera",
+      "target": "ClapOpen",
+      "max_delta_ft": 1.1926748300777466e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Face",
+      "target": "ClapOpen",
+      "max_delta_ft": 5.092623081992585e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Hair",
+      "target": "ClapOpen",
+      "max_delta_ft": 1.1926748300777466e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Jersey",
+      "target": "ClapOpen",
+      "max_delta_ft": 0.2927650891504262,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Shoe",
+      "target": "ClapOpen",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Shorts",
+      "target": "ClapOpen",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Skin",
+      "target": "ClapOpen",
+      "max_delta_ft": 2.396853869081118,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_EyeIris",
+      "target": "ClapOpen",
+      "max_delta_ft": 1.1920928955078125e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_EyePupil",
+      "target": "ClapOpen",
+      "max_delta_ft": 1.1920928955078125e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_EyeSclera",
+      "target": "ClapOpen",
+      "max_delta_ft": 1.1926748300777466e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Face",
+      "target": "ClapOpen",
+      "max_delta_ft": 5.092623081992585e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Hair",
+      "target": "ClapOpen",
+      "max_delta_ft": 1.1926748300777466e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Jersey",
+      "target": "ClapOpen",
+      "max_delta_ft": 0.30164733045202496,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Shoe",
+      "target": "ClapOpen",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Shorts",
+      "target": "ClapOpen",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Skin",
+      "target": "ClapOpen",
+      "max_delta_ft": 2.3884105102704107,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_EyeIris",
+      "target": "ClapClosed",
+      "max_delta_ft": 1.1920928955078125e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_EyePupil",
+      "target": "ClapClosed",
+      "max_delta_ft": 1.1920928955078125e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_EyeSclera",
+      "target": "ClapClosed",
+      "max_delta_ft": 1.1926748300777466e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Face",
+      "target": "ClapClosed",
+      "max_delta_ft": 5.092623081992585e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Hair",
+      "target": "ClapClosed",
+      "max_delta_ft": 1.1926748300777466e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Jersey",
+      "target": "ClapClosed",
+      "max_delta_ft": 0.18015790446173935,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Shoe",
+      "target": "ClapClosed",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Shorts",
+      "target": "ClapClosed",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated0_Skin",
+      "target": "ClapClosed",
+      "max_delta_ft": 2.430981174349565,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_EyeIris",
+      "target": "ClapClosed",
+      "max_delta_ft": 1.1920928955078125e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_EyePupil",
+      "target": "ClapClosed",
+      "max_delta_ft": 1.1920928955078125e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_EyeSclera",
+      "target": "ClapClosed",
+      "max_delta_ft": 1.1926748300777466e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Face",
+      "target": "ClapClosed",
+      "max_delta_ft": 5.092623081992585e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Hair",
+      "target": "ClapClosed",
+      "max_delta_ft": 1.1926748300777466e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Jersey",
+      "target": "ClapClosed",
+      "max_delta_ft": 0.18698046213897102,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Shoe",
+      "target": "ClapClosed",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Shorts",
+      "target": "ClapClosed",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow0_Skin",
+      "target": "ClapClosed",
+      "max_delta_ft": 2.4217387626383933,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_EyeIris",
+      "target": "ClapLift",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_EyePupil",
+      "target": "ClapLift",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_EyeSclera",
+      "target": "ClapLift",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Face",
+      "target": "ClapLift",
+      "max_delta_ft": 9.57885075936284e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Hair",
+      "target": "ClapLift",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Jersey",
+      "target": "ClapLift",
+      "max_delta_ft": 0.18608448921361354,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Shoe",
+      "target": "ClapLift",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Shorts",
+      "target": "ClapLift",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Skin",
+      "target": "ClapLift",
+      "max_delta_ft": 1.3538345302509733,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_EyeIris",
+      "target": "ClapLift",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_EyePupil",
+      "target": "ClapLift",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_EyeSclera",
+      "target": "ClapLift",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Face",
+      "target": "ClapLift",
+      "max_delta_ft": 9.578560996048568e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Hair",
+      "target": "ClapLift",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Jersey",
+      "target": "ClapLift",
+      "max_delta_ft": 0.16035713994575082,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Shoe",
+      "target": "ClapLift",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Shorts",
+      "target": "ClapLift",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Skin",
+      "target": "ClapLift",
+      "max_delta_ft": 1.3326642945724745,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_EyeIris",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_EyePupil",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_EyeSclera",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Face",
+      "target": "ClapOpen",
+      "max_delta_ft": 9.57885075936284e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Hair",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Jersey",
+      "target": "ClapOpen",
+      "max_delta_ft": 0.2235168918959468,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Shoe",
+      "target": "ClapOpen",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Shorts",
+      "target": "ClapOpen",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Skin",
+      "target": "ClapOpen",
+      "max_delta_ft": 2.3126070152471248,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_EyeIris",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_EyePupil",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_EyeSclera",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Face",
+      "target": "ClapOpen",
+      "max_delta_ft": 9.578560996048568e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Hair",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Jersey",
+      "target": "ClapOpen",
+      "max_delta_ft": 0.20884214236484813,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Shoe",
+      "target": "ClapOpen",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Shorts",
+      "target": "ClapOpen",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Skin",
+      "target": "ClapOpen",
+      "max_delta_ft": 2.281516671924153,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_EyeIris",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_EyePupil",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_EyeSclera",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Face",
+      "target": "ClapClosed",
+      "max_delta_ft": 9.57885075936284e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Hair",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Jersey",
+      "target": "ClapClosed",
+      "max_delta_ft": 0.1413106610398044,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Shoe",
+      "target": "ClapClosed",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Shorts",
+      "target": "ClapClosed",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated1_Skin",
+      "target": "ClapClosed",
+      "max_delta_ft": 2.3528715969896656,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_EyeIris",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_EyePupil",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_EyeSclera",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Face",
+      "target": "ClapClosed",
+      "max_delta_ft": 9.578560996048568e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Hair",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.805480091749757e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Jersey",
+      "target": "ClapClosed",
+      "max_delta_ft": 0.14162254917894695,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Shoe",
+      "target": "ClapClosed",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Shorts",
+      "target": "ClapClosed",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow1_Skin",
+      "target": "ClapClosed",
+      "max_delta_ft": 2.3224342002673772,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_EyeIris",
+      "target": "ClapLift",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_EyePupil",
+      "target": "ClapLift",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_EyeSclera",
+      "target": "ClapLift",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Face",
+      "target": "ClapLift",
+      "max_delta_ft": 9.555464925869272e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Hair",
+      "target": "ClapLift",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Jersey",
+      "target": "ClapLift",
+      "max_delta_ft": 0.21792927434956974,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Shoe",
+      "target": "ClapLift",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Shorts",
+      "target": "ClapLift",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Skin",
+      "target": "ClapLift",
+      "max_delta_ft": 1.3087059086802433,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_EyeIris",
+      "target": "ClapLift",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_EyePupil",
+      "target": "ClapLift",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_EyeSclera",
+      "target": "ClapLift",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Face",
+      "target": "ClapLift",
+      "max_delta_ft": 5.092623081992585e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Hair",
+      "target": "ClapLift",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Jersey",
+      "target": "ClapLift",
+      "max_delta_ft": 0.2178995912099807,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Shoe",
+      "target": "ClapLift",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Shorts",
+      "target": "ClapLift",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Skin",
+      "target": "ClapLift",
+      "max_delta_ft": 1.3019453802144514,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_EyeIris",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_EyePupil",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_EyeSclera",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Face",
+      "target": "ClapOpen",
+      "max_delta_ft": 9.555464925869272e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Hair",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Jersey",
+      "target": "ClapOpen",
+      "max_delta_ft": 0.25100370503391456,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Shoe",
+      "target": "ClapOpen",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Shorts",
+      "target": "ClapOpen",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Skin",
+      "target": "ClapOpen",
+      "max_delta_ft": 2.2489816178919706,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_EyeIris",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_EyePupil",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_EyeSclera",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Face",
+      "target": "ClapOpen",
+      "max_delta_ft": 5.092623081992585e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Hair",
+      "target": "ClapOpen",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Jersey",
+      "target": "ClapOpen",
+      "max_delta_ft": 0.250952418558484,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Shoe",
+      "target": "ClapOpen",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Shorts",
+      "target": "ClapOpen",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Skin",
+      "target": "ClapOpen",
+      "max_delta_ft": 2.2432748719855606,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_EyeIris",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_EyePupil",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_EyeSclera",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Face",
+      "target": "ClapClosed",
+      "max_delta_ft": 9.555464925869272e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Hair",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Jersey",
+      "target": "ClapClosed",
+      "max_delta_ft": 0.12266388548274788,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Shoe",
+      "target": "ClapClosed",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Shorts",
+      "target": "ClapClosed",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "Seated2_Skin",
+      "target": "ClapClosed",
+      "max_delta_ft": 2.298305375874229,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_EyeIris",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_EyePupil",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_EyeSclera",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Face",
+      "target": "ClapClosed",
+      "max_delta_ft": 5.092623081992585e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Hair",
+      "target": "ClapClosed",
+      "max_delta_ft": 4.915689588548745e-07,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Jersey",
+      "target": "ClapClosed",
+      "max_delta_ft": 0.12263184597405315,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Shoe",
+      "target": "ClapClosed",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Shorts",
+      "target": "ClapClosed",
+      "max_delta_ft": 0,
+      "lower_delta_ft": 0
+    },
+    {
+      "mesh": "SeatedLow2_Skin",
+      "target": "ClapClosed",
+      "max_delta_ft": 2.2917508118887997,
+      "lower_delta_ft": 0
+    }
+  ],
+  "license": "CC0-1.0",
+  "quality": "UNVERIFIED",
+  "method": "Original rig poses and nearest posed-surface weight transfer, native linear skin bake to fixed-topology targets; no mocap or cloth simulation",
+  "source_asset_id": "blender-human-base-meshes:3c121505651140ce",
+  "source_canonical_path": "/srv/media-vault/datasets/universal-media-asset-library-v1/assets/models/blender-human-base-meshes/811f43accbb31a88/members/human-base-meshes-bundle-v1.4.1/human_base_meshes_bundle.blend",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "purpose": "Project-specific original game derivative, not a globally promoted reusable model",
+  "parent_canonical_path": "/srv/ai-data/media-work/projects/caesar-hoops-20261011/crowd-clothing-study/casual-audience-v9.glb",
+  "derivative_canonical_worker": "/srv/ai-data/media-work/projects/caesar-hoops-20261011/crowd-clap-v5/crowd-clap.glb",
+  "builder": "tools/blender/build_crowd_clap.py",
+  "owner_verdict": "PENDING",
+  "checked_at": "2026-10-12",
+  "output_bytes": 1649536
+}

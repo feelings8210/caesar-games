@@ -161,7 +161,8 @@ export class Court3D extends BeatRunner {
     const image = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
     const optional = p => p.catch(() => null);    // environment art is a bonus, never a blocker
     const tex = new THREE.TextureLoader();
-    let casualUsed=false;
+    let casualUsed=false,reactionsUsed=false;
+    const casual=()=>loader.loadAsync(ASSETS+'casual-audience.glb').then(g=>{casualUsed=true;return g;});
     const [figs, mark, wood, nor, rough, hdr, crowd, motions, jumps, seated, skinMicro, crowdAtlas] = await Promise.all([
       this.skinLook ? loader.loadAsync(ASSETS+'athlete-faces.glb').catch(()=>loader.loadAsync(ASSETS+'athlete-arena.glb')) : loader.loadAsync(ASSETS + (this.arenaLook ? 'athlete-arena.glb' : 'athlete.glb')),
       optional(image(ASSETS + '../cd_home_mark_transparent.png')),
@@ -173,13 +174,14 @@ export class Court3D extends BeatRunner {
       this.arenaLook ? optional(loader.loadAsync(ASSETS + 'basketball-actions.glb')) : null,
       this.arenaLook ? optional(loader.loadAsync(ASSETS + 'jump-shot.glb')) : null,
       this.venueLook ? optional(this.crowdLook
-        ? loader.loadAsync(ASSETS+'casual-audience.glb').then(g=>{casualUsed=true;return g;}).catch(()=>loader.loadAsync(ASSETS+'seated-audience.glb'))
+        ? (new URLSearchParams(location.search).get('hoopsCrowdReaction')==='legacy'?casual():loader.loadAsync(ASSETS+'casual-reactions.glb').then(g=>{casualUsed=reactionsUsed=true;return g;}).catch(casual)).catch(()=>loader.loadAsync(ASSETS+'seated-audience.glb'))
         : loader.loadAsync(ASSETS+'seated-audience.glb')) : null,
       this.skinLook ? optional(tex.loadAsync(ASSETS + 'skin-micro.png')) : null,
       this.crowdLook && new URLSearchParams(location.search).get('hoopsCrowdDepth') !== 'legacy' ? optional(tex.loadAsync(ASSETS + 'crowd-atlas.png')) : null
     ]);
     if(skinMicro){skinMicro.wrapS=skinMicro.wrapT=THREE.MirroredRepeatWrapping;skinMicro.anisotropy=Math.min(4,this.renderer.capabilities.getMaxAnisotropy());this._skinMicro=skinMicro;}
     this.casualAudience=casualUsed;
+    this.crowdReactions=reactionsUsed;
 
     if (hdr) {
       hdr.mapping = THREE.EquirectangularReflectionMapping;
@@ -242,7 +244,7 @@ export class Court3D extends BeatRunner {
     let crowdHead=null;
     crowd?.scene.traverse(o=>{if(o.isMesh)crowdHead=o.geometry;});
     this.arena = buildArena(this.scene, { hoop, rimY: RIM_Y, populated: this.arenaLook, crowdHead,
-      seatedAudience:seated?.scene,refined:this.venueLook,structure:this.structureLook,casual:casualUsed,crowdAtlas });
+      seatedAudience:seated?.scene,refined:this.venueLook,structure:this.structureLook,casual:casualUsed,crowdAtlas,reactions:reactionsUsed });
     if(crowd)disposeObject(crowd.scene);
     if(seated)disposeObject(seated.scene);
     this._applyQuality();
@@ -460,6 +462,7 @@ export class Court3D extends BeatRunner {
    * ---------------------------------------------------------------- */
 
   setScene(setup, you) {
+    this.arena?.resetReactions();
     this.cancel();
     this.resetState(setup);
     this._framingPositions=null;
