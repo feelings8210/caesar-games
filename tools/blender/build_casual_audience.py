@@ -1,5 +1,6 @@
 """Native Blender CPU casual spectators from the approved fitted CC0 rig.
-Fit connected sleeves, trousers and flat shoes in the evaluated seated pose.
+Build a continuous shirt in anatomical rest pose, then evaluate the seated rig.
+Original trousers and flat shoes retain the support geometry.
 No external garments or scans. Static drape, not a cloth simulation.
 """
 import bpy,bmesh,sys,json,hashlib,math
@@ -16,6 +17,9 @@ if rig.animation_data:
     for track in list(rig.animation_data.nla_tracks):rig.animation_data.nla_tracks.remove(track)
 for bone in rig.pose.bones:bone.matrix_basis.identity()
 bpy.context.view_layer.update();rest={b.name:b.matrix.copy() for b in rig.pose.bones}
+sys.path.insert(0,str(Path(__file__).parent))
+from full_body_surface import full_body,BASE
+full_surface=full_body(rig)
 head_mesh=bpy.data.objects['AnatomicalHead']
 skin_vertices=set()
 for face in head_mesh.data.polygons:
@@ -60,48 +64,41 @@ def new_mesh(name,vertices,faces):
     bm=bmesh.new();bm.from_mesh(mesh);bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces));bm.to_mesh(mesh);bm.free()
     return mesh
 
-def sleeves(mesh):
-    bm=bmesh.new();bm.from_mesh(mesh);bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=.00001)
-    edges=set(e for e in bm.edges if e.is_boundary);loops=[]
-    while edges:
-        edge=edges.pop();start,current=edge.verts;loop=[start,current]
-        while current!=start:
-            remaining=[e for e in current.link_edges if e in edges]
-            if not remaining:break
-            edge=remaining[0];edges.remove(edge);current=edge.other_vert(current)
-            if current!=start:loop.append(current)
-        loops.append(loop)
-    assert len(loops)==4
-    armholes=[loop for loop in loops if abs(sum(v.co.x for v in loop)/len(loop))>.5]
-    assert len(armholes)==2
-    neck=[loop for loop in loops if loop not in armholes and sum(v.co.z for v in loop)/len(loop)>3.4][0]
+def body_shirt(mesh):
+    # Continuous approved torso/shoulder surface, cut cleanly at neck, waist
+    # and both sleeve planes before adding cloth clearance.
+    bm=bmesh.new();bm.from_mesh(mesh)
+    bmesh.ops.bisect_plane(bm,geom=list(bm.verts)+list(bm.edges)+list(bm.faces),dist=.00001,
+        plane_co=(0,0,3.40),plane_no=(0,0,1),clear_inner=True,clear_outer=False)
+    bmesh.ops.bisect_plane(bm,geom=list(bm.verts)+list(bm.edges)+list(bm.faces),dist=.00001,
+        plane_co=(0,0,5.38),plane_no=(0,0,1),clear_inner=False,clear_outer=True)
+    for side,sign in [('l',1),('r',-1)]:
+        arm=rig.pose.bones['upperarm_'+side];axis=(arm.tail-arm.head).normalized();point=arm.head.lerp(arm.tail,.56)
+        def arm_region(v):
+            co=v.co if hasattr(v,'co') else v
+            delta=co-arm.head;t=delta.dot(axis)
+            return sign*co.x>.50 and (delta-axis*t).length<.85
+        faces=[f for f in bm.faces if any(arm_region(v) for v in f.verts)]
+        verts=set(v for f in faces for v in f.verts);edges=set(e for f in faces for e in f.edges)
+        bmesh.ops.bisect_plane(bm,geom=list(verts)+list(edges)+faces,dist=.00001,plane_co=point,plane_no=axis)
+        remove=[f for f in bm.faces if arm_region(f.calc_center_median()) and (f.calc_center_median()-point).dot(axis)>.00001]
+        bmesh.ops.delete(bm,geom=remove,context='FACES')
+    # All remaining distal surfaces (hands/forearms) are separate after the
+    # exact sleeve cuts. Keep only the torso's connected component.
+    seed=min(bm.verts,key=lambda v:(v.co-Vector((0,-.3,4.4))).length)
+    connected={seed};queue=[seed]
+    while queue:
+        v=queue.pop()
+        for edge in v.link_edges:
+            other=edge.other_vert(v)
+            if other not in connected:connected.add(other);queue.append(other)
+    bmesh.ops.delete(bm,geom=[v for v in bm.verts if v not in connected],context='VERTS')
+    bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces))
     for v in bm.verts:
-        v.co.x*=1.04
-        if abs(v.co.x)<.34 and v.co.y<.08 and v.co.z>3.55:
-            target=3.82+.10*(abs(v.co.x)/.34)**2
-            v.co.z+=max(0,target-v.co.z)*min(1,(v.co.z-3.55)/.22)
-        if v.co.z<2.35:
-            v.co.z+=.40*max(0,min(1,(.20-v.co.y)/.5))*max(0,min(1,(2.35-v.co.z)/.5))
-    for v in neck:
-        if v.co.y<.08:v.co.z=max(v.co.z,3.82+.10*(abs(v.co.x)/.34)**2)
-    for loop in armholes:
-        side='l' if sum(v.co.x for v in loop)>0 else 'r'
-        bone=rig.pose.bones['upperarm_'+side]
-        axis=(bone.tail-bone.head).normalized();centre=sum((v.co for v in loop),Vector())/len(loop)
-        cuff=bone.head.lerp(bone.tail,.54);radial=[]
-        for v in loop:
-            r=v.co-centre;r-=axis*r.dot(axis);radial.append(r.normalized())
-        previous=loop
-        for k in range(1,5):
-            t=k/4;ring=[]
-            for i,origin in enumerate(loop):
-                target=cuff+radial[i]*(.34+.008*math.sin(i*2.7))
-                ring.append(bm.verts.new(origin.co.lerp(target,t)))
-            for i in range(len(loop)):
-                j=(i+1)%len(loop);bm.faces.new((previous[i],previous[j],ring[j],ring[i]))
-            previous=ring
-    bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces));bm.to_mesh(mesh);bm.free()
-    return mesh
+        v.co+=v.normal*.05
+        # A little torso ease, preserve sleeve/neck seam geometry.
+        if abs(v.co.x)<.58 and v.co.z<4.8:v.co.y*=1.055
+    bm.to_mesh(mesh);bm.free();return mesh
 
 def trousers():
     n=24;vertices=[];faces=[];root_z=rig.pose.bones['root'].location.z
@@ -153,6 +150,9 @@ def shoes():
         faces.append(tuple(start+i for i in reversed(range(n))));faces.append(tuple(start+3*n+i for i in range(n)))
     return new_mesh('CasualShoes',vertices,faces)
 
+shirt_source=full_surface.copy();shirt_source.data=body_shirt(full_surface.data.copy());shirt_source.name='NativeBodyShirt'
+bpy.context.collection.objects.link(shirt_source)
+for face in shirt_source.data.polygons:face.material_index=0
 sources=[o for o in bpy.context.scene.objects if o.type=='MESH' and o.name in ['AnatomicalBody','AnatomicalHead','HairCrop','JerseyLOD']]
 created=[];counts={};contacts=[];clearances=[]
 for variant in range(3):
@@ -176,8 +176,8 @@ for variant in range(3):
     head.rotation_quaternion=Vector((0,0,1)).rotation_difference(Vector((.08*(variant-1),-.06,1)).normalized())
     bpy.context.view_layer.update();parts={};deps=bpy.context.evaluated_depsgraph_get()
     body=bpy.data.objects['AnatomicalBody']
-    posed_body=bpy.data.meshes.new_from_object(body.evaluated_get(deps),depsgraph=deps)
-    posed_body.transform(body.matrix_world)
+    posed_body=bpy.data.meshes.new_from_object(full_surface.evaluated_get(deps),depsgraph=deps)
+    posed_body.transform(full_surface.matrix_world)
     surface=BVHTree.FromPolygons([v.co for v in posed_body.vertices],[list(f.vertices) for f in posed_body.polygons])
     def fit_cloth(mesh,margin=.045):
         tested=0;penetrating=0
@@ -188,11 +188,14 @@ for variant in range(3):
             signed=(v.co-point).dot(normal);tested+=1;penetrating+=signed<-.002
             if signed<margin:v.co=point+normal*margin
         mesh.update();return {'tested':tested,'penetrating_before_fit':penetrating}
+    shirt_mesh=bpy.data.meshes.new_from_object(shirt_source.evaluated_get(deps),depsgraph=deps)
+    shirt_mesh.transform(shirt_source.matrix_world)
     for obj in sources:
         arm_groups={g.index for g in obj.vertex_groups if g.name.startswith(('upperarm','lowerarm','hand','thumb','index','middle','ring','pinky','clavicle'))}
         protected={v.index for v in obj.data.vertices if sum(w.weight for w in v.groups if w.group in arm_groups)>.18}
         mesh=bpy.data.meshes.new_from_object(obj.evaluated_get(deps),depsgraph=deps);mesh.transform(obj.matrix_world)
-        if obj.name=='JerseyLOD':mesh=sleeves(mesh)
+        if obj.name=='JerseyLOD':
+            bpy.data.meshes.remove(mesh);mesh=shirt_mesh
         for material_index,material in enumerate(obj.data.materials):
             slot=material.name
             if obj.name=='AnatomicalHead' and slot=='Skin':slot='Face'
@@ -223,10 +226,10 @@ for variant in range(3):
         for obj in objects:obj.select_set(True)
         bpy.context.view_layer.objects.active=objects[0];bpy.ops.object.join();obj=objects[0]
         if slot=='Jersey':
-            sub=obj.modifiers.new('StaticGarmentSurface','SUBSURF');sub.levels=1;bpy.ops.object.modifier_apply(modifier=sub.name)
+            obj['body_wrap']=True
             fit_cloth(obj.data)
         dec=obj.modifiers.new('AudienceLOD','DECIMATE')
-        dec.ratio=.18 if slot=='Face' else .12 if slot=='Skin' else .045 if slot=='Jersey' else .65 if slot=='Shorts' else .8 if slot=='Shoe' else .2
+        dec.ratio=.18 if slot=='Face' else .22 if slot=='Skin' else .35 if slot=='Jersey' else .65 if slot=='Shorts' else .8 if slot=='Shoe' else .2
         if slot.startswith('Eye'):dec.ratio=.06 if slot=='EyeSclera' else .2
         bpy.ops.object.modifier_apply(modifier=dec.name);obj.name=f'Seated{variant}_{slot}'
         if slot=='Jersey':
@@ -242,7 +245,7 @@ for variant in range(3):
             solid=obj.modifiers.new('FabricEdges','SOLIDIFY');solid.thickness=.006;solid.offset=-1;bpy.ops.object.modifier_apply(modifier=solid.name)
         created.append(obj);counts[obj.name]=len(obj.data.polygons)
         bpy.ops.object.select_all(action='DESELECT');low.select_set(True);bpy.context.view_layer.objects.active=low
-        dec=low.modifiers.new('MobileAudienceLOD','DECIMATE');dec.ratio=.75 if slot=='Shoe' else .58 if slot=='Face' else .6 if slot=='Jersey' else .3
+        dec=low.modifiers.new('MobileAudienceLOD','DECIMATE');dec.ratio=.75 if slot=='Shoe' else .58 if slot=='Face' else .6 if slot=='Jersey' else .55 if slot=='Skin' else .3
         bpy.ops.object.modifier_apply(modifier=dec.name)
         if slot=='Jersey':clearances.append({'mesh':low.name,**fit_cloth(low.data)})
         if slot=='Jersey':
@@ -251,10 +254,12 @@ for variant in range(3):
     bpy.data.meshes.remove(posed_body)
 for obj in list(bpy.context.scene.objects):
     if obj not in created:bpy.data.objects.remove(obj,do_unlink=True)
-bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',export_animations=False,export_skins=False)
+bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',export_animations=False,export_skins=False,export_attributes=True,export_extras=True)
 receipt={'source_sha256':hashlib.sha256(Path(source).read_bytes()).hexdigest(),
  'output_sha256':hashlib.sha256(Path(out).read_bytes()).hexdigest(),
  'builder_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
  'polygons':counts,'license':'CC0-1.0','quality':'UNVERIFIED','contacts':contacts,'clearances':clearances,
- 'method':'Connected sleeves fitted after pose evaluation; original trousers and flat shoes; static drape, not cloth simulation'}
+ 'full_base_sha256':hashlib.sha256(Path(BASE).read_bytes()).hexdigest(),
+ 'helper_sha256':hashlib.sha256(Path(__file__).with_name('full_body_surface.py').read_bytes()).hexdigest(),
+ 'method':'Continuous anatomical shirt shell cut in rest pose, native heat bind and seated evaluation; original trousers and flat shoes; no cloth simulation'}
 Path(out+'.json').write_text(json.dumps(receipt,indent=2));print(json.dumps(receipt))

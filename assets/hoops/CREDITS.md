@@ -296,3 +296,7 @@ The shader selects an angular tile for instanced middle/far spectators. Near row
 ### Original near spectator clap poses (local.34)
 
 `casual-reactions.glb` keeps the approved casual seated model and adds original rig-derived ClapLift, ClapOpen and ClapClosed targets. The same CC0 Human Base / fitted athlete source supplies evaluated arm and finger weights. Pants, shoes and seated support stay fixed. No downloaded player likeness, animation or mocap is used. Canonical paths, source/parent/output/builder SHA256 and license are in `casual-reactions.provenance.json`. This project derivative remains experimental: sleeve edges and close face/hand detail are coarse; desktop studies do not establish iPad performance or Owner acceptance.
+
+### Continuous near spectator shirt and skin detail (local.35)
+
+`casual-reactions.glb` now uses a continuous shirt shell from the same approved uncut Human Base body, cut at neckline, waist and sleeve planes in anatomical rest pose before native binding/seated evaluation. `full_body_surface.py` restores the exact source proportions and verifies the canonical source SHA256. Near skin keeps more arm/palm/finger geometry in both tiers. This is original fitted cloth, without cloth simulation; no new scans, player likeness or mocap. Static parent recipe, all builder/helper/source/output hashes and worker paths are recorded in `casual-reactions.provenance.json`. The earlier `casual-audience.glb` and static far atlas remain the fallback and historical source respectively.

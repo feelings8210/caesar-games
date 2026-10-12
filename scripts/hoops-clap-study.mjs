@@ -25,11 +25,12 @@ try{
   });group.add(gltf.scene);return result;
  });
  assert.ok(report.meshes.every(m=>Number.isInteger(m.targets?.ClapOpen)&&Number.isInteger(m.targets?.ClapClosed)));
- const frames=process.env.HOOPS_CLAP_VERSION==='v5'?[['rest',[0,0,0]],['lift',[1,0,0]],['open',[0,1,0]],['touch',[0,0,1]],['mid-clap',[0,.5,.5]]]:[['rest',[0,0]],['lift',[.5,0]],['open',[1,0]],['touch',[0,1]],['mid-clap',[.5,.5]]];
+ const hasLift=report.meshes.every(m=>Number.isInteger(m.targets?.ClapLift));
+ const frames=hasLift?[['rest',[0,0,0]],['lift',[1,0,0]],['open',[0,1,0]],['touch',[0,0,1]],['mid-clap',[0,.5,.5]]]:[['rest',[0,0]],['lift',[.5,0]],['open',[1,0]],['touch',[0,1]],['mid-clap',[.5,.5]]];
  for(const quality of ['high','low'])for(const variant of [0,1,2])for(const [name,weights] of frames){
-  const data=await page.evaluate(({quality,variant,weights})=>{
+  const data=await page.evaluate(({quality,variant,weights,part})=>{
    const c=window.caesarApp.hoops.court,s=window.__clapStudy;const bounds=new s.T.Box3();
-   for(const o of s.meshes){o.visible=o.name.startsWith(`Seated${quality==='low'?'Low':''}${variant}_`);o.morphTargetInfluences.splice(0,weights.length,...weights);}
+   for(const o of s.meshes){o.visible=o.name.startsWith(`Seated${quality==='low'?'Low':''}${variant}_`)&&(!part||o.name.endsWith('_'+part));o.morphTargetInfluences.splice(0,weights.length,...weights);}
    s.group.updateMatrixWorld(true);c.camera.position.set(-7,5,17);c.camera.lookAt(-7,2.5,9);c.renderer.render(c.scene,c.camera);
    let delta=0,lowerDelta=0;const v=new s.T.Vector3(),base=new s.T.Vector3();
    for(const o of s.meshes.filter(o=>o.visible))for(let i=0;i<o.geometry.attributes.position.count;i++){
@@ -37,7 +38,7 @@ try{
     if(/_(Shorts|Shoe)$/.test(o.name))lowerDelta=Math.max(lowerDelta,v.distanceTo(base));bounds.expandByPoint(v.clone().applyMatrix4(o.matrixWorld));
    }
    return {delta,lowerDelta,bounds:{min:bounds.min.toArray(),max:bounds.max.toArray()}};
-  },{quality,variant,weights});
+  },{quality,variant,weights,part:process.env.HOOPS_CLAP_PART||null});
   assert.ok(data.lowerDelta<1e-6);assert.ok(name==='rest'||data.delta>.1);
   report.frames.push({quality,variant,name,weights,...data});await page.locator('.hc3d-canvas').screenshot({path:`${out}/${quality}-${variant}-${name}.png`});
  }

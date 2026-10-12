@@ -15,7 +15,10 @@ if rig.animation_data:
     for track in list(rig.animation_data.nla_tracks):rig.animation_data.nla_tracks.remove(track)
 for b in rig.pose.bones:b.matrix_basis.identity()
 bpy.context.view_layer.update();rest={b.name:b.matrix.copy() for b in rig.pose.bones}
-surfaces=[bpy.data.objects[n] for n in ['AnatomicalBody','AnatomicalHead','JerseyLOD']]
+sys.path.insert(0,str(Path(__file__).parent))
+from full_body_surface import full_body,BASE
+full_surface=full_body(rig)
+surfaces=[full_surface]+[bpy.data.objects[n] for n in ['AnatomicalBody','AnatomicalHead','JerseyLOD']]
 def orient(name,head,direction):
     original=rest[name].to_3x3()
     rotation=(original@Vector((0,1,0))).normalized().rotation_difference(direction.normalized())
@@ -78,12 +81,20 @@ for variant in range(3):
         transferred[obj.name]=[]
         for v in obj.data.vertices:
             p=obj.matrix_world@v.co
-            search=shirt_kd if obj.name.split('_')[1]=='Jersey' else kd
+            search=shirt_kd if obj.name.split('_')[1]=='Jersey' and not obj.get('body_wrap') else kd
             # Hands rest next to knees; geometric nearest-body alone mistakes
             # low fingertips for legs. The source garment bake preserved only
             # arm-weighted skin in this low region, so constrain that search.
             if obj.name.split('_')[1]=='Skin' and p.z<2.5:search=arm_kd['l' if p.x>0 else 'r']
-            transferred[obj.name].append(weights[search.find(p)[1]])
+            w=weights[search.find(p)[1]]
+            if obj.name.split('_')[1]=='Jersey':
+                for side in ['l','r']:
+                    attribute=obj.data.attributes.get('_SLEEVE_'+side.upper())
+                    if attribute is None:continue
+                    mix=max(0.,min(1.,attribute.data[v.index].value))
+                    if mix>0:
+                        w=[(bone,value*(1-mix)) for bone,value in w]+[('upperarm_'+side,mix)]
+            transferred[obj.name].append(w)
     neutral_hands={side:rig.pose.bones['hand_'+side].matrix.copy() for side in ['l','r']}
     for name,spread in [('ClapLift',.32),('ClapOpen',.32),('ClapClosed',.08)]:
         neutral(variant)
@@ -116,5 +127,7 @@ bpy.ops.export_scene.gltf(filepath=out,export_format='GLB',export_animations=Fal
 receipt={'athlete_sha256':hashlib.sha256(Path(athlete_path).read_bytes()).hexdigest(),'crowd_sha256':hashlib.sha256(Path(crowd_path).read_bytes()).hexdigest(),
  'output_sha256':hashlib.sha256(Path(out).read_bytes()).hexdigest(),'builder_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
  'targets':['ClapLift','ClapOpen','ClapClosed'],'stats':stats,'license':'CC0-1.0','quality':'UNVERIFIED',
- 'method':'Original rig poses and nearest posed-surface weight transfer, native linear skin bake to fixed-topology targets; no mocap or cloth simulation'}
+ 'full_base_sha256':hashlib.sha256(Path(BASE).read_bytes()).hexdigest(),
+ 'helper_sha256':hashlib.sha256(Path(__file__).with_name('full_body_surface.py').read_bytes()).hexdigest(),
+ 'method':'Original rig poses, full uncut canonical body for continuous shirt weight transfer, native linear skin bake to fixed-topology targets; no mocap or cloth simulation'}
 Path(out+'.json').write_text(json.dumps(receipt,indent=2));print('CLAP_TARGETS_COMPLETE',flush=True)
