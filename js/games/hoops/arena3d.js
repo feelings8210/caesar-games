@@ -13,6 +13,7 @@
 import * as THREE from '../../vendor/three/three.module.min.js';
 import { mergeGeometries } from '../../vendor/three/addons/BufferGeometryUtils.js';
 import { buildCourtside } from './arena-courtside.js';
+import { buildCrowdImpostors } from './arena-crowd-impostors.js';
 import { buildArchitecture } from './arena-architecture.js';
 
 const GROUND_Y = -2.4;
@@ -262,7 +263,7 @@ function net(center, rimY) {
   };
 }
 
-export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = null, seatedAudience = null, refined = false, structure = false, casual = false }) {
+export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = null, seatedAudience = null, refined = false, structure = false, casual = false, crowdAtlas = null }) {
   const mats = Object.fromEntries(Object.entries(MAT).map(([k, f]) => [k, f()]));
   const root = new THREE.Group();
   scene.add(root);
@@ -321,6 +322,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
     root.add(box(138,.35,2,mats.rail,0,20.5,-61));
     root.add(box(138,.25,2,mats.rail,0,25.5,-61));
   }
+  if(crowdAtlas)seats.forEach(seat=>{if(!(refined&&seat[0].position.y<1&&seat[2]<2))seat[2]+=.95;});
   const seatMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1.42, .18, 1.3), mats.seat, seats.length);
   const seatBack = new THREE.InstancedMesh(new THREE.BoxGeometry(1.42,.95,.2), mats.seat, seats.length);
   seatMesh.name='AudienceSeats'; seatBack.name='AudienceSeatBacks';
@@ -353,7 +355,8 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
   let spectators = null;
   const courtside = refined ? buildCourtside(root,seats,seatedAudience,{casual}) : null;
   let crowdArms = null, armRows = [], cheerTime = 10;
-  if (populated) {
+  const impostors=populated&&crowdAtlas?buildCrowdImpostors(root,seats,crowdAtlas,{seatedAudience}):null;
+  if (populated && !impostors) {
     const people = seats.filter(([g,x,y], i) => i % 13 !== 0 && (g.position.y < 1 || i % 3 === 0) && !(refined && seatedAudience && g.position.y<1 && y<2 && i%17!==0));
     // Interleave across every stand so the low tier doesn't empty one end.
     people.sort((a, b) => Math.sin(a[1] * 91 + a[2] * 43 + a[3] * 17) - Math.sin(b[1] * 91 + b[2] * 43 + b[3] * 17));
@@ -488,7 +491,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
 
   return {
     root,
-    dispose:()=>courtside?.dispose(),
+    dispose:()=>{courtside?.dispose();impostors?.dispose();},
     setScore: data=>architecture?.setScore(data),
     swish: () => { cords.kick(); cheerTime = 0; },
     update(dt) {
@@ -507,6 +510,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
     },
     setQuality(q) {
       courtside?.setQuality(q);
+      impostors?.setQuality(q);
       beams.visible = !populated && q !== 'low';
       if (spectators) spectators.children.forEach(m => {
         m.count = q === 'low' ? Math.ceil(m.instanceMatrix.count / 2) : m.instanceMatrix.count;

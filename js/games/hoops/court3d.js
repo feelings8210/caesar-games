@@ -162,7 +162,7 @@ export class Court3D extends BeatRunner {
     const optional = p => p.catch(() => null);    // environment art is a bonus, never a blocker
     const tex = new THREE.TextureLoader();
     let casualUsed=false;
-    const [figs, mark, wood, nor, rough, hdr, crowd, motions, jumps, seated, skinMicro] = await Promise.all([
+    const [figs, mark, wood, nor, rough, hdr, crowd, motions, jumps, seated, skinMicro, crowdAtlas] = await Promise.all([
       this.skinLook ? loader.loadAsync(ASSETS+'athlete-faces.glb').catch(()=>loader.loadAsync(ASSETS+'athlete-arena.glb')) : loader.loadAsync(ASSETS + (this.arenaLook ? 'athlete-arena.glb' : 'athlete.glb')),
       optional(image(ASSETS + '../cd_home_mark_transparent.png')),
       optional(image(ASSETS + 'env/wood_diff_1k.jpg')),
@@ -175,7 +175,8 @@ export class Court3D extends BeatRunner {
       this.venueLook ? optional(this.crowdLook
         ? loader.loadAsync(ASSETS+'casual-audience.glb').then(g=>{casualUsed=true;return g;}).catch(()=>loader.loadAsync(ASSETS+'seated-audience.glb'))
         : loader.loadAsync(ASSETS+'seated-audience.glb')) : null,
-      this.skinLook ? optional(tex.loadAsync(ASSETS + 'skin-micro.png')) : null
+      this.skinLook ? optional(tex.loadAsync(ASSETS + 'skin-micro.png')) : null,
+      this.crowdLook && new URLSearchParams(location.search).get('hoopsCrowdDepth') !== 'legacy' ? optional(tex.loadAsync(ASSETS + 'crowd-atlas.png')) : null
     ]);
     if(skinMicro){skinMicro.wrapS=skinMicro.wrapT=THREE.MirroredRepeatWrapping;skinMicro.anisotropy=Math.min(4,this.renderer.capabilities.getMaxAnisotropy());this._skinMicro=skinMicro;}
     this.casualAudience=casualUsed;
@@ -241,7 +242,7 @@ export class Court3D extends BeatRunner {
     let crowdHead=null;
     crowd?.scene.traverse(o=>{if(o.isMesh)crowdHead=o.geometry;});
     this.arena = buildArena(this.scene, { hoop, rimY: RIM_Y, populated: this.arenaLook, crowdHead,
-      seatedAudience:seated?.scene,refined:this.venueLook,structure:this.structureLook,casual:casualUsed });
+      seatedAudience:seated?.scene,refined:this.venueLook,structure:this.structureLook,casual:casualUsed,crowdAtlas });
     if(crowd)disposeObject(crowd.scene);
     if(seated)disposeObject(seated.scene);
     this._applyQuality();

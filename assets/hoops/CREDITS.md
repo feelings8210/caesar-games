@@ -286,3 +286,9 @@ The roof trusses, fixture housings, fascia and scoreboard artwork are original c
 `casual-audience.glb` derives from the approved CC0 fitted athlete. Original connected short sleeves, crew neck, trousers and shoes are fitted to three evaluated seated poses; head proportions are authored and baked. This is static drape, not cloth simulation or motion capture. No external garments, player scans or likeness data are included. Canonical parent, source/license chain, worker derivative, output and native Blender builder SHA256 are recorded in `casual-audience.provenance.json`.
 
 Runtime height variation preserves the lower body; original foot platforms, courtside apron and seating placement are checked against imported sole vertices. Shadow geometry uses the same height transform. The model remains a local art iteration, with Owner/iPad/continuous audiovisual acceptance pending.
+
+## Native multiview middle/far spectators (local.31)
+
+`crowd-atlas.png` is a CPU Cycles render of our original `casual-audience.glb`: six clothing looks, three seated poses, eight yaw views and two pitches. It uses the same approved CC0 source and original clothing, with no new downloaded people/photographs, NBA likenesses or mocap. Source, parent, worker path, license and SHA256 are in `crowd-atlas.provenance.json`; `tools/blender/render_crowd_atlas.py` reproduces the render.
+
+The shader selects an angular tile for instanced middle/far spectators. Near rows and benches retain 3D geometry. It is a static seated atlas with discrete angle transitions, unsuitable for close portraits; it does not add cheering animation or establish NBA parity. Geometry counts decrease, but alpha-cutout fill cost and real iPad performance remain unmeasured. `hoopsCrowdDepth=legacy` restores the preceding distant crowd and seat heights.
