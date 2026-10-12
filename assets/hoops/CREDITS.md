@@ -280,3 +280,9 @@
 `skin-micro.png` uses a grayscale high-pass crop from [Image skin texture](https://commons.wikimedia.org/wiki/File:Image_skin_texture.jpg), Pixnio, CC0-1.0. The original was controlled-acquired through the approved Commons source into the canonical 3090 library; per-file license and API/file hash evidence were recorded. This is authored micro-height contrast, not a calibrated scan or facial colour atlas. Canonical source, license evidence, source/output hashes and native Blender recipe are in `skin-micro.provenance.json`.
 
 The roof trusses, fixture housings, fascia and scoreboard artwork are original code. Source licensing and mechanical checks do not establish NBA-quality art or iPad/Owner acceptance.
+
+## Original casual spectators (local.29)
+
+`casual-audience.glb` derives from the approved CC0 fitted athlete. Original connected short sleeves, crew neck, trousers and shoes are fitted to three evaluated seated poses; head proportions are authored and baked. This is static drape, not cloth simulation or motion capture. No external garments, player scans or likeness data are included. Canonical parent, source/license chain, worker derivative, output and native Blender builder SHA256 are recorded in `casual-audience.provenance.json`.
+
+Runtime height variation preserves the lower body; original foot platforms, courtside apron and seating placement are checked against imported sole vertices. Shadow geometry uses the same height transform. The model remains a local art iteration, with Owner/iPad/continuous audiovisual acceptance pending.

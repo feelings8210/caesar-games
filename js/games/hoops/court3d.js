@@ -84,6 +84,7 @@ export class Court3D extends BeatRunner {
     this.venueLook = this.arenaLook && new URLSearchParams(location.search).get('hoopsVenue') !== 'legacy';
     this.skinLook = this.arenaLook && new URLSearchParams(location.search).get('hoopsSkin') !== 'legacy';
     this.structureLook = this.venueLook && new URLSearchParams(location.search).get('hoopsStructure') !== 'legacy';
+    this.crowdLook = this.venueLook && new URLSearchParams(location.search).get('hoopsCrowd') !== 'legacy';
     this.quality = forced === 'low' ? 'low' : 'high';
     this._qualityLocked = !!forced;
     this._probe = [];
@@ -160,6 +161,7 @@ export class Court3D extends BeatRunner {
     const image = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
     const optional = p => p.catch(() => null);    // environment art is a bonus, never a blocker
     const tex = new THREE.TextureLoader();
+    let casualUsed=false;
     const [figs, mark, wood, nor, rough, hdr, crowd, motions, jumps, seated, skinMicro] = await Promise.all([
       this.skinLook ? loader.loadAsync(ASSETS+'athlete-faces.glb').catch(()=>loader.loadAsync(ASSETS+'athlete-arena.glb')) : loader.loadAsync(ASSETS + (this.arenaLook ? 'athlete-arena.glb' : 'athlete.glb')),
       optional(image(ASSETS + '../cd_home_mark_transparent.png')),
@@ -170,10 +172,13 @@ export class Court3D extends BeatRunner {
       this.arenaLook ? optional(loader.loadAsync(ASSETS + 'crowd-head.glb')) : null,
       this.arenaLook ? optional(loader.loadAsync(ASSETS + 'basketball-actions.glb')) : null,
       this.arenaLook ? optional(loader.loadAsync(ASSETS + 'jump-shot.glb')) : null,
-      this.venueLook ? optional(loader.loadAsync(ASSETS + 'seated-audience.glb')) : null,
+      this.venueLook ? optional(this.crowdLook
+        ? loader.loadAsync(ASSETS+'casual-audience.glb').then(g=>{casualUsed=true;return g;}).catch(()=>loader.loadAsync(ASSETS+'seated-audience.glb'))
+        : loader.loadAsync(ASSETS+'seated-audience.glb')) : null,
       this.skinLook ? optional(tex.loadAsync(ASSETS + 'skin-micro.png')) : null
     ]);
     if(skinMicro){skinMicro.wrapS=skinMicro.wrapT=THREE.MirroredRepeatWrapping;skinMicro.anisotropy=Math.min(4,this.renderer.capabilities.getMaxAnisotropy());this._skinMicro=skinMicro;}
+    this.casualAudience=casualUsed;
 
     if (hdr) {
       hdr.mapping = THREE.EquirectangularReflectionMapping;
@@ -236,7 +241,7 @@ export class Court3D extends BeatRunner {
     let crowdHead=null;
     crowd?.scene.traverse(o=>{if(o.isMesh)crowdHead=o.geometry;});
     this.arena = buildArena(this.scene, { hoop, rimY: RIM_Y, populated: this.arenaLook, crowdHead,
-      seatedAudience:seated?.scene,refined:this.venueLook,structure:this.structureLook });
+      seatedAudience:seated?.scene,refined:this.venueLook,structure:this.structureLook,casual:casualUsed });
     if(crowd)disposeObject(crowd.scene);
     if(seated)disposeObject(seated.scene);
     this._applyQuality();
@@ -1564,6 +1569,7 @@ export class Court3D extends BeatRunner {
   destroy() {
     this.sleep();
     this._ro?.disconnect();
+    this.arena?.dispose();
     this.floorReflection?.dispose();
     this.renderer.dispose();
     this.el.remove();

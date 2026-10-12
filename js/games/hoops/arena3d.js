@@ -77,7 +77,7 @@ function rod(a, b, r, mat) {
  * One bank of stands. Built along local +x (length) rising toward local -z,
  * then placed by the caller. `aisles` are local x positions of stairways.
  */
-function stand(length, mats, seats, led, aisles = [], rows = 6, humanScale = false) {
+function stand(length, mats, seats, led, aisles = [], rows = 6, humanScale = false, frontPlatform = false) {
   const g = new THREE.Group();
   const depth = 2.7, rise = 1.45, aw = 3.6;
   // Bench runs between the aisles.
@@ -91,12 +91,13 @@ function stand(length, mats, seats, led, aisles = [], rows = 6, humanScale = fal
     const z = -0.6 - depth * (k + 0.5);
     const h = top - GROUND_Y;
     g.add(box(length, h - 0.22, depth, mats.riser, 0, GROUND_Y + (h - 0.22) / 2, z));
-    g.add(box(length, 0.22, depth - 0.25, mats.tread, 0, top - 0.11, z + 0.12));
+    const tread=box(length, 0.22, frontPlatform&&k===0?depth+1:depth-.25, mats.tread, 0, top-.11, z+(frontPlatform&&k===0?.6:.12));
+    tread.receiveShadow=frontPlatform;g.add(tread);
     for (const [a, b] of runs) {
       const n = Math.floor((b - a) / 1.9);
       for (let i = 0; i < n; i++) seats.push([g, a + (b - a) * (i + 0.5) / n, top + (humanScale && k===0 ? 1.5 : .55), z - depth / 2 + 0.95]);
     }
-    for (const x of aisles) g.add(box(aw - 0.3, 0.06, depth - 0.4, mats.step, x, top + 0.03, z + 0.1));
+    for (const x of aisles) g.add(box(aw - 0.3, 0.06, depth - 0.4, mats.step, x, top + (frontPlatform&&k===0?-.03:.03), z + 0.1));
   }
   // Handrails up each aisle, following the rake.
   const z0 = -0.9, z1 = -0.6 - depth * rows + 0.4;
@@ -113,20 +114,20 @@ function stand(length, mats, seats, led, aisles = [], rows = 6, humanScale = fal
     }
   }
   // Front wall carrying the LED ribbon, and its rail.
-  const frontH = 3.4;
-  g.add(box(length, frontH, 0.3, mats.backing, 0, GROUND_Y + frontH / 2, -0.35));
+  const frontH = frontPlatform?4.7:3.4,frontZ=frontPlatform?.65:-.35;
+  g.add(box(length, frontH, 0.3, mats.backing, 0, GROUND_Y + frontH / 2, frontZ));
   const ribbon = new THREE.Mesh(new THREE.PlaneGeometry(length, 1.7), led);
-  ribbon.position.set(0, GROUND_Y + frontH - 0.95, -0.19);
+  ribbon.position.set(0, GROUND_Y + frontH - 0.95, frontZ+.16);
   g.add(ribbon);
   const railY = GROUND_Y + frontH + 1.3;
   const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, length, 8), mats.rail);
   rail.rotation.z = Math.PI / 2;
-  rail.position.set(0, railY, -0.4);
-  g.add(rail);
+  rail.position.set(0, railY, frontZ-.05);
+  if(!frontPlatform)g.add(rail);
   for (let x = -length / 2 + 1; x <= length / 2 - 1 + 1e-6; x += (length - 2) / Math.max(1, Math.round((length - 2) / 7))) {
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.3, 6), mats.rail);
-    post.position.set(x, railY - 0.65, -0.4);
-    g.add(post);
+    post.position.set(x, railY - 0.65, frontZ-.05);
+    if(!frontPlatform)g.add(post);else post.geometry.dispose();
   }
   // Back rail along the top row.
   const backRail = rail.clone();
@@ -261,7 +262,7 @@ function net(center, rimY) {
   };
 }
 
-export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = null, seatedAudience = null, refined = false, structure = false }) {
+export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = null, seatedAudience = null, refined = false, structure = false, casual = false }) {
   const mats = Object.fromEntries(Object.entries(MAT).map(([k, f]) => [k, f()]));
   const root = new THREE.Group();
   scene.add(root);
@@ -271,7 +272,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(0, GROUND_Y, 20);
   root.add(ground);
-  const plinth = populated ? box(58,.12,114,mats.lacquer,0,-.08,47) : slab(-29, 29, -11, 53, 2.4, 1.2, mats.lacquer);
+  const plinth = populated ? box(casual?66:58,.12,casual?124:114,mats.lacquer,0,-.08,47) : slab(-29, 29, -11, 53, 2.4, 1.2, mats.lacquer);
   plinth.position.y = populated ? -0.08 : -0.02;
   plinth.receiveShadow = true;
   root.add(plinth);
@@ -280,12 +281,12 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
   // Stands: behind the basket and along both sidelines; the camera side stays open.
   const seats = [];
   const led = ledBoard();
-  const back = stand(populated ? 84 : 58, mats, seats, led.mat, populated ? [-24, 0, 24] : [0], populated ? 16 : 6, refined);
+  const back = stand(populated ? 84 : 58, mats, seats, led.mat, populated ? [-24, 0, 24] : [0], populated ? 16 : 6, refined,casual);
   back.position.set(0, 0, -14);
-  const left = stand(populated ? 124 : 58, mats, seats, led.mat, populated ? [-42,-14,14,42] : [-14,14], populated ? 14 : 6, refined);
+  const left = stand(populated ? 124 : 58, mats, seats, led.mat, populated ? [-42,-14,14,42] : [-14,14], populated ? 14 : 6, refined,casual);
   left.rotation.y = Math.PI / 2;               // rows rise away from the court (-x)
   left.position.set(-33, 0, populated ? 47 : 23);
-  const right = stand(populated ? 124 : 58, mats, seats, led.mat, populated ? [-42,-14,14,42] : [-14,14], populated ? 14 : 6, refined);
+  const right = stand(populated ? 124 : 58, mats, seats, led.mat, populated ? [-42,-14,14,42] : [-14,14], populated ? 14 : 6, refined,casual);
   right.rotation.y = -Math.PI / 2;
   right.position.set(33, 0, populated ? 47 : 23);
   root.add(back, left, right);
@@ -293,18 +294,18 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
   if (populated) {
     // A second deck and lit concourse give the bowl a continuous silhouette.
     // Keep the camera-side upper deck open: it lies behind the broadcast lens.
-    const upperBack = stand(136, mats, seats, led.mat, [-48,-24,0,24,48], 8, refined);
+    const upperBack = stand(136, mats, seats, led.mat, [-48,-24,0,24,48], 8, refined,false);
     upperBack.position.set(0, 25, -61);
-    const upperRight = stand(146, mats, seats, led.mat, [-48,-24,0,24,48], 8, refined);
+    const upperRight = stand(146, mats, seats, led.mat, [-48,-24,0,24,48], 8, refined,false);
     upperRight.rotation.y = -Math.PI / 2;
     upperRight.position.set(76, 23, 47);
     root.add(upperBack, upperRight);
     if(structure){
-      const upperLeft=stand(146,mats,seats,led.mat,[-48,-24,0,24,48],8,refined);
+      const upperLeft=stand(146,mats,seats,led.mat,[-48,-24,0,24,48],8,refined,false);
       upperLeft.rotation.y=Math.PI/2;upperLeft.position.set(-76,23,47);root.add(upperLeft);
     }
     for (const side of [-1,1]) {
-      const corner = stand(29, mats, seats, led.mat, [0], 11, refined);
+      const corner = stand(29, mats, seats, led.mat, [0], 11, refined,casual);
       corner.rotation.y = -side * Math.PI / 4;
       corner.position.set(side * 41, 0, -12);
       root.add(corner);
@@ -350,7 +351,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
   // Distant spectators: code-native silhouettes, one instanced draw per part.
   // A stable layout avoids random crowd changes on every scene load.
   let spectators = null;
-  const courtside = refined ? buildCourtside(root,seats,seatedAudience) : null;
+  const courtside = refined ? buildCourtside(root,seats,seatedAudience,{casual}) : null;
   let crowdArms = null, armRows = [], cheerTime = 10;
   if (populated) {
     const people = seats.filter(([g,x,y], i) => i % 13 !== 0 && (g.position.y < 1 || i % 3 === 0) && !(refined && seatedAudience && g.position.y<1 && y<2 && i%17!==0));
@@ -481,12 +482,13 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
       geometries.forEach(g => g.dispose());
       if (!merged) continue;
       objects.forEach(o => { o.removeFromParent(); o.geometry.dispose(); });
-      root.add(new THREE.Mesh(merged, material));
+      const batch=new THREE.Mesh(merged,material);batch.receiveShadow=objects.some(o=>o.receiveShadow);root.add(batch);
     }
   }
 
   return {
     root,
+    dispose:()=>courtside?.dispose(),
     setScore: data=>architecture?.setScore(data),
     swish: () => { cords.kick(); cheerTime = 0; },
     update(dt) {
