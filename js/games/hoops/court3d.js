@@ -82,6 +82,8 @@ export class Court3D extends BeatRunner {
     const forced = new URLSearchParams(location.search).get('hoopsQuality');
     this.arenaLook = new URLSearchParams(location.search).get('hoopsLook') !== 'classic';
     this.venueLook = this.arenaLook && new URLSearchParams(location.search).get('hoopsVenue') !== 'legacy';
+    this.skinLook = this.arenaLook && new URLSearchParams(location.search).get('hoopsSkin') !== 'legacy';
+    this.structureLook = this.venueLook && new URLSearchParams(location.search).get('hoopsStructure') !== 'legacy';
     this.quality = forced === 'low' ? 'low' : 'high';
     this._qualityLocked = !!forced;
     this._probe = [];
@@ -158,8 +160,8 @@ export class Court3D extends BeatRunner {
     const image = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
     const optional = p => p.catch(() => null);    // environment art is a bonus, never a blocker
     const tex = new THREE.TextureLoader();
-    const [figs, mark, wood, nor, rough, hdr, crowd, motions, jumps, seated] = await Promise.all([
-      loader.loadAsync(ASSETS + (this.arenaLook ? 'athlete-arena.glb' : 'athlete.glb')),
+    const [figs, mark, wood, nor, rough, hdr, crowd, motions, jumps, seated, skinMicro] = await Promise.all([
+      this.skinLook ? loader.loadAsync(ASSETS+'athlete-faces.glb').catch(()=>loader.loadAsync(ASSETS+'athlete-arena.glb')) : loader.loadAsync(ASSETS + (this.arenaLook ? 'athlete-arena.glb' : 'athlete.glb')),
       optional(image(ASSETS + '../cd_home_mark_transparent.png')),
       optional(image(ASSETS + 'env/wood_diff_1k.jpg')),
       optional(tex.loadAsync(ASSETS + 'env/wood_nor_1k.jpg')),
@@ -168,8 +170,10 @@ export class Court3D extends BeatRunner {
       this.arenaLook ? optional(loader.loadAsync(ASSETS + 'crowd-head.glb')) : null,
       this.arenaLook ? optional(loader.loadAsync(ASSETS + 'basketball-actions.glb')) : null,
       this.arenaLook ? optional(loader.loadAsync(ASSETS + 'jump-shot.glb')) : null,
-      this.venueLook ? optional(loader.loadAsync(ASSETS + 'seated-audience.glb')) : null
+      this.venueLook ? optional(loader.loadAsync(ASSETS + 'seated-audience.glb')) : null,
+      this.skinLook ? optional(tex.loadAsync(ASSETS + 'skin-micro.png')) : null
     ]);
+    if(skinMicro){skinMicro.wrapS=skinMicro.wrapT=THREE.MirroredRepeatWrapping;skinMicro.anisotropy=Math.min(4,this.renderer.capabilities.getMaxAnisotropy());this._skinMicro=skinMicro;}
 
     if (hdr) {
       hdr.mapping = THREE.EquirectangularReflectionMapping;
@@ -232,7 +236,7 @@ export class Court3D extends BeatRunner {
     let crowdHead=null;
     crowd?.scene.traverse(o=>{if(o.isMesh)crowdHead=o.geometry;});
     this.arena = buildArena(this.scene, { hoop, rimY: RIM_Y, populated: this.arenaLook, crowdHead,
-      seatedAudience:seated?.scene,refined:this.venueLook });
+      seatedAudience:seated?.scene,refined:this.venueLook,structure:this.structureLook });
     if(crowd)disposeObject(crowd.scene);
     if(seated)disposeObject(seated.scene);
     this._applyQuality();
@@ -366,21 +370,22 @@ export class Court3D extends BeatRunner {
       case 'Jersey': m = new THREE.MeshStandardMaterial({ color: t.jersey, roughness: 0.22 }); break;
       case 'Shorts': m = new THREE.MeshStandardMaterial({ color: t.shorts, roughness: 0.26 }); break;
       case 'Skin': m = this.arenaLook
-        ? new THREE.MeshPhysicalMaterial({roughness:.66,clearcoat:.12,clearcoatRoughness:.4})
+        ? new THREE.MeshPhysicalMaterial(this.skinLook?{roughness:.64,clearcoat:.02,clearcoatRoughness:.55,specularIntensity:.45,ior:1.4}:{roughness:.66,clearcoat:.12,clearcoatRoughness:.4})
         : new THREE.MeshStandardMaterial({ color: you ? TEAM.you.body : t.body, metalness: 1, roughness: you ? 0.3 : 0.38 }); break;
       case 'Base': m = new THREE.MeshStandardMaterial({ color: t.base, roughness: 0.25, metalness: 0.05, ...ABOVE_FLOOR }); break;
       case 'Trim': m = new THREE.MeshStandardMaterial({ color: GOLD, metalness: 1, roughness: 0.3, ...ABOVE_FLOOR }); break;
-      case 'Hair': m = new THREE.MeshStandardMaterial({ color: number % 3 === 0 ? 0x35281E : 0x171514, roughness: 0.95 }); break;
-      case 'EyeSclera': m = new THREE.MeshStandardMaterial({color:0xD6CEC0,roughness:.32}); break;
-      case 'EyeIris': m = new THREE.MeshStandardMaterial({color:number%4===0?0x556251:0x49321E,roughness:.42}); break;
-      case 'EyePupil': m = new THREE.MeshStandardMaterial({color:0x080809,roughness:.3}); break;
+      case 'Hair': m = this.skinLook?new THREE.MeshPhysicalMaterial({color:number%3===0?0x35281E:0x171514,roughness:.8,anisotropy:.3,anisotropyRotation:Math.PI/2,specularIntensity:.55,envMapIntensity:.3}):new THREE.MeshStandardMaterial({ color: number % 3 === 0 ? 0x35281E : 0x171514, roughness: 0.95 }); break;
+      case 'EyeSclera': m = this.skinLook?new THREE.MeshPhysicalMaterial({color:0xD6CEC0,roughness:.28,clearcoat:.45,clearcoatRoughness:.12,ior:1.376}):new THREE.MeshStandardMaterial({color:0xD6CEC0,roughness:.32}); break;
+      case 'EyeIris': m = this.skinLook?new THREE.MeshPhysicalMaterial({color:number%4===0?0x556251:0x49321E,roughness:.32,clearcoat:.6,clearcoatRoughness:.1,ior:1.376}):new THREE.MeshStandardMaterial({color:number%4===0?0x556251:0x49321E,roughness:.42}); break;
+      case 'EyePupil': m = this.skinLook?new THREE.MeshPhysicalMaterial({color:0x080809,roughness:.2,clearcoat:.6,clearcoatRoughness:.1,ior:1.376}):new THREE.MeshStandardMaterial({color:0x080809,roughness:.3}); break;
       default: m = new THREE.MeshStandardMaterial({ color: 0xF4F3EF, roughness: 0.45 });
     }
     if (this.arenaLook) {
       if (slot === 'Skin') {
         const skins = [0xA36E4C, 0xD6A17C, 0x72452F, 0xBE885F, 0x8E5C40];
         m.color.setHex(skins[(number - 1 + (side === 'd' ? 2 : 0)) % skins.length]);
-        m.metalness = 0; m.roughness = 0.66; m.envMapIntensity = 0.35;
+        m.metalness = 0; m.roughness = this.skinLook ? .64 : .66; m.envMapIntensity = this.skinLook ? .4 : .35;
+        if(this.skinLook&&this._skinMicro){m.bumpMap=this._skinMicro;m.bumpScale=.0015;}
       }
       if (slot === 'Jersey' || slot === 'Shorts') { m.roughness = 0.85; m.envMapIntensity = 0.2; }
       if (slot === 'Jersey' || slot === 'Shorts') {
@@ -404,7 +409,7 @@ export class Court3D extends BeatRunner {
         m.customProgramCacheKey=()=> 'hoops-kit-trim-1';
       }
       if (slot === 'Shoe') { m.color.setHex(side === 'o' ? 0xE8E6E0 : 0x252D39); m.roughness = 0.8; }
-      if(['Skin','Hair','Shoe'].includes(slot))athleteSurface(m,slot,side);
+      if(['Skin','Hair','Shoe'].includes(slot)||this.skinLook&&['EyeSclera','EyeIris'].includes(slot))athleteSurface(m,slot,side,{refined:this.skinLook});
     }
     m.name=slot;
     this.materials[key] = m;
@@ -471,7 +476,7 @@ export class Court3D extends BeatRunner {
       const isYou = id === you;
       const n = Number(id.slice(1));
       const decalMat = new THREE.MeshStandardMaterial({ map: this._numberTexture(n,side), alphaTest: 0.5, roughness: 0.75 });
-      const athlete = this.kit.make(slot => this._material(slot, side, isYou, n), decalMat, { pedestal: !this.arenaLook, style: this.arenaLook ? n : 0 });
+      const athlete = this.kit.make(slot => this._material(slot, side, isYou, n), decalMat, { pedestal: !this.arenaLook, style: this.arenaLook ? n : 0,faceVariant:this.skinLook?n+(side==='d'?5:0):0 });
       decalMat.dispose();
       const root = new THREE.Group();
       root.add(athlete.root);
@@ -1248,7 +1253,7 @@ export class Court3D extends BeatRunner {
     if (this.arenaLook && b.pass) this._receivingId = b.pass;
     who.athlete.trigger(name, clip.duration / (ms * PLAY_SPEED / 1000));
     flight.prepared = true;
-    if (b.shot) { this._receivingId = null; this._shooter = who.id; who.airborne=false; who.landingDone=false; if (this.arenaLook) this.setShot('finish'); }
+    if (b.shot) { this._receivingId = null; this._shooter = who.id; who.airborne=false; who.landingDone=false; if (this.arenaLook&&b.finishCamera!==false) this.setShot('finish'); }
   }
 
   /** One-shots from what the ball just did: passes, catches, shots. */

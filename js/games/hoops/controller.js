@@ -395,7 +395,10 @@ export class HoopsGame {
     if (flow !== this.flow) return;
 
     this._setPhase('intro');
-    const done = await this.court.play(lvl.intro, { slowLast: true });
+    // Intro shots teach the whole play; a finish close-up can crop the next
+    // decision spot (notably box-out) below the tappable court.
+    const intro = this.arenaLook ? lvl.intro.map(beat=>({...beat,finishCamera:false})) : lvl.intro;
+    const done = await this.court.play(intro, { slowLast: true });
     if (!done || flow !== this.flow) return;
     this.freezeSnap = this.court.snapshot();
     this.freezeClock = this.clock;
@@ -696,6 +699,8 @@ export class HoopsGame {
     this.$('.hp-hud-score').textContent = `${t('hoops.home')} ${a + (this.homeBonus || 0)}  ·  ${t('hoops.away')} ${b}`;
     this.$('.hp-hud-clock').textContent = lvl.hud ? (this.clock ?? 0).toFixed(1) : 'HOOPS IQ';
     this.$('.hp-hud-note').textContent = lvl.hud ? t('hoops.clockOff') : getLocale() === 'zh' ? '训练回合' : 'TRAINING';
+    this.court.arena?.setScore({home:a+(this.homeBonus||0),away:b,
+      clock:this.$('.hp-hud-clock').textContent,note:this.$('.hp-hud-note').textContent});
   }
 
   /* ---------------------------------------------------------------- *

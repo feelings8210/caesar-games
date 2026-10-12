@@ -272,3 +272,11 @@
 ## Original jump shot and seated crowd (local.26)
 
 `jump-shot.glb` contains an authored 1.3-second jump shot on the same approved CC0 rig; no NBA scans or motion capture are included. `seated-audience.glb` bakes three original seated poses from the fitted CC0 athlete, with separate high/low meshes. The native Blender builders, parent/canonical paths, licenses and output SHA256 are in the corresponding `.provenance.json` files. Runtime palette variation and courtside furniture are original code. These are project-specific derivatives, not globally promoted assets. Close-up art, continuous audiovisual and iPad/Owner review remain pending; there is no NBA 2K quality approval.
+
+## Original face variants and skin detail (local.28)
+
+`athlete-faces.glb` adds four authored proportion targets to both head tiers of the approved CC0 athlete. It keeps the original rig and animation clips; no NBA scans or motion capture are included. The source chain and native Blender builder hash are in `athlete-faces.provenance.json`.
+
+`skin-micro.png` uses a grayscale high-pass crop from [Image skin texture](https://commons.wikimedia.org/wiki/File:Image_skin_texture.jpg), Pixnio, CC0-1.0. The original was controlled-acquired through the approved Commons source into the canonical 3090 library; per-file license and API/file hash evidence were recorded. This is authored micro-height contrast, not a calibrated scan or facial colour atlas. Canonical source, license evidence, source/output hashes and native Blender recipe are in `skin-micro.provenance.json`.
+
+The roof trusses, fixture housings, fascia and scoreboard artwork are original code. Source licensing and mechanical checks do not establish NBA-quality art or iPad/Owner acceptance.

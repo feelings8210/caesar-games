@@ -13,6 +13,7 @@
 import * as THREE from '../../vendor/three/three.module.min.js';
 import { mergeGeometries } from '../../vendor/three/addons/BufferGeometryUtils.js';
 import { buildCourtside } from './arena-courtside.js';
+import { buildArchitecture } from './arena-architecture.js';
 
 const GROUND_Y = -2.4;
 
@@ -260,7 +261,7 @@ function net(center, rimY) {
   };
 }
 
-export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = null, seatedAudience = null, refined = false }) {
+export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = null, seatedAudience = null, refined = false, structure = false }) {
   const mats = Object.fromEntries(Object.entries(MAT).map(([k, f]) => [k, f()]));
   const root = new THREE.Group();
   scene.add(root);
@@ -288,6 +289,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
   right.rotation.y = -Math.PI / 2;
   right.position.set(33, 0, populated ? 47 : 23);
   root.add(back, left, right);
+  const architecture = populated && structure ? buildArchitecture(root,mats,led.mat) : null;
   if (populated) {
     // A second deck and lit concourse give the bowl a continuous silhouette.
     // Keep the camera-side upper deck open: it lies behind the broadcast lens.
@@ -297,6 +299,10 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
     upperRight.rotation.y = -Math.PI / 2;
     upperRight.position.set(76, 23, 47);
     root.add(upperBack, upperRight);
+    if(structure){
+      const upperLeft=stand(146,mats,seats,led.mat,[-48,-24,0,24,48],8,refined);
+      upperLeft.rotation.y=Math.PI/2;upperLeft.position.set(-76,23,47);root.add(upperLeft);
+    }
     for (const side of [-1,1]) {
       const corner = stand(29, mats, seats, led.mat, [0], 11, refined);
       corner.rotation.y = -side * Math.PI / 4;
@@ -481,6 +487,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
 
   return {
     root,
+    setScore: data=>architecture?.setScore(data),
     swish: () => { cords.kick(); cheerTime = 0; },
     update(dt) {
       cords.update(dt); led.update(dt);

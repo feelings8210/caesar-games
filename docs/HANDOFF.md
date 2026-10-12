@@ -1,3 +1,15 @@
+## Current local.28 — original faces, skin surface and arena structure (2026-10-11)
+
+Persistent NBA 2K Mobile / best audiovisual goal remains ACTIVE and unmet. Branch `codex/hoops-local`, local.28 only; no push/PR/publish. Four native Blender face targets in both head tiers, ten runtime identities, CC0-photo-derived microheight detail, refined skin/eyes/cropped hair, roof trusses/fixtures/acoustic panels, upper-left deck/fascia and actual HUD-linked score displays are integrated. `hoopsSkin=legacy` and `hoopsStructure=legacy` provide independent preceding versions. Exact assets/license/build receipts and observed limitations: `docs/NBA_MOTION_AND_ARENA_REVIEW_20261011.md` local.28 section.
+
+Actual head deformation/stability in both tiers, hands/neck, motion/contacts, presentation/LOD, physical reflection and score/clock checks passed. Final 21 Node suites pass serially; fresh current/legacy offline local.28 3D, six rebuild memory plateau, no JS errors/external requests or phone overflow. New total high/low ~1.89m/1.01m triangles, 453 calls in the same scene, still no iPad performance evidence. Default SwiftShader smoke initially timed out before the first decide; retained in SSD `skin-material-study/smoke-final`. Final hardware smoke passes all ten chapters, five Read & React rounds, playbook walk, wrong-read/demo, deliberate timeout, mid-level exit and phone layout; errors empty.
+
+Private final 60fps proof: worker/SSD `proof-skin-v28/new.mp4`, SHA `bb22b0babb7fe85bd199b13c3bae92d359d41a3ff453852708359d747abad8a4`; same-seed preceding version `legacy.mp4`. Initial 1000fps export and grid overwrite failure are retained; final probes have explicit 60fps/H.264/AAC 48kHz stereo. Review URL unchanged and now shows actual new game views, portrait/roof studies and both current videos. First five images plus both top video metadata/readyState checked. App open request queued. No continuous 1x/actual listening/iPad/Owner acceptance; no NBA parity.
+
+Full hardware smoke initially passed chapters1–8 then exposed chapter9's intro-shot close-up cropping the correct decision target below the court. Fixed with per-intro `finishCamera:false`; normal click now succeeds at y≈578 rather than863. Fresh final offline verification checks current cached source, four actual head targets, skin map and successful box-out choice/review. Final canonical full-smoke rerun in SSD `skin-material-study/smoke-fixed-final/report.json` passes (hardware browser mode); the earlier failures are retained. Final 21 Node suites rerun after the camera fix also pass.
+
+Next priority: spectators' casual clothing, sleeves, hair/face cohorts and seated relationships via native Blender. Current crowd still visibly repeats the athlete face and sleeveless kit. Prove a small close row before scaling; keep rejected shoulder-pad and floating-head attempts withdrawn. Skin texture improvement is subtle, not a substitute for better anatomy and cloth.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 HANDOFF
 STATE ID: HO-2026-10-11-hoops-local.27   ← THIS NODE

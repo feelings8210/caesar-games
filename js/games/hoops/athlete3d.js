@@ -12,6 +12,9 @@ import { reach, gripPoint } from './basketball-pose.js';
 
 const FADE = 0.22;
 const BAKED_FINISHES = new Set(['LayupR','JumpShot']);
+const FACE_TARGETS=['JawWide','JawLong','NoseBridge','CheekWidth'];
+const FACE_VARIANTS=[[-.3,0,0,.15],[.1,.75,.4,-.15],[.9,-.2,.65,.15],[-.65,.25,-.25,-.1],[.45,0,-.1,.8],
+  [.3,.2,.8,-.3],[-.4,-.3,.45,.5],[.75,.3,-.35,-.2],[0,.9,-.15,.1],[-.25,.2,.65,-.4]];
 /** Loops that crouch deep enough to want some standing pose mixed in. */
 const CROUCH = new Set(['DefStance', 'DefSlideL', 'DefSlideR']);
 /** Feet travelled per loop, from the animation library's root motion. */
@@ -89,14 +92,19 @@ export class AthleteKit {
     }
   }
 
-  make(materialFor, numberMat, { pedestal = true, style = 0 } = {}) {
-    return new Athlete(this, materialFor, numberMat, pedestal, style);
+  make(materialFor, numberMat, { pedestal = true, style = 0, faceVariant = 0 } = {}) {
+    return new Athlete(this, materialFor, numberMat, pedestal, style,faceVariant);
   }
 }
 
 class Athlete {
-  constructor(kit, materialFor, numberMat, pedestal, style) {
+  constructor(kit, materialFor, numberMat, pedestal, style,faceVariant) {
     this.root = cloneSkinned(kit.template);
+    this.faceVariant=faceVariant;
+    if(faceVariant>0)this.root.traverse(o=>{
+      if(!o.morphTargetDictionary||!FACE_TARGETS.every(n=>n in o.morphTargetDictionary))return;
+      FACE_TARGETS.forEach((name,i)=>o.morphTargetInfluences[o.morphTargetDictionary[name]]=FACE_VARIANTS[(faceVariant-1)%FACE_VARIANTS.length][i]);
+    });
     this.poseBase = new Map();
     this.head = this.root.getObjectByName('Head');
     this.ownedGeometry = new Set();
