@@ -126,6 +126,7 @@ export class HoopsGame {
           <div class="hp-title-card"><span></span><strong></strong></div>
           <div class="hp-banner"></div>
           <button class="hp-view is-hidden" type="button"></button>
+          <div class="hp-choice-tray hp-choice-stage" role="group" aria-label="Actions"></div>
         </div>
         <aside class="hp-panel" aria-live="polite">
           <button class="hp-back" type="button"></button>
@@ -136,6 +137,7 @@ export class HoopsGame {
             <p class="hp-prompt"></p>
             <p class="hp-howto"></p>
             <div class="hp-clock"><i></i></div>
+            <div class="hp-choice-tray hp-choice-panel" role="group" aria-label="Actions"></div>
           </div>
           <div class="hp-phase hp-review">
             <p class="hp-summary is-hidden"></p>
@@ -179,6 +181,10 @@ export class HoopsGame {
       this.render();
     }));
     this.$('.hp-read-start').addEventListener('click', () => { sounds.tap(); this.startRead(); });
+    this.$$('.hp-choice-tray').forEach(tray=>tray.addEventListener('click',event=>{
+      const button=event.target.closest('button[data-choice]');
+      if(button&&!button.disabled&&this.phase==='decide')this.choose(Number(button.dataset.choice));
+    }));
     this.$('.hp-voice-toggle').addEventListener('click', () => {
       sounds.tap();
       setVoiceEnabled(!voiceEnabled());
@@ -364,6 +370,9 @@ export class HoopsGame {
     sfx.preload().then(() => { if (this.view === 'play') sfx.startCrowd(() => this.courtOnScreen()); });
     stopVoice();
     this.current = lvl;
+    // A stable shuffled display order avoids teaching "always press A".
+    this._choiceOrder=lvl.options.map((_,i)=>i);
+    for(let n=this._choiceOrder.length-1;n>0;n--){const j=Math.floor(Math.random()*(n+1));[this._choiceOrder[n],this._choiceOrder[j]]=[this._choiceOrder[j],this._choiceOrder[n]];}
     this.view = 'play';
     this.choice = null;
     this.stars = 0;
@@ -595,6 +604,7 @@ export class HoopsGame {
 
   _renderPanel() {
     const p = this.phase;
+    this._renderChoices();
     this.$('.hp-back').textContent = `‹ ${t(this.mode === 'chapter' ? 'hoops.levels' : 'hoops.back')}`;
     if (p === 'pb') {
       this.$$('.hp-phase').forEach(n => n.classList.remove('is-on'));
@@ -616,7 +626,7 @@ export class HoopsGame {
     view.textContent = t(this.pov ? 'hoops.view.court' : 'hoops.view.player');
     this.$('.hp-watch-text').textContent = t(p === 'demo' ? 'hoops.bestPlay' : 'hoops.watch');
     this.$('.hp-prompt').textContent = L(lvl.prompt);
-    this.$('.hp-howto').textContent = t(lvl.side === 'defense' ? 'hoops.howToDefense' : 'hoops.howTo');
+    this.$('.hp-howto').textContent = getLocale()==='zh'?'点动作按钮，也可以直接点球员、篮筐或拖动跑位。':'Choose an action button, or tap a player, the rim, or drag to a spot.';
     this.court?.setYouLabel(t('hoops.you'));
     this._renderHud();
 
@@ -672,6 +682,28 @@ export class HoopsGame {
         retry.classList.toggle('btn-primary', !passed);
         retry.classList.toggle('btn-quiet', passed);
         summary.classList.add('is-hidden');
+      }
+    }
+  }
+
+  _renderChoices() {
+    const zh=getLocale()==='zh';
+    const options=this.phase==='pb'?[]:this.level?.options||[];
+    for(const tray of this.$$('.hp-choice-tray')){
+      tray.replaceChildren();tray.setAttribute('aria-label',zh?'选择动作':'Choose an action');
+      const order=(this._choiceOrder||options.map((_,i)=>i)).filter(i=>i<options.length);
+      for(const [displayIndex,i] of order.entries()){
+        const opt=options[i];
+        const button=document.createElement('button');button.type='button';button.dataset.choice=i;
+        button.className='hp-choice';button.disabled=this.phase!=='decide';
+        let label=opt.label?L(opt.label):opt.kind==='shoot'?(zh?'投篮':'Shoot'):(zh?'移动到位置':'Move to the spot');
+        if(opt.kind==='pass'){
+          const [x,z]=this.court?.pos[opt.to]||this.level.setup[opt.to];
+          const spot=Math.abs(x)>=20&&z<12?(zh?'底角':'corner'):z<12&&Math.abs(x)<13?(zh?'篮下':'paint'):Math.abs(x)>12?(zh?'侧翼':'wing'):(zh?'弧顶':'top');
+          label=zh?`传给${opt.to.slice(1)}号 · ${spot}`:`Pass to #${opt.to.slice(1)} · ${spot}`;
+        }else if(opt.kind==='shoot')label=zh?`自己${label}`:label==='Finish'?'Layup at rim':label;
+        const index=document.createElement('span');index.className='hp-choice-index';index.textContent=String.fromCharCode(65+displayIndex);
+        const text=document.createElement('span');text.textContent=label;button.append(index,text);tray.appendChild(button);
       }
     }
   }

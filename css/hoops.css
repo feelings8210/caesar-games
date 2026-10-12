@@ -458,6 +458,7 @@
 .hc3-chip.is-o { box-shadow: 0 0 0 1.5px #7FB2FF, 0 2px 6px rgba(0,0,0,.35); }
 .hc3-chip.is-d { box-shadow: 0 0 0 1.5px #FF7F70, 0 2px 6px rgba(0,0,0,.35); }
 .hc3-chip.is-you { color: #0E1F3A; background: #F2C66D; box-shadow: 0 0 0 1.5px #FFE6A8, 0 2px 8px rgba(0,0,0,.4); }
+.hc3-chip.is-target { box-shadow: 0 0 0 2px #E2BE72, 0 2px 8px rgba(0,0,0,.4); }
 .hc3d.is-frozen .hc3-chip { min-width: 24px; height: 24px; font-size: 14px; }
 
 .hc3-you {
@@ -497,17 +498,35 @@
 }
 .hc3-target-label.is-hot { background: #C9A76A; color: #0E1F3A; }
 
-/* Keep the decision court clear of the broadcast score graphic. */
-.hoops[data-phase="decide"] .hp-stage {
+/* Keep the score outside the court throughout the play, so freezing for a
+   choice never changes the camera aspect or shifts the targets. */
+.hoops[data-view="play"] .hp-stage {
   display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 8px;
 }
-.hoops[data-phase="decide"] .hp-hud {
+.hoops[data-view="play"] .hp-hud {
   position: static; transform: none; justify-self: start;
   max-width: 100%; box-sizing: border-box; flex-wrap: wrap;
 }
+.hp-choice-tray { display: grid; gap: 8px; }
+.hp-choice-stage { display: none; }
+.hp-choice { display: flex; align-items: center; gap: 9px; min-height: 46px; padding: 9px 12px;
+  border-radius: 8px; background: #23364F; color: #F4F6F9; text-align: left;
+  font: 650 14px/1.3 var(--font-cn); box-shadow: inset 0 0 0 1px #6B7E95; touch-action: manipulation; }
+.hp-choice:not(:disabled):hover, .hp-choice:not(:disabled):focus-visible { background: #354B69; box-shadow: inset 0 0 0 2px #E2BE72; }
+.hp-choice:not(:disabled):active { background: #B89B60; color: #0E1F3A; }
+.hp-choice:disabled { opacity: .45; }
+.hp-choice-index { display: grid; place-items: center; flex: 0 0 24px; height: 24px; border-radius: 5px; background: #13233A; color: #E2BE72; }
 @media (max-width: 860px), (orientation: portrait) {
-  .hoops[data-court="3d"] .hp-court { height: min(64vh, 110vw); }
-  .hoops[data-phase="decide"] .hp-stage { grid-template-rows: auto auto; }
+  .hoops[data-court="3d"] .hp-court { height: min(48vh, 110vw); }
+  .hoops[data-view="play"] .hp-stage { grid-template-rows: auto auto auto; }
+  .hp-choice-stage { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); min-height: 100px; }
+  .hp-choice-panel { display: none; }
+  .hoops[data-phase="pb"] .hp-choice-stage { display: none; }
+  .hp-choice { padding: 8px; font-size: 12px; gap: 6px; }
+  .hoops[data-court="3d"][data-view="play"] .hp-title-card { top: min(24vh, 55vw); }
+  .hoops[data-court="3d"][data-view="play"] .hp-banner {
+    top: calc(min(48vh, 110vw) - 12px); bottom: auto; transform: translate(-50%, -100%);
+  }
 }
 
 /* ------------------------------------------------------------------ *

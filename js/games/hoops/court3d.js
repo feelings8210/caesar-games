@@ -953,6 +953,7 @@ export class Court3D extends BeatRunner {
         }
       }
       g.userData.opt = i;
+      if(opt.kind==='pass')this.labels[opt.to]?.classList.add('is-target');
       this.scene.add(g);
       let label = null;
       if (opt.label) {
@@ -975,6 +976,7 @@ export class Court3D extends BeatRunner {
 
   clearMarkers() {
     for (const t of this.targets) { disposeObject(t.group); t.label?.remove(); }
+    for(const chip of Object.values(this.labels||{}))chip.classList.remove('is-target');
     this.targets = [];
     this.endDrag();
   }
@@ -1541,12 +1543,13 @@ export class Court3D extends BeatRunner {
     };
     const pov = this.shot === 'pov';
     for (const [id, chip] of Object.entries(this.labels)) {
-      // Beside the ring on the outside of the floor, not in front of it: in a
-      // column of players (a stack, a lane line-up) "in front" is the next
-      // player's feet, and every number looked like it belonged to him.
+      // A pass choice sits on the receiver, at the exact same world point as
+      // hit testing. The old outward floor offset pushed corner badges over
+      // the sideline and made them look like an off-court destination.
       const [x, z] = this.pos[id];
       const out = x >= 0 ? 1 : -1;
-      place(chip, new THREE.Vector3(x + out * 2.5, 0.1, z + 1.1));
+      const pass=this.targets.find(t=>t.opt.kind==='pass'&&t.opt.to===id);
+      place(chip,pass?this._target3(pass.opt):new THREE.Vector3(x+out*2.5,.1,z+1.1));
       if (pov && id === this.you) chip.style.visibility = 'hidden';
     }
     if (this.youTag) this.youTag.style.display = pov ? 'none' : '';
