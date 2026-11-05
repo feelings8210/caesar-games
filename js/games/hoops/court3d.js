@@ -1226,6 +1226,7 @@ export class Court3D extends BeatRunner {
     const w = this.el.clientWidth;
     const h = this.el.clientHeight;
     if (!w || !h) return;
+    const changed = this._w !== w || this._h !== h;
     this._w = w; this._h = h;
     this._aspect = w / h;
     this.renderer.setSize(w, h, false);
@@ -1234,7 +1235,9 @@ export class Court3D extends BeatRunner {
     this.baseFov = this.arenaLook ? (w / h < 0.9 ? 54 : 36) : (w / h < 0.9 ? 50 : 38);
     if (this.shot !== 'pov') this.camera.fov = this.baseFov;
     this.camera.updateProjectionMatrix();
-    this.setShot(this.shot);
+    // A new aspect ratio invalidates the old framing. Snap broadcast shots to
+    // the new fit instead of briefly clipping players while the camera eases.
+    this.setShot(this.shot, changed && this.arenaLook && (this.shot === 'broadcast' || this.shot === 'decide'));
   }
 
   _beat(b, token, slow) {
