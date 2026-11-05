@@ -1,3 +1,9 @@
+## 左脚朝向与落地修正 a03（2026-11-05 继续）
+
+CB0001 `landing-reach/a01` 对比 a08 与 landing-ik/a02，`tools/blender/audit_landing_reach.py` 输出 SHA `b56f8ee1fcae310c76d636ecd29af564b7daa9e6b3f9d5d430befc74221e3da0`；帧461左腿长度约95.14cm，达到将踝降低4.42cm的位置仍有约5.93cm余量。a02 的踝确实降低4.42cm，但脚部方向随小腿旋转约6.69度，鞋底只降低约2.48cm。诊断是针对该手选帧窗口与该骨架，不证明全部动作或地面接触。
+
+`try_cmu_landing_ik.py` 更新：在试验窗口内将脚骨朝向保持为原始的 armature-space 旋转，再烘焙。CB0001 `landing-ik/a03` candidate SHA `742e6b075185224cf47de0d282136342267c1e17fe637f2041c0e124e519fa17`，archive `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/landing-ik/a03/outputs/`；独立 `landing-audit/a03` SHA `1ce790d14d6fd257f94abbc5fec11d9c536a32ae1de880af9183d9eab18bcb93`。每5帧抽查451、461、471、481、491、501左鞋最低约0cm，右鞋也约0；帧421起跳仍在、441与511及其他少数窗口外鞋高与基线相同。这不能证明未抽样帧、骨骼其余部分、膝部、自然过渡或脚滑正确。静音浏览器六帧 `landing-ik-a03/sheet.jpg` 已目视，但人物不够大且无球和正常速度，不能作动作审美或触球验收。候选仍隔离、不进游戏；须继续逐帧接触/膝关节、真实跑动与落地、带球与1×对照。测试服务及浏览器已关闭，GPU任务完成；正式语音视频和 iPad/Owner 验收未完成。Goal ACTIVE。
+
 ## 左腿独立落地 IK 试验（2026-11-05 继续）
 
 `tools/blender/try_cmu_landing_ik.py` 从 a08 生成独立试验：仅在手选帧441–511对左腿施加垂直 IK、451–501全权重并渐入渐出，保留水平踝轨迹；不是自动接触检测，也没有水平脚锁或球。a01 因 glTF 导入后才设120fps，帧158后冻结，已否决，`landing-audit/a01` 是失败证据。a02 在导入前设120fps，6.575秒候选 SHA `f18221b40c839476902a1cde89bb254b03032105b7fce7f9ac0146cbb36d2546`，CB0001 archive `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/landing-ik/a02/outputs/`；不可把导出成功视为动作合格。

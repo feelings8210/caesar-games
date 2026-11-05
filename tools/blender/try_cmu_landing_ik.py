@@ -7,7 +7,7 @@ import json
 import os
 from pathlib import Path
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 OUT = Path(os.environ['MF_OUTPUT_DIR'])
 INPUT = '/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-retarget/a08/outputs/cmu-jump-retarget-candidate.glb'
@@ -25,6 +25,7 @@ if not indices:
     raise RuntimeError('Left foot vertices missing')
 scene = bpy.context.scene
 calf = rig.pose.bones['calf_l']
+foot = rig.pose.bones['foot_l']
 
 def influence(frame):
     if frame < 441 or frame > 511:
@@ -47,20 +48,32 @@ for frame in range(441, 512):
         obj.to_mesh_clear()
     ankle = rig.matrix_world @ calf.tail
     lower = min(.25, max(0.0, bottom))
-    targets.append((frame, ankle - Vector((0, 0, lower)), bottom, influence(frame)))
+    targets.append((frame, ankle - Vector((0, 0, lower)), bottom, influence(frame), foot.matrix.to_quaternion().copy()))
 
 helper = bpy.data.objects.new('ExperimentalLandingIK', None)
 scene.collection.objects.link(helper)
-for frame, pos, _, weight in targets:
+for frame, pos, _, weight, _ in targets:
     helper.location = pos
     helper.keyframe_insert('location', frame=frame)
 constraint = calf.constraints.new('IK')
 constraint.target = helper
 constraint.chain_count = 2
 constraint.use_rotation = False
-for frame, _, _, weight in targets:
+for frame, _, _, weight, _ in targets:
     constraint.influence = weight
     constraint.keyframe_insert('influence', frame=frame)
+
+# Preserve the foot's original armature-space orientation while the parent
+# calf rotates to reach the target. Otherwise the sole rotates upward as the
+# ankle descends, leaving the shoe visibly off the floor.
+for frame, _, _, _, original_rotation in targets:
+    scene.frame_set(frame)
+    bpy.context.view_layer.update()
+    location, _, scale = foot.matrix.decompose()
+    foot.matrix = Matrix.LocRotScale(location, original_rotation, scale)
+    bpy.context.view_layer.update()
+    foot.rotation_mode = 'QUATERNION'
+    foot.keyframe_insert('rotation_quaternion', frame=frame, group=foot.name)
 
 bpy.ops.object.select_all(action='DESELECT')
 rig.select_set(True)
@@ -82,6 +95,6 @@ for child in rig.children_recursive:
 bpy.context.view_layer.objects.active = rig
 bpy.ops.export_scene.gltf(filepath=str(OUT / 'candidate.glb'), export_format='GLB', use_selection=True, export_animations=True)
 (OUT / 'trial.json').write_text(json.dumps({'window': [441, 511], 'full_influence': [451, 501],
-    'samples': [{'frame': f, 'bottom_before': z, 'influence': w} for f, _, z, w in targets],
+    'samples': [{'frame': f, 'bottom_before': z, 'influence': w} for f, _, z, w, _ in targets],
     'limitations': ['MANUAL_CONTACT_WINDOW', 'NO_HORIZONTAL_FOOT_LOCK', 'NO_BALL', 'VISUAL_QC_PENDING']}, indent=2) + '\n')
 print('LANDING_IK_TRIAL_DONE')
