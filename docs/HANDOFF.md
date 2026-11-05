@@ -1,3 +1,9 @@
+## CMU Blender 导入与静音导出进度（2026-11-05）
+
+CMU 两段 BVH 已通过 CB0001 注册路径导入 Blender 5.2.2：跳投 1–789 帧、上篮 1–694 帧、各31根骨骼/120fps；采样坐标有限、正侧骨架采样图已目视，见 SSD `cmu-jump-poses.png`、`cmu-layup-poses.png`。它们只证明导入和少数姿态，不能证明转换精度、自然动作、触地或与游戏骨架适配。权威 Blender JSON `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-inspect/a01/outputs/cmu-bvh-pose-samples.json`；正侧采样图 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-sheets/a01/outputs/`。已准备 a02 全过程每5帧采样，首次派工因 CB0001 GPU 锁忙而拒绝（未启动、无重复 attempt）；等锁空或按真实依赖 stage 到认证 worker 再做，不能中断他人任务。脚本 `tools/blender/inspect_cmu_bvh.py`、`scripts/hoops-cmu-pose-sheet.py`。
+
+后续优先看完整正常速度动作、检查转换器未初始化旋转/零长骨和目标骨架重定向，再核脚步与持球；CMU 原始数据不得直接转售，PWA 分发限制仍需核实，不直接复制到网页。正式旁白与自动导出入口仍未完成。静音自动化测试应使用 `--mute-audio` 并在 finally 关闭浏览器/服务器；Owner 多次要求不能让测试声音干扰。
+
 ## CMU 来源核验与转换（2026-11-05）
 
 Owner 允许采集；原始五文件来自 CMU HTTP 后，已从 Let’s Encrypt 官方获取中间证书补全系统信任链，hostname/CA 校验开启、partial-chain 禁用，通过 HTTPS 再取同一五份并全部 SHA 匹配；证据 `/srv/ai-data/media-work/asset-library/evidence/cmu-basketball-mocap/https-verification-20261105.json`。条目解除隔离并标商用产品许可，原始数据直接转售禁止，redistribution=false，PWA 分发仍待核；注册来源暂不开放新采集，因为默认客户端证书链不全。
