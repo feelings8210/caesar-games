@@ -33,9 +33,15 @@ if missing:
     raise RuntimeError(f'Unmapped bones: {missing}')
 start, end = map(int, source.animation_data.action.frame_range)
 ordered = sorted(MAP.items(), key=lambda pair: len(target.data.bones[pair[1]].parent_recursive))
+baseline = bpy.data.actions.get('Shot')
+if baseline is None:
+    raise RuntimeError('Target Shot baseline not available')
+target.animation_data_create()
+target.animation_data.action = baseline
 bpy.context.scene.frame_set(start)
 source_start = {name: (source.matrix_world @ source.pose.bones[name].matrix).to_quaternion().normalized() for name in MAP}
-target_rest = {name: target.data.bones[name].matrix_local.to_quaternion() for name in MAP.values()}
+target_start = {name: (target.matrix_world @ target.pose.bones[name].matrix).to_quaternion().normalized() for name in MAP.values()}
+target.animation_data_clear()
 for frame in range(start, end + 1, 2):
     bpy.context.scene.frame_set(frame)
     for src_name, dst_name in ordered:
@@ -45,8 +51,7 @@ for frame in range(start, end + 1, 2):
         # target's own rest orientation, not the source's bone roll.
         source_world = (source.matrix_world @ src.matrix).to_quaternion()
         delta = (source_world @ source_start[src_name].inverted()).normalized()
-        target_bind = (target.matrix_world.to_quaternion() @ target_rest[dst_name]).normalized()
-        goal_world = (delta @ target_bind).normalized()
+        goal_world = (delta @ target_start[dst_name]).normalized()
         pose_matrix = dst.matrix.copy()
         # Maintain position/scale while replacing armature-space orientation.
         location, _, scale = pose_matrix.decompose()
@@ -72,7 +77,7 @@ bpy.context.view_layer.objects.active = target
 file = OUT / 'cmu-jump-retarget-candidate.glb'
 bpy.ops.export_scene.gltf(filepath=str(file), export_format='GLB', use_selection=True, export_animations=True)
 report = {'source': 'CMU subject124 trial05; corrected conversion a02', 'fps': 120,
-          'start': start, 'end': end, 'sample_every': 2, 'map': MAP, 'alignment': 'source first frame to target rest',
+          'start': start, 'end': end, 'sample_every': 2, 'map': MAP, 'alignment': 'source first frame to original target Shot initial pose',
           'limitations': ['NO_ROOT_TRANSLATION', 'NO_FOOT_LOCK', 'NO_BALL_CONTACT', 'VISUAL_QC_PENDING']}
 (OUT / 'candidate.json').write_text(json.dumps(report, indent=2) + '\n')
 print('RETARGET_CANDIDATE_DONE', file)

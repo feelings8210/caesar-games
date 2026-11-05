@@ -1,3 +1,7 @@
+## CMU 转移动作 a04 被否（2026-11-05 继续）
+
+Owner 明确持续追求最好的球馆、人物动作、游戏性及自动讲解视频，不要中间停。接 a03，用目标现有 `Shot` 初始姿态对齐源首帧，CB0001 Blender 生成 a04，归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-retarget/a04/outputs/`，SHA `a5263dd629364d25cf3736e101dd65cb527e12b2698747d3719e6e1da74e950e`。静音浏览器逐姿态图 SSD `retarget-a04/pose-*.png` 已目视；`pose-1` 双臂明显扭曲，仍无根位移、脚锁、手球约束，候选拒绝、不入游戏。a02/a03/a04 均未通过；不可从导出成功推品质。下一步核世界空间骨骼局部坐标、姿态对应与关节方向，使用清晰的源/目标骨骼语义和标准化姿势而非粗略四元数相减；逐帧核与球、地的接触再实机看。注意静音，测试完退出。
+
 ## CMU 首次人物动作转移与视频画幅（2026-11-05 继续）
 
 Owner 重申“做出一个最好的效果来，中间不要停”，当前目标未达成、仍需继续；不靠测试替代 Owner 对视觉、听觉和游戏性的验收。CB0001 Blender 尝试将 CMU 124_05 修正跳投转给现有球员骨架（脚本 `tools/blender/retarget_cmu_candidate.py`）。a01 混出源动作；a02 删除其他 action，输出仅1动作/13网格，SHA `58ade08ea89f80397be3ba30a4c86a0396fd749ba196b22ef71b4df9c4de5b43`，但静音浏览器样帧显示双腿交叉、手臂不自然，拒收。a03 把源首帧对应目标静止姿态，输出 SHA `f706575b6d230a217ef4909118041964821722c500f171be43a8cdccca5ef4c2`，首帧不扭曲，投篮姿态更接近，但开始姿态和原动作对齐不正确、无根位移、脚锁或球接触，不是可用游戏动作。检查帧 SSD `retarget-a02/pose-*.png` 和 `retarget-a03/pose-*.png`；原始 GLB 裸预览没有运行时材质、不能用作人物质感判断。两版 archive `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-retarget/{a02,a03}/outputs/`；未接入游戏。下一步基于真实来源静止姿态与目标骨骼语义重定向，保留根位移并求解脚地/手球接触，连续1x看动作再定。
