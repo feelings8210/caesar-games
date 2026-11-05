@@ -22,6 +22,13 @@ export function containRect(sourceWidth, sourceHeight, width, height) {
   return { x: (width - w) / 2, y: (height - h) / 2, width: w, height: h };
 }
 
+export function captionBaselines(height, lineCount, fontSize) {
+  const barHeight = 135;
+  const lineHeight = fontSize + 5;
+  const first = height - barHeight + (barHeight - lineCount * lineHeight) / 2 + fontSize * .85;
+  return Array.from({ length: lineCount }, (_, i) => first + i * lineHeight);
+}
+
 export async function capturePlaybook({ court, play, locale, narration, width = 1280, height = 720, fps = 30 }) {
   if (!court?.renderer || !court?.canvas || !court?.scene || !court?.camera) throw new Error('A loaded 3D court is required');
   if (!play?.steps?.length || !['zh', 'en'].includes(locale)) throw new Error('Invalid play or language');
@@ -65,7 +72,8 @@ export async function capturePlaybook({ court, play, locale, narration, width = 
       if (lines.length <= 3 && lines.every(line => ctx.measureText(line).width <= width - 110)) break;
       fontSize -= 1;
     } while (fontSize >= 8);
-    lines.forEach((value, i) => ctx.fillText(value, width / 2, height - 105 + (i + 1) * (fontSize + 5)));
+    const baselines = captionBaselines(height, lines.length, fontSize);
+    lines.forEach((value, i) => ctx.fillText(value, width / 2, baselines[i]));
     frame = requestAnimationFrame(draw);
   };
   try {

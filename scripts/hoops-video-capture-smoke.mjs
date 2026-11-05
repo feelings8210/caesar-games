@@ -1,6 +1,6 @@
-/* Development check: local server required. Captures silent synthetic audio,
- * verifies a real recorded WebM can decode and saves one evidence screenshot.
- * Never use the synthetic clip as narration or a deliverable. */
+/* Development check: local server required. Captures synthetic test tones
+ * directly into the file while Chromium's host output is muted. Verifies a
+ * real recorded WebM can decode. Never use the tones as a deliverable. */
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
@@ -22,7 +22,12 @@ try {
     const game = window.caesarApp.hoops;
     await game.pb.open('horns-pop'); await game.court.ready;
     const ac = new AudioContext();
-    const clips = game.pb.play.steps.map(() => ac.createBuffer(1, Math.round(ac.sampleRate * .2), ac.sampleRate));
+    const clips = game.pb.play.steps.map((_, index) => {
+      const buffer = ac.createBuffer(1, Math.round(ac.sampleRate * .6), ac.sampleRate);
+      const samples = buffer.getChannelData(0);
+      for (let i = 0; i < samples.length; i++) samples[i] = .15 * Math.sin(2 * Math.PI * (450 + index * 150) * i / ac.sampleRate);
+      return buffer;
+    });
     const blob = await capturePlaybook({ court: game.court, play: game.pb.play, locale: 'en', narration: clips, width: 640, height: 360, fps: 15 });
     await ac.close(); game.leave();
     const video = document.createElement('video'); video.muted = true; video.src = URL.createObjectURL(blob);
@@ -30,14 +35,19 @@ try {
     document.body.appendChild(video);
     await new Promise((resolve, reject) => { video.onloadeddata = resolve; video.onerror = () => reject(new Error('Recorded video could not be decoded')); });
     await video.play();
-    return { bytes: blob.size, type: blob.type, width: video.videoWidth, height: video.videoHeight };
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 32768) binary += String.fromCharCode(...bytes.subarray(i, i + 32768));
+    return { bytes: blob.size, type: blob.type, width: video.videoWidth, height: video.videoHeight, encoded: btoa(binary) };
   });
+  fs.writeFileSync(`${out}/capture-test.webm`, Buffer.from(result.encoded, 'base64'));
+  delete result.encoded;
   await page.setViewportSize({ width: 640, height: 360 });
   await page.waitForTimeout(3000);
   await page.screenshot({ path: `${out}/decoded-frame.png` });
   result.playbackSeconds = await page.evaluate(() => document.querySelector('video').currentTime);
   if (result.bytes < 1000 || result.width !== 640 || result.height !== 360 || result.playbackSeconds < 1 || errors.length) throw new Error(`Capture check failed: ${JSON.stringify({ result, errors })}`);
-  fs.writeFileSync(`${out}/report.json`, JSON.stringify({ result, errors, narration: 'synthetic silence; not for delivery' }, null, 2));
+  fs.writeFileSync(`${out}/report.json`, JSON.stringify({ result, errors, narration: 'synthetic test tones; host muted; not for delivery' }, null, 2));
   console.log(JSON.stringify({ result, errors }));
 } finally {
   await browser.close();

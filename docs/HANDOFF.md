@@ -1,3 +1,9 @@
+## CMU 投篮位移修正与视频音轨同步测试（2026-11-05）
+
+Goal 仍 ACTIVE、未达成。CB0001 的 a05/a06 依据骨骼方向迁移，a06 发现原始跳投起跳时目标反向掉到地下：`cmu-geometry/a01` 逐5帧比较原始/目标足部高度，源361→421两脚约0.08→0.42米，目标约-0.6→-3.2英尺，明显错误。病根为向 PoseBone.location（骨骼局部轴）直接写入 armature 轴位移。`tools/blender/retarget_cmu_candidate.py` a07 改在 armature space 给 pelvis.matrix 赋平移，让 Blender 经父骨/静态骨骼矩阵转换到局部坐标再 keyframe。CB0001 Blender `cmu-retarget/a07` candidate SHA `153c18273d822796fb172d707f7d0440c8f099533e8fde7e1d4c6aa439746044`；`cmu-geometry/a02` 证据目标两足361→421约0.39/0.46→1.71/1.68英尺，461回0.43/0.39，方向与比例接近原始；这是骨骼位置而非鞋底接触或视觉通过。正面关键帧 SSD `retarget-a07/wide/` 已目视，真实手球、地面鞋底接触、脚滑、全速动作、实际游戏集成/iPad 和 Owner 均未验证；未入游戏。a05/a06/a07 仅试验。接下来做鞋底准确锚点、原动作接触时序和球轨迹，并用修正源码/目标同时段比较，不要把位置数值通过当自然动作。
+
+视频同步：Chromium 使用 `--mute-audio` 且 WebAudio 只连 MediaStreamDestination，四段不同频率合成测试信号进入真实3D游戏录制，SSD `capture-sync-tones-a02/capture-test.webm` SHA `8adc5b9e6e34b431c63fb6f64c3314521f71516ab08cbff26280ad0a39a44c08`。CB0001 `capture-tone/a03` 用 ffmpeg aresample=async 保留原时间戳，四段音频对应时刻分别1.55/2.75/4.3/5.7秒；提取四帧均目视对应步骤字幕。此前 audit a01 直接解码 PCM 错将 WebM 稀疏音轨时间戳拼接，假报重叠；失败保留，a02/a03 修正。发现第三步三行字幕下沿裁切，`captionBaselines` 已修、回归与最终第3帧目视通过。所有测试只输出合成信号文件，宿主静音且无旁白审美/听审；还没有正式旁白、用户导出入口、MP4/iPad或成片。完整27项Node测试通过。正式语音接入和游戏性/视觉提升仍须继续。
+
 ## CMU 转移动作 a04 被否（2026-11-05 继续）
 
 Owner 明确持续追求最好的球馆、人物动作、游戏性及自动讲解视频，不要中间停。接 a03，用目标现有 `Shot` 初始姿态对齐源首帧，CB0001 Blender 生成 a04，归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-retarget/a04/outputs/`，SHA `a5263dd629364d25cf3736e101dd65cb527e12b2698747d3719e6e1da74e950e`。静音浏览器逐姿态图 SSD `retarget-a04/pose-*.png` 已目视；`pose-1` 双臂明显扭曲，仍无根位移、脚锁、手球约束，候选拒绝、不入游戏。a02/a03/a04 均未通过；不可从导出成功推品质。下一步核世界空间骨骼局部坐标、姿态对应与关节方向，使用清晰的源/目标骨骼语义和标准化姿势而非粗略四元数相减；逐帧核与球、地的接触再实机看。注意静音，测试完退出。
