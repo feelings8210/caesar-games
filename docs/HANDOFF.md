@@ -1,3 +1,9 @@
+## 右膝逐帧及无声对照素材（2026-11-05 继续）
+
+CB0001 `right-knee/a01` 对比 landing-ik/a03 与 right-foot/a01 的431–521帧右腿，输出 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/right-knee/a01/outputs/reach.json` SHA `02ce72929d534c75b8539c3dea429ad729acee35101b55e5320a71e4a1da2849`。髋—膝—踝夹角基线约126.11–152.42度，最大帧间1.59度；候选约126.10–152.42度，最大帧间1.48度；最大膝位置帧间速度两版均约266cm/s（该时间段含落地，不是品质阈值）。这些数值仅覆盖窗口，不足以证明自然、无穿模或脚滑合格。审计脚本支持明确指定基线、候选和左右腿，输入路径均绑定 worker manifest。
+
+已生成无声正常速度左右对照 `/Volumes/MiniStorage/media-projects/caesar-hoops-tactics-20261105/right-foot-comparison/comparison.webm`，动画时长6.575秒、录制约6.619秒；Chromium 能播放到3.9秒、单帧 `playback.png` 已目视。只有静帧检查、**未完成持续正常速度观影和 Owner 验收**，画面没有球；两侧相机各自按模型包围盒归一化，不能用图像中的绝对坐标做精确位移比较。第一次 Playwright 视频录制因缺依赖未启动，改用无声画布录制；一次页面语法错误已修且无遗留任务。浏览器、服务与临时 symlink 关闭。继续解决手球、接触与正常速度观察，正式自动旁白视频仍未完成。Goal ACTIVE。
+
 ## 右脚落地轨迹试验（2026-11-05 继续）
 
 `tools/blender/try_cmu_right_foot.py` 在独立候选上对右腿做手选441–511帧的渐入/渐出 IK，以源右脚骨位移经原有坐标及身高比例换算，驱动目标固定鞋顶点的水平轨迹；保留足部朝向。源脚骨不是鞋底接触标记，不能把它当真实锁脚或足底轨迹。CB0001 `right-foot/a01` 候选 SHA `215acc24051ba6c0fe8597120472274b7a1dc2741ca4c1358a9a033a2b559f7e`，`right-foot-audit/a01` 独立逐帧采样 SHA `f6375c9fc56482f9968c202fc62c90c35f0893fe9380e93de6debc342c9f826c`，均已 collect 到对应 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/`。
