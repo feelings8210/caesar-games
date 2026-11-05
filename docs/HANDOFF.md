@@ -1,3 +1,9 @@
+## 左腿独立落地 IK 试验（2026-11-05 继续）
+
+`tools/blender/try_cmu_landing_ik.py` 从 a08 生成独立试验：仅在手选帧441–511对左腿施加垂直 IK、451–501全权重并渐入渐出，保留水平踝轨迹；不是自动接触检测，也没有水平脚锁或球。a01 因 glTF 导入后才设120fps，帧158后冻结，已否决，`landing-audit/a01` 是失败证据。a02 在导入前设120fps，6.575秒候选 SHA `f18221b40c839476902a1cde89bb254b03032105b7fce7f9ac0146cbb36d2546`，CB0001 archive `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/landing-ik/a02/outputs/`；不可把导出成功视为动作合格。
+
+独立 `landing-audit/a02` 逐5帧鞋面：帧461左鞋最低从4.42cm降至1.94cm、右鞋近地未变；帧451左4.02→1.97cm、481左3.16→1.44cm、501左2.02→1.91cm，仍悬空。窗口外若干样点（101、351、421、601、781）鞋面高度相同，421有完整起跳；这不是全骨骼逐帧等价证明。静音六姿态 `landing-ik-a02/sheet.jpg` 已目视，但无球、无正常速度和腿部近景，尚无法确认形变/滑步和审美。该候选不入游戏；下一步分析 IK 不到地原因与膝关节，并用真正源接触时序和运动连续性验证，避免凭静态鞋高过关。`audit_cmu_shoes.py` 接受 `HOOPS_AUDIT_MODEL` 供绑定路径的独立复测。任务已结束、浏览器/服务已关闭；正式旁白/视频和 Owner/iPad 验收均未完成。Goal ACTIVE。
+
 ## 固定鞋底顶点与落地比较（2026-11-05 继续）
 
 新 `tools/blender/audit_cmu_fixed_foot.py` 在 CB0001 逐帧追踪起跳/落地附近选中的同一个鞋顶点，与源脚骨做对照，`fixed-foot/a01` 已 collect；JSON SHA `c44b028301602451ba817fc8b8367514b00307d7fc2c93e9bc0a09436eac2e8b`，archive `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/fixed-foot/a01/outputs/fixed-foot.json`。右脚落地后451→501帧，目标固定点水平移动6.42cm；源脚骨位移经当前 root_scale 3.7108 换算为目标比例约3.04cm。左脚351→376：2.61cm vs 2.67cm；右脚361→381：5.56cm vs 3.27cm。注意源脚骨与目标鞋顶点并非同一解剖点，源也没有真实接触标记，窗口仅供研究、不能把差异当确定滑移量。上次口头未先应用比例、把右脚源位移误报0.82cm，已向 Owner 更正。逐帧检查这些窗口右鞋最低约 -0.06cm；左脚落地后最低约2cm以上，显示整个人抬高引起悬空仍在。
