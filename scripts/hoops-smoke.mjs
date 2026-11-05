@@ -32,7 +32,9 @@ try {
   }
   browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || undefined,
-    args: process.env.HOOPS_HARDWARE ? [] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
+    // Suppress host speaker output during unattended tests; Web Audio still
+    // runs so sound events and internal capture can be checked separately.
+    args: ['--mute-audio', ...(process.env.HOOPS_HARDWARE ? [] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'])]
   });
   const page = await browser.newPage({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: Number(process.env.DSF || 1) });
   page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));

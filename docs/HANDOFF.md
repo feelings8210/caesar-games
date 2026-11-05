@@ -1,3 +1,11 @@
+## 篮球动捕素材与静音录制实验（2026-11-05）
+
+Owner 明确授权所需 CMU 动作下载并纳入素材库，要求测试静音且结束后关闭。已受控采集 CMU subject 124 的跳投/上篮和 subject 06 的变向运球投篮，以及两套 ASF 骨架，共五份；canonical 路径、许可、原始来源和 SHA 在 `docs/HOOPS_VIDEO_AND_MOTION_RESEARCH_20261105.md`。CMU 原站 HTTPS 证书链在 worker 和 Mac 校验失败，五份通过 HTTP 获取；SHA 仅是内部字节校验。五份现已隔离（index commercial_use=NULL，provenance quarantine），CMU 来源暂停再次采集，先独立验证安全来源及 PWA 分发权限，不能入游戏或声称商用可用。动作本身、骨架适配、真人接触尚未实测。
+
+实验性 `scripts/hoops-video-capture.mjs` 把现有 3D 球场、每步输入音频和字幕录成 WebM，音频只连接录制输出。测试采用静音合成缓冲、并以 `--mute-audio` 开启浏览器；`capture-silent-a03/report.json` 验证 640×360 输出可解码和播放，decoded-frame.png 已目视（修复英文断词）。这只是静音技术试验，没有合格旁白、产品按钮、MP4、iPad 验证或正常速度视听/Owner 验收。`hoops-smoke.mjs` 也强制宿主静音并 finally 关闭浏览器/服务；最终完整冒烟通过（10关/5随机/战术/退出/超时，errors=[]），25 个 Node 顶层测试通过。当前测试浏览器均已结束；别的会话的军棋浏览器不碰。
+
+下一步：核实 CMU HTTPS 来源与许可/PWA 分发，并在 3090 做原始动捕对比和重定向；确认独立篮球教学内容的正式 voice 接入，完成真实旁白/字幕/画面/输出闭环及用户可用的导出入口。继续打磨球员、动作与场馆，距离 NBA 2K 和 Owner 验收仍远。
+
 ## 篮球动作研究与视频时间线（2026-11-05，后续）
 
 Owner 再次指出球馆细节、人物造型、动作与 NBA 2K 相距很远，要求检索可商用开放资源并认真做自动讲解视频。核实当前人体由 Blender 官方人体和 Quaternius CC0 基础改造，专门上篮和跳投是项目原创 Blender 动作；不是 NBA 动捕。统一资产库预检通过，篮球模型和 mocap 商用查询无适合结果。CMU 官方目录有真实篮球运球、变向、跳投和上篮，网站允许在商业产品中使用但禁止直接转售动作数据；CMU 不在当前批准来源注册表，因此没有下载/接入，也没有验证品质、球轨迹和与现有骨架的兼容性。证据和来源见 `docs/HOOPS_VIDEO_AND_MOTION_RESEARCH_20261105.md`。不能称已达到 NBA 2K。
