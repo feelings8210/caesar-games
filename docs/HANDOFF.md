@@ -1,3 +1,7 @@
+## 实验球路瞄准篮圈（2026-11-05 继续）
+
+`scripts/hoops-shot-trajectory.mjs` 提供隔离预览用的三维抛物线路径，显式给定起点、篮圈、时长和弧高；端点/参数测试通过。临时 `right-foot-a01/ball-rim-test.html` 使用手骨中点与**人工选定**的第385帧出手、0.9秒飞向示意篮圈；源动捕并无球、篮圈或出手标签。静音六帧 `right-foot-a01/ball-rim-sheet.jpg` 已目视：球从手附近移动到示意篮圈，不再像上一版停肩旁；但手未按球面约束，球在部分帧遮脸，简易圆环无篮板/篮网、没有入网物理，飞行初速与手速不匹配，**不代表真实接触或合格投篮，不能接入游戏**。继续以真实手掌/球面校准、确保离手位置与速度连续、球筐接触和1×观察。浏览器/服务关闭；正式旁白视频及 iPad/Owner 验收均未完成，Goal ACTIVE。
+
 ## 投篮手部与实验球轨迹（2026-11-05 继续）
 
 `tools/blender/audit_cmu_hands.py` 在 CB0001 对 right-foot/a01 的301–461帧逐帧采样 AnatomicalBody 左右手权重>.85的64+64个顶点；`hands/a01` 已 collect，JSON SHA `14c50e7d5c6498ac6b6a9972fdee533042a7bc3687a134aad6c11672822b09b3`，archive `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/hands/a01/outputs/hands.json`。双手顶点中心距离帧351约28.5cm、371约34.1cm、401约38.6cm、421约52.7cm；游戏当前球直径0.9英尺（约27.4cm，非赛事标准大小结论）。权重顶点中心不是掌心接触面、源动作没有球/出手标注，距离不能证明握球成功。
