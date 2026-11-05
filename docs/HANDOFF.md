@@ -1,3 +1,9 @@
+## 修正版骨架动作采样（2026-11-05，继续）
+
+`cmu-inspect/a03` 在 CB0001 Blender 完成并 collect：修正版跳投789帧中每5帧采样159次，上篮694帧采样140次，各31骨/120fps，JSON SHA `c3adeba80881ba6f5d73cbd77f83c9cdc7cefb87da2bb68d199945c6484aca8d`；归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-inspect/a03/outputs/`。CB0001 CPU 合成两个**无声音**正侧骨架连续检查视频（每5帧以24fps播放，近似原120fps），归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-video/a01/outputs/`，SSD 代理 `cmu-jump-skeleton-a02.mp4` / `cmu-layup-skeleton-a02.mp4`。编解码和时长已核，尚未连续1x目视、未与原始动作/球对照、未 retarget，不能称品质/运动准确性通过。代码 `scripts/hoops-cmu-pose-video.py`。不要把前文 a03 排队中的历史当当前状态；a03 已 collect，任务无后台作业。
+
+下一步按 Owner 目标继续：正常速度核修正版运动及原始数据方向、落脚/持球与裁切阶段，做游戏骨架重定向小样；同时接入正式旁白及可靠的导出工作流。测试静音并结束即关闭。
+
 ## CMU 转换器修正（2026-11-05，继续）
 
 核实 amc2bvh 源码的 `sample_rotation` 确实存在未初始化通道：它对非三轴关节将未定义内存带进四元数。已在隔离源码把初始角度归零、默认轴置 XYZ（补丁 `tools/mocap/amc2bvh-init.patch`；上游 f89c731，MIT），CB0001 CPU 注册路径重转并归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-convert/a02/outputs/`。跳投 SHA `d6d5f0d0a02e6b007baaee7c158014717f2da950227fbfb510e0e277d0dcde19`；上篮 SHA `5707c9baa2a8104987ed24d04ba6f9863b3a54a9aa298372312b2089b9cae6d1`。与 a01 比每帧两处旋转发生变化（跳投 1578、上篮 1388 项；最大差约23度），旧 a01 转换/目视不能当可信结果；a02 仍需独立正确性验证。
