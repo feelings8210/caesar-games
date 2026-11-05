@@ -1,5 +1,5 @@
-/* Experimental browser capture of the actual 3D playbook court. Narration must
- * be supplied as one decoded AudioBuffer per step; this module does not create
+/* Experimental browser capture of the actual 3D playbook court. Narration can
+ * be supplied per step or as one continuous buffer with cue times; it does not create
  * or approve voices. Audio is connected only to the recording destination,
  * never to the computer speakers. No UI, publishing or upload is performed. */
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -29,10 +29,25 @@ export function captionBaselines(height, lineCount, fontSize) {
   return Array.from({ length: lineCount }, (_, i) => first + i * lineHeight);
 }
 
-export async function capturePlaybook({ court, play, locale, narration, width = 1280, height = 720, fps = 30, onEvent = () => {} }) {
+export function validateContinuousNarration(play, continuous) {
+  const duration = continuous?.buffer?.duration;
+  const cues = continuous?.cuesMs;
+  if (!(duration > 0) || !Array.isArray(cues) || cues.length !== play.steps.length ||
+      cues.some((cue, i) => !Number.isFinite(cue) || cue < 0 || cue >= duration * 1000 || (i > 0 && cue <= cues[i - 1])))
+    throw new Error('Continuous narration needs one increasing cue per step within the audio');
+  for (let i = 0; i < cues.length; i++) {
+    const actionMs = play.steps[i].beats.reduce((sum, beat) => sum + beat.ms, 0);
+    const availableMs = (cues[i + 1] ?? duration * 1000) - cues[i];
+    if (!Number.isFinite(actionMs) || actionMs > availableMs) throw new Error(`Action ${i + 1} cannot fit before the next cue`);
+  }
+}
+
+export async function capturePlaybook({ court, play, locale, narration, continuousNarration, width = 1280, height = 720, fps = 30, onEvent = () => {} }) {
   if (!court?.renderer || !court?.canvas || !court?.scene || !court?.camera) throw new Error('A loaded 3D court is required');
   if (!play?.steps?.length || !['zh', 'en'].includes(locale)) throw new Error('Invalid play or language');
-  if (!Array.isArray(narration) || narration.length !== play.steps.length || narration.some(b => !(b?.duration > 0))) {
+  if (continuousNarration && narration) throw new Error('Choose continuous narration or separate clips');
+  if (continuousNarration) validateContinuousNarration(play, continuousNarration);
+  else if (!Array.isArray(narration) || narration.length !== play.steps.length || narration.some(b => !(b?.duration > 0))) {
     throw new Error('One decoded narration clip is required per step');
   }
   if (!globalThis.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) throw new Error('Video capture is not supported');
@@ -90,7 +105,23 @@ export async function capturePlaybook({ court, play, locale, narration, width = 
     court.cancel(); court.clearDiagram?.(); court.setScene(play.setup, null); court.setFrozen(false);
     recorder.start(1000); startedAt = performance.now(); event('record-start'); draw();
     caption = play.title[locale]; await pause(1200);
-    for (let index = 0; index < play.steps.length; index++) {
+    if (continuousNarration) {
+      const source = audio.createBufferSource(); currentSource = source;
+      source.buffer = continuousNarration.buffer; source.connect(destination);
+      const voiceDone = new Promise(resolve => { source.onended = () => { event('voice-end'); resolve(); }; });
+      const startTime = audio.currentTime; source.start(); event('voice-start');
+      for (let index = 0; index < play.steps.length; index++) {
+        const cueTime = startTime + continuousNarration.cuesMs[index] / 1000;
+        while (audio.currentTime < cueTime) await pause(Math.min(25, Math.max(1, (cueTime - audio.currentTime) * 1000)));
+        if (audio.currentTime - cueTime > .25) throw new Error(`Action ${index + 1} missed its narration cue`);
+        caption = play.steps[index].say[locale]; event('caption-start', index);
+        const done = await court.play(play.steps[index].beats); event('action-end', index);
+        if (!done) throw new Error('Court playback was interrupted');
+        const deadline = startTime + (continuousNarration.cuesMs[index + 1] ?? source.buffer.duration * 1000) / 1000;
+        if (audio.currentTime > deadline + .25) throw new Error(`Action ${index + 1} ran past its narration cue`);
+      }
+      await voiceDone; currentSource = null; source.disconnect();
+    } else for (let index = 0; index < play.steps.length; index++) {
       const step = play.steps[index]; caption = step.say[locale]; event('caption-start', index);
       const source = audio.createBufferSource(); currentSource = source;
       source.buffer = narration[index]; source.connect(destination);
