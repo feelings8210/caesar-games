@@ -197,6 +197,14 @@ test('playbook plays are complete, bilingual and on the floor', () => {
   }
 });
 
+test('horns pop shows its initial set before the screener moves and the guard drives', () => {
+  const play = PLAYS.find(p => p.id === 'horns-pop');
+  assert.ok(play);
+  assert.equal(play.steps[0].beats.some(beat => beat.move), false);
+  assert.deepEqual(play.steps[1].beats[0].move.o5, [3, 25]);
+  assert.ok(play.steps[1].beats[1].move.o1);
+});
+
 test('elevator shooter clears the gap before the two screeners close it', () => {
   const play = PLAYS.find(p => p.id === 'elevator-shooter');
   assert.ok(play);

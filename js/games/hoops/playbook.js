@@ -77,8 +77,8 @@ export const PLAYS = [
     side: 'o',
     setup: { o1: [0, 28], o4: [-8, 19], o5: [8, 19], o2: [-22, 4], o3: [22, 4], ball: 'o1' },
     steps: [
-      { say: T('牛角站位：四号和五号站在两侧肘区，两名射手拉开到底角。', 'Horns alignment: #4 and #5 at the elbows, with shooters in the corners.'), beats: [{ ms: 700, move: { o5: [3, 25] }, screen: 'o5', call: ['o5', SCREEN] }] },
-      { say: T('五号先站稳掩护，一号借掩护向右运球。', '#5 sets a stationary screen; #1 dribbles right off it.'), beats: [{ ms: 1000, move: { o1: [[5, 27], [11, 21]] } }] },
+      { say: T('牛角站位：四号和五号站在两侧肘区，两名射手拉开到底角。', 'Horns alignment: #4 and #5 at the elbows, with shooters in the corners.'), beats: [{ ms: 700 }] },
+      { say: T('五号上提站稳掩护，一号借掩护向右运球。', '#5 steps up and sets a stationary screen; #1 dribbles right off it.'), beats: [{ ms: 700, move: { o5: [3, 25] }, screen: 'o5', call: ['o5', SCREEN] }, { ms: 1000, move: { o1: [[5, 27], [11, 21]] } }] },
       { say: T('这次五号不顺下，而是退到外线，给持球人留下传球角度。', 'This time #5 pops out instead of rolling, giving the ball handler a passing angle.'), beats: [{ ms: 900, move: { o5: [2, 28], o4: [-11, 18] } }] },
       { say: T('如果防守收缩，一号回传给空位的五号，接球投篮。', 'If the defense collapses, #1 passes back to the open #5 for a shot.'), beats: [{ ms: 650, pass: 'o5' }, { ms: 800, shot: 'make' }] }
     ]

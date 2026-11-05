@@ -25,6 +25,9 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=str(MODEL))
 target = next(obj for obj in bpy.context.scene.objects if obj.type == 'ARMATURE')
 target.animation_data_clear()
+shoe_meshes = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH' and any(m and m.name == 'Shoe' for m in obj.data.materials)]
+if not shoe_meshes:
+    raise RuntimeError('No shoe geometry found; cannot check ground penetration')
 bpy.ops.import_anim.bvh(filepath=str(ROOT / 'jump.bvh'), global_scale=0.056444,
                         frame_start=1, use_fps_scale=False, update_scene_fps=True)
 source = bpy.context.active_object
@@ -60,6 +63,7 @@ target_leg = sum(target.data.bones[n].length for n in ('thigh_l', 'calf_l'))
 if min(source_leg, target_leg) < 0.01:
     raise RuntimeError('Invalid leg length')
 root_scale = target_leg / source_leg
+corrections = []
 for frame in range(start, end + 1, 2):
     bpy.context.scene.frame_set(frame)
     delta_root = alignment @ (world_head(source, 'root') - source_root_start)
@@ -89,6 +93,26 @@ for frame in range(start, end + 1, 2):
         bpy.context.view_layer.update()
         dst.rotation_mode = 'QUATERNION'
         dst.keyframe_insert(data_path='rotation_quaternion', frame=frame, group=dst_name)
+    # Check the evaluated mesh containing the shoes, not the ankle origin.
+    # This mesh also includes other body parts, so independent shoe-specific
+    # measurement is required; this does not lock feet or solve sliding.
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    bottom = float('inf')
+    for shoe in shoe_meshes:
+        evaluated = shoe.evaluated_get(depsgraph)
+        mesh = evaluated.to_mesh()
+        try:
+            bottom = min(bottom, min((evaluated.matrix_world @ v.co).z for v in mesh.vertices))
+        finally:
+            evaluated.to_mesh_clear()
+    lift = max(0.0, -bottom)
+    if lift > 0:
+        pelvis = target.pose.bones['pelvis']
+        world_up = target.matrix_world.to_3x3().inverted() @ Vector((0, 0, lift))
+        pelvis.matrix = Matrix.Translation(world_up) @ pelvis.matrix
+        pelvis.keyframe_insert(data_path='location', frame=frame, group='pelvis')
+        bpy.context.view_layer.update()
+    corrections.append({'frame': frame, 'bottom_before': bottom, 'lift': lift})
 if end % 2 == 0:
     raise RuntimeError('Unexpected frame endpoint; explicit final key needed')
 if not target.animation_data or not target.animation_data.action:
@@ -107,6 +131,7 @@ file = OUT / 'cmu-jump-retarget-candidate.glb'
 bpy.ops.export_scene.gltf(filepath=str(file), export_format='GLB', use_selection=True, export_animations=True)
 report = {'source': 'CMU subject124 trial05; corrected conversion a02', 'fps': 120,
           'start': start, 'end': end, 'sample_every': 2, 'map': MAP, 'alignment': 'hip frame plus absolute bone direction, no twist transfer',
-          'root_scale': root_scale, 'limitations': ['NO_FOOT_LOCK', 'NO_BALL_CONTACT', 'VISUAL_QC_PENDING']}
+          'root_scale': root_scale, 'ground_corrections': corrections,
+          'limitations': ['NO_FOOT_LOCK', 'NO_BALL_CONTACT', 'VISUAL_QC_PENDING']}
 (OUT / 'candidate.json').write_text(json.dumps(report, indent=2) + '\n')
 print('RETARGET_CANDIDATE_DONE', file)

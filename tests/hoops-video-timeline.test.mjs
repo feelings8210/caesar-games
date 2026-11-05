@@ -7,8 +7,8 @@ test('narration and actions fit each step without overlapping the next', () => {
   assert.equal(t.steps[0].startMs, 1200);
   assert.equal(t.steps[0].audioEndMs, 5200);
   assert.equal(t.steps[1].startMs, 5700);
-  assert.equal(t.steps[1].endMs, 6700); // action continues after short narration
-  assert.equal(t.steps[2].startMs, 7200);
+  assert.equal(t.steps[1].endMs, 7400); // screen and drive continue after short narration
+  assert.equal(t.steps[2].startMs, 7900);
   assert.ok(t.steps.every(s => s.beats.every(b => b.endMs <= s.endMs)));
   assert.match(subtitles(t), /00:00:01,200 --> 00:00:05,200/);
   assert.match(subtitles(t), /牛角站位/);

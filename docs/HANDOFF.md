@@ -1,3 +1,9 @@
+## 鞋面探测与牛角战术时序（2026-11-05 继续）
+
+Goal 仍 ACTIVE。`cmu-shoes/a01` 对 a07 的鞋子权重顶点逐5帧采样，发现穿地：第461帧右鞋最低约 -0.109 英尺；脚滑也未解决。CB0001 的 `cmu-retarget/a08` 生成候选 SHA `7632d2b3b9a2fdbbe28e73521923d71188859132a0f8ba958d63df2383b583de`，按包含鞋子的整个网格最低点上移骨盆，395 帧中143帧有修正，最大约0.114英尺；这不是鞋子专属约束，也不是脚锁。`tools/blender/audit_cmu_shoes.py` 已准备针对 a08 独立复测，manifest `/Volumes/MiniStorage/media-projects/caesar-hoops-tactics-20261105/cmu-shoes-a02.json`；此前提交因其他项目持有 GPU 锁而被拒，任务没有启动。等锁释放后用 `workers.py run` 提交 `hoops-cmu-shoes-a02` 并 collect、对比 a01；不得干扰其他项目。尚未确认修正是否生效，仍需正常速度视觉、脚滑及手球接触验证，不入游戏。
+
+牛角外弹首步现在先静止展示阵型，第二步五号上提前往掩护，再由一号借掩护；同步调整视频时间线测试。版本 local.37，两处一致。27项 Node 测试及静音3D录制通过；浏览器核实前两步五号位置与顺序，截图 `/Volumes/MiniStorage/media-projects/caesar-hoops-tactics-20261105/horns-v37-start.png`。截图中有一名底角球员疑似不在画面内，需在镜头稳定后复核；等待 cameraSettled 的测试未产出结果，不当作通过。测试浏览器及自己的服务已退出。正式自动旁白、成片导出和 iPad/Owner 验收均未完成。
+
 ## CMU 投篮位移修正与视频音轨同步测试（2026-11-05）
 
 Goal 仍 ACTIVE、未达成。CB0001 的 a05/a06 依据骨骼方向迁移，a06 发现原始跳投起跳时目标反向掉到地下：`cmu-geometry/a01` 逐5帧比较原始/目标足部高度，源361→421两脚约0.08→0.42米，目标约-0.6→-3.2英尺，明显错误。病根为向 PoseBone.location（骨骼局部轴）直接写入 armature 轴位移。`tools/blender/retarget_cmu_candidate.py` a07 改在 armature space 给 pelvis.matrix 赋平移，让 Blender 经父骨/静态骨骼矩阵转换到局部坐标再 keyframe。CB0001 Blender `cmu-retarget/a07` candidate SHA `153c18273d822796fb172d707f7d0440c8f099533e8fde7e1d4c6aa439746044`；`cmu-geometry/a02` 证据目标两足361→421约0.39/0.46→1.71/1.68英尺，461回0.43/0.39，方向与比例接近原始；这是骨骼位置而非鞋底接触或视觉通过。正面关键帧 SSD `retarget-a07/wide/` 已目视，真实手球、地面鞋底接触、脚滑、全速动作、实际游戏集成/iPad 和 Owner 均未验证；未入游戏。a05/a06/a07 仅试验。接下来做鞋底准确锚点、原动作接触时序和球轨迹，并用修正源码/目标同时段比较，不要把位置数值通过当自然动作。
