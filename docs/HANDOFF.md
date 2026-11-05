@@ -1,3 +1,11 @@
+## 战术视频真实播放同步修复（2026-11-05 继续）
+
+发现上一轮视频虽可播放但音画不同步：对 `test-observed-b.webm` 用同源 HTTP 视频元素经 Web Audio 分析四种测试频率，后3段分别提前约0.52、2.18、2.99秒，播放器把无声间隔压缩；不可沿用旧测试成品。`capturePlaybook` 加持续连接、零增益的常量源，让音轨在无声间隔持续计时，并记录真实录制事件；导出器同时输出带清单、音频、视频 SHA 和事件记录的 `.webm.json`。记录是浏览器事件，不等于已验证的成品时间戳；清单文字匹配也不能证明音频念的内容。
+
+新 `export-prototype-a01/test-clocked.webm` 在实际 Chromium 播放分析中，四段音调起点相对记录的偏差约 +0.06～0.08秒，四帧 `clocked-contact-sheet.jpg` 对照字幕正确；`scripts/hoops-video-capture-smoke.mjs` 加真实播放频谱回归，`capture-clocked-regression-a01/report.json` 四段通过，6项视频单测通过。一次录制因页面初始化60秒超时失败且清理输出，另一次成功；需继续查间歇性加载问题。所有测试静音，自己的浏览器/服务已退出。此结果仅验证测试音调，不代表正式旁白、所有设备、iPad/MP4或美术听觉验收。
+
+目前正式配音入口要求真实 episode/longform，而录制原型需要逐步音频；需解决一场一次生成、连续自然呼吸与每步画面同步的兼容，不得伪造 episode 或剪掉呼吸。CB0001 其他任务仍在运行，未启动的鞋底复测继续等待。Goal ACTIVE。
+
 ## 战术视频音频接入原型（2026-11-05 继续）
 
 新增 `scripts/hoops-video-export.mjs`：读入战术 ID、语言与逐步音频清单，逐条核对文字必须和当前战术完全一致，使用独立的本地临时服务器和静音 Chromium 调用实际 3D 录制器，导出 WebM，禁止覆盖已有文件。音频需另经正式配音及审听流程；脚本不生成或认证旁白，也不是面向用户的游戏按钮。测试清单和四个合成音调（不是正式人声）在 SSD `export-prototype-a01/`，导出 `test.webm` 为 1280×720，浏览器播放至5秒无解码错误，`playback.png` 已目视；错误文字和重复输出均拒绝，6项视频单测通过。浏览器与本次服务器正常退出。尚未独立核整片音画同步、音频审听、真实旁白、MP4/iPad 或 Owner 审美。该工具为内部原型，依赖 Node 22、Playwright 和 Chromium；`PLAYWRIGHT_MODULE` / `CHROMIUM_PATH` 可指定环境。

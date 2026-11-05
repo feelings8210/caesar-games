@@ -29,7 +29,7 @@ export function captionBaselines(height, lineCount, fontSize) {
   return Array.from({ length: lineCount }, (_, i) => first + i * lineHeight);
 }
 
-export async function capturePlaybook({ court, play, locale, narration, width = 1280, height = 720, fps = 30 }) {
+export async function capturePlaybook({ court, play, locale, narration, width = 1280, height = 720, fps = 30, onEvent = () => {} }) {
   if (!court?.renderer || !court?.canvas || !court?.scene || !court?.camera) throw new Error('A loaded 3D court is required');
   if (!play?.steps?.length || !['zh', 'en'].includes(locale)) throw new Error('Invalid play or language');
   if (!Array.isArray(narration) || narration.length !== play.steps.length || narration.some(b => !(b?.duration > 0))) {
@@ -42,6 +42,12 @@ export async function capturePlaybook({ court, play, locale, narration, width = 
   if (!AudioContextType) throw new Error('Web Audio is not available');
   const audio = new AudioContextType();
   const destination = audio.createMediaStreamDestination();
+  // Keep the audio track continuously clocked during gaps. Without an
+  // always-connected source, some MediaRecorder/browser combinations omit
+  // silent packets and later narration plays ahead of the picture.
+  const silence = audio.createConstantSource(), silenceGain = audio.createGain();
+  silenceGain.gain.value = 0;
+  silence.connect(silenceGain); silenceGain.connect(destination);
   const output = document.createElement('canvas');
   output.width = width; output.height = height;
   const ctx = output.getContext('2d');
@@ -55,7 +61,8 @@ export async function capturePlaybook({ court, play, locale, narration, width = 
     recorder.onstop = () => resolve(new Blob(chunks, { type: mime }));
   });
   const snapshot = court.snapshot();
-  let caption = '', alive = true, frame = 0, currentSource = null;
+  let caption = '', alive = true, frame = 0, currentSource = null, startedAt = 0;
+  const event = (type, step = null) => onEvent({ type, step, elapsedMs: Math.round(performance.now() - startedAt) });
   const draw = () => {
     if (!alive) return;
     // Draw immediately after rendering: WebGL's buffer need not be preserved.
@@ -79,26 +86,30 @@ export async function capturePlaybook({ court, play, locale, narration, width = 
   try {
     await audio.resume();
     if (audio.state !== 'running') throw new Error('Audio context could not start');
+    silence.start();
     court.cancel(); court.clearDiagram?.(); court.setScene(play.setup, null); court.setFrozen(false);
-    recorder.start(1000); draw();
+    recorder.start(1000); startedAt = performance.now(); event('record-start'); draw();
     caption = play.title[locale]; await pause(1200);
     for (let index = 0; index < play.steps.length; index++) {
-      const step = play.steps[index]; caption = step.say[locale];
+      const step = play.steps[index]; caption = step.say[locale]; event('caption-start', index);
       const source = audio.createBufferSource(); currentSource = source;
       source.buffer = narration[index]; source.connect(destination);
-      const voiceDone = new Promise(resolve => { source.onended = resolve; });
-      source.start();
-      const [done] = await Promise.all([court.play(step.beats), voiceDone]);
+      const voiceDone = new Promise(resolve => { source.onended = () => { event('voice-end', index); resolve(); }; });
+      source.start(); event('voice-start', index);
+      const actionDone = court.play(step.beats).then(done => { event('action-end', index); return done; });
+      const [done] = await Promise.all([actionDone, voiceDone]);
       currentSource = null; source.disconnect();
       if (!done) throw new Error('Court playback was interrupted');
       await pause(500);
     }
-    caption = ''; await pause(700);
-    alive = false; cancelAnimationFrame(frame); recorder.stop();
+    caption = ''; event('caption-clear'); await pause(700);
+    alive = false; cancelAnimationFrame(frame); event('record-stop'); recorder.stop();
     return await completed;
   } finally {
     alive = false; cancelAnimationFrame(frame);
     if (currentSource) { try { currentSource.stop(); } catch {} currentSource.disconnect(); }
+    try { silence.stop(); } catch {}
+    silence.disconnect(); silenceGain.disconnect();
     if (recorder.state !== 'inactive') { recorder.ondataavailable = null; recorder.stop(); }
     combined.getTracks().forEach(track => track.stop());
     await audio.close().catch(() => {});
