@@ -1,3 +1,9 @@
+## a03 落地区间逐帧核对（2026-11-05 继续）
+
+CB0001 `landing-full/a01` 将 `audit_cmu_fixed_foot.py` 和 `audit_landing_reach.py` 指向 a03，在起跳/落地局部逐帧采样；两个输出归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/landing-full/a01/outputs/`，`fixed-foot.json` SHA `a7859487f3c75629f998f4b42433a132163b7bf0a118cdd16329c1cb74fc1949`、`reach.json` SHA `efb94cf271b1a35b892cafdb455b51ad8e0c4ee590ab6dd255f2d74a5e426106`。左脚落地451–501共51帧，筛选顶点最低高度四舍五入约0cm；右鞋最低约 -0.034～+0.031cm。右鞋同一个顶点在该区间横向移动6.42cm，与基线一致：本次 IK 没解决脚滑；源脚骨经身高比例换算约3.04cm，但不是同一解剖点，也不是足底接触标记。左脚固定点水平位移1.64cm，与基线相同。
+
+以髋—膝—踝算的左膝夹角在431–521帧约137.7–166.6度，最大相邻帧变化1.60度（120fps）；基线约124.8–154.2度、最大2.33度。这只排除该数值采样里的明显跳变，不证明膝盖形变、脚底全表面、接触窗口、视觉自然或全片连续性。尚未带球或正常速度观察，候选仍不得入游戏。两份审计器支持环境变量指定被复核的模型；记录与输入 SHA 均绑定 worker manifest。任务已结束，无测试声音；自动讲解及 Owner/iPad 验收仍未完成。Goal ACTIVE。
+
 ## 左脚朝向与落地修正 a03（2026-11-05 继续）
 
 CB0001 `landing-reach/a01` 对比 a08 与 landing-ik/a02，`tools/blender/audit_landing_reach.py` 输出 SHA `b56f8ee1fcae310c76d636ecd29af564b7daa9e6b3f9d5d430befc74221e3da0`；帧461左腿长度约95.14cm，达到将踝降低4.42cm的位置仍有约5.93cm余量。a02 的踝确实降低4.42cm，但脚部方向随小腿旋转约6.69度，鞋底只降低约2.48cm。诊断是针对该手选帧窗口与该骨架，不证明全部动作或地面接触。

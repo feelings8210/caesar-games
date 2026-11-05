@@ -8,7 +8,7 @@ from mathutils import Vector
 OUT = Path(os.environ['MF_OUTPUT_DIR'])
 MODELS = {
     'baseline': '/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-retarget/a08/outputs/cmu-jump-retarget-candidate.glb',
-    'ik': '/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/landing-ik/a02/outputs/candidate.glb',
+    'ik': os.environ.get('HOOPS_AUDIT_MODEL', '/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/landing-ik/a02/outputs/candidate.glb'),
 }
 results = {}
 for label, file in MODELS.items():
@@ -22,7 +22,7 @@ for label, file in MODELS.items():
     if not indices:
         raise RuntimeError('No left foot vertices')
     records = []
-    for frame in (441, 451, 461, 471, 481, 491, 501, 511):
+    for frame in range(431, 522):
         bpy.context.scene.frame_set(frame)
         thigh, calf, foot = (rig.pose.bones[n] for n in ('thigh_l', 'calf_l', 'foot_l'))
         hip = rig.matrix_world @ thigh.head

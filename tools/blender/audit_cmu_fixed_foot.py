@@ -11,7 +11,7 @@ import bpy
 
 OUT = Path(os.environ['MF_OUTPUT_DIR'])
 SRC = '/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-convert/a02/outputs/jump.bvh'
-DST = '/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-retarget/a08/outputs/cmu-jump-retarget-candidate.glb'
+DST = os.environ.get('HOOPS_AUDIT_MODEL', '/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-retarget/a08/outputs/cmu-jump-retarget-candidate.glb')
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.preferences.addon_enable(module='io_anim_bvh')
 bpy.context.scene.render.fps = 120
