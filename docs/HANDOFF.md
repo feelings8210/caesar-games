@@ -1,3 +1,11 @@
+## 篮球动作研究与视频时间线（2026-11-05，后续）
+
+Owner 再次指出球馆细节、人物造型、动作与 NBA 2K 相距很远，要求检索可商用开放资源并认真做自动讲解视频。核实当前人体由 Blender 官方人体和 Quaternius CC0 基础改造，专门上篮和跳投是项目原创 Blender 动作；不是 NBA 动捕。统一资产库预检通过，篮球模型和 mocap 商用查询无适合结果。CMU 官方目录有真实篮球运球、变向、跳投和上篮，网站允许在商业产品中使用但禁止直接转售动作数据；CMU 不在当前批准来源注册表，因此没有下载/接入，也没有验证品质、球轨迹和与现有骨架的兼容性。证据和来源见 `docs/HOOPS_VIDEO_AND_MOTION_RESEARCH_20261105.md`。不能称已达到 NBA 2K。
+
+本轮建立 `scripts/hoops-video-timeline.mjs`，从现有战术和已测逐步旁白时长生成动作/音频时间线与 SRT；`scripts/hoops-video-plan.mjs` 可输出 JSON/SRT，拒绝缺失、错误时长和覆盖文件。单元测试与真实 CLI 以假时长输入通过，完整23项 Node 测试通过。**还没有自动旁白、游戏视频录制、音画合成或可分享视频**，时间线不证明画面和配音已同步；之前失败且 research-only 的声音不可用于成片。
+
+下一步：确认独立篮球教学片的正式中文配音接入（服务要求真实 episode；不可伪造或把 research 输出当成片），建立逐步音频/画面/字幕合成与正常速度验证；CMU 按资产库来源批准及受控采集流程入库并以 3090 小样验证后才可使用。继续球馆、真实动作和游戏体验，保留对标差距和 Owner/iPad 验收。
+
 ## 篮球战术与教学视频：进行中（2026-11-05）
 
 Owner 要求继续打磨游戏，不等教练，研究 NBA 常见战术（牛角、电梯门及变化），自动生成带讲解视频。当前开发 worktree `codex/hoops-tactics-video`，从 `codex/hoops-local` local.35 开始；原军棋 checkout 和未提交改动保留。此项未完成、未发布、没有 PR。`v2.9.0-local.36`：战术本加入牛角挡拆外弹和电梯门无防守示范；后者先让射手过门再让掩护人合拢，文字强调实战合法掩护与给防守人避让空间；无防守场景不能验证真实碰撞与裁判判罚。原牛角挡拆顺下仍在。修战术面板按钮被 primary 200px 最小宽挤出的问题。资料：[NBA Horns](https://www.nba.com/lakers/playbookclippershtml)、[NBA Elevator](https://api-hub.nba.com/news/cleveland-cavaliers-golden-state-warriors-go-plays-breakdown)、[NBA screening](https://official.nba.com/third-installment-of-the-nba-rule-authority/)。原创数据，没有复制视频素材。
