@@ -693,8 +693,8 @@
 .hp-pb-steps li.is-past { color: var(--ink-muted); }
 .hp-pb-steps li.is-now { color: var(--ink); font-weight: 600; }
 
-.hp-pb-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px; margin-top: 4px; }
-.hp-pb-controls .btn { min-width: 0; min-height: 44px; padding: 0 6px; }
+.hp-pb-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.hp-pb-controls .btn { min-width: 0; min-height: 44px; padding: 0 2px; font-size: 0.85rem; white-space: nowrap; }
 .hp-pb-controls .btn:disabled { opacity: .45; }
 .hp-pb-done { display: flex; flex-direction: column; gap: 10px; }
 
