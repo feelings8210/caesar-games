@@ -531,11 +531,13 @@ export class Court3D extends BeatRunner {
     this._screeners = new Set();
     this._seenHolder = this.ball.holder;
     this._seenFlight = null;
-    // Open on the display case, low and wide, then glide down to the game
-    // camera while the title card is up.
+    // The arena begins at the fitted broadcast framing so every player is
+    // visible as soon as a play opens. Only the classic view glides in.
     this.setShot('broadcast', true);
-    if(!this.arenaLook)this.cam.pos.set(0, 30, 96);
-    this.cam.target.set(0, 2, 20);
+    if (!this.arenaLook) {
+      this.cam.pos.set(0, 30, 96);
+      this.cam.target.set(0, 2, 20);
+    }
     this.goal.k = 1.6;
     this._renderBall(0);
     this.wake();
