@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 out = Path(os.environ['MF_OUTPUT_DIR'])
-root = Path('/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-convert/a01/outputs')
+root = Path('/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-convert/a02/outputs')
 report = {'source': 'CMU subject 124, experimental ASF/AMC to BVH conversion', 'clips': []}
 bpy.ops.preferences.addon_enable(module='io_anim_bvh')
 for filename in ('jump.bvh', 'layup.bvh'):

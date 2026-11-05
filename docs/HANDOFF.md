@@ -1,3 +1,9 @@
+## CMU 转换器修正（2026-11-05，继续）
+
+核实 amc2bvh 源码的 `sample_rotation` 确实存在未初始化通道：它对非三轴关节将未定义内存带进四元数。已在隔离源码把初始角度归零、默认轴置 XYZ（补丁 `tools/mocap/amc2bvh-init.patch`；上游 f89c731，MIT），CB0001 CPU 注册路径重转并归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-convert/a02/outputs/`。跳投 SHA `d6d5f0d0a02e6b007baaee7c158014717f2da950227fbfb510e0e277d0dcde19`；上篮 SHA `5707c9baa2a8104987ed24d04ba6f9863b3a54a9aa298372312b2089b9cae6d1`。与 a01 比每帧两处旋转发生变化（跳投 1578、上篮 1388 项；最大差约23度），旧 a01 转换/目视不能当可信结果；a02 仍需独立正确性验证。
+
+修正版 Blender 全过程每5帧检查任务 `hoops-cmu-inspect-a03` 已受控派 CB0001，PID 630022，原生 GPU 锁排队；已登记 jobs，不要重复发或中断其他工作。看 `/srv/ai-data/media-work/tools/mf/logs/hoops-cmu-inspect-a03_20261105T173129Z.txt` 及原 job/同一 PID，完成后 collect `--worker CB0001 --project CAESAR_HOOPS_TACTICS --task cmu-inspect --attempt a03`；UNKNOWN 不换机重发。完成后验证骨骼动作、接触、retarget 与原始输入语义，不能凭有限值或截图称通过。实验始终静音，尚无正式解说视频或产品导出入口。
+
 ## CMU Blender 导入与静音导出进度（2026-11-05）
 
 CMU 两段 BVH 已通过 CB0001 注册路径导入 Blender 5.2.2：跳投 1–789 帧、上篮 1–694 帧、各31根骨骼/120fps；采样坐标有限、正侧骨架采样图已目视，见 SSD `cmu-jump-poses.png`、`cmu-layup-poses.png`。它们只证明导入和少数姿态，不能证明转换精度、自然动作、触地或与游戏骨架适配。权威 Blender JSON `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-inspect/a01/outputs/cmu-bvh-pose-samples.json`；正侧采样图 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-sheets/a01/outputs/`。已准备 a02 全过程每5帧采样，首次派工因 CB0001 GPU 锁忙而拒绝（未启动、无重复 attempt）；等锁空或按真实依赖 stage 到认证 worker 再做，不能中断他人任务。脚本 `tools/blender/inspect_cmu_bvh.py`、`scripts/hoops-cmu-pose-sheet.py`。

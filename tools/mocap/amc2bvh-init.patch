@@ -1,0 +1,7 @@
+diff --git a/amc2bvh.c b/amc2bvh.c
+index c20a77c..06cd30a 100644
+--- a/amc2bvh.c
++++ b/amc2bvh.c
+@@ -439 +439 @@ void write_bvh_joint_sample(FILE *bvh, struct amc_joint *joint, struct amc_sampl
+-    struct euler_triple sample_rotation;
++    struct euler_triple sample_rotation = { .angles = {0, 0, 0}, .order = {CHANNEL_RX, CHANNEL_RY, CHANNEL_RZ} };
