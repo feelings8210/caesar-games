@@ -1,3 +1,9 @@
+## CMU 首次人物动作转移与视频画幅（2026-11-05 继续）
+
+Owner 重申“做出一个最好的效果来，中间不要停”，当前目标未达成、仍需继续；不靠测试替代 Owner 对视觉、听觉和游戏性的验收。CB0001 Blender 尝试将 CMU 124_05 修正跳投转给现有球员骨架（脚本 `tools/blender/retarget_cmu_candidate.py`）。a01 混出源动作；a02 删除其他 action，输出仅1动作/13网格，SHA `58ade08ea89f80397be3ba30a4c86a0396fd749ba196b22ef71b4df9c4de5b43`，但静音浏览器样帧显示双腿交叉、手臂不自然，拒收。a03 把源首帧对应目标静止姿态，输出 SHA `f706575b6d230a217ef4909118041964821722c500f171be43a8cdccca5ef4c2`，首帧不扭曲，投篮姿态更接近，但开始姿态和原动作对齐不正确、无根位移、脚锁或球接触，不是可用游戏动作。检查帧 SSD `retarget-a02/pose-*.png` 和 `retarget-a03/pose-*.png`；原始 GLB 裸预览没有运行时材质、不能用作人物质感判断。两版 archive `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-retarget/{a02,a03}/outputs/`；未接入游戏。下一步基于真实来源静止姿态与目标骨骼语义重定向，保留根位移并求解脚地/手球接触，连续1x看动作再定。
+
+录制器 `scripts/hoops-video-capture.mjs` 新增按比例适配画布、避免画面拉伸，单测覆盖横竖比例；静音浏览器试录解码检查 `capture-silent-aspect-a04` 通过且已看截图。原型只用合成静音，正式旁白、剪辑、产品导出入口、声画同步和真机验证仍未做。当前完整26项 Node 测试通过；本轮测试浏览器和自己起的8197服务已关闭，别的会话不动。
+
 ## 修正版骨架动作采样（2026-11-05，继续）
 
 `cmu-inspect/a03` 在 CB0001 Blender 完成并 collect：修正版跳投789帧中每5帧采样159次，上篮694帧采样140次，各31骨/120fps，JSON SHA `c3adeba80881ba6f5d73cbd77f83c9cdc7cefb87da2bb68d199945c6484aca8d`；归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-inspect/a03/outputs/`。CB0001 CPU 合成两个**无声音**正侧骨架连续检查视频（每5帧以24fps播放，近似原120fps），归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-video/a01/outputs/`，SSD 代理 `cmu-jump-skeleton-a02.mp4` / `cmu-layup-skeleton-a02.mp4`。编解码和时长已核，尚未连续1x目视、未与原始动作/球对照、未 retarget，不能称品质/运动准确性通过。代码 `scripts/hoops-cmu-pose-video.py`。不要把前文 a03 排队中的历史当当前状态；a03 已 collect，任务无后台作业。

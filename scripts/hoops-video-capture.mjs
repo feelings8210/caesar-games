@@ -15,6 +15,13 @@ export function wrapCaption(text, maxWidth, measure, locale) {
   return lines;
 }
 
+export function containRect(sourceWidth, sourceHeight, width, height) {
+  if (![sourceWidth, sourceHeight, width, height].every(x => Number.isFinite(x) && x > 0)) throw new Error('Invalid frame dimensions');
+  const scale = Math.min(width / sourceWidth, height / sourceHeight);
+  const w = sourceWidth * scale, h = sourceHeight * scale;
+  return { x: (width - w) / 2, y: (height - h) / 2, width: w, height: h };
+}
+
 export async function capturePlaybook({ court, play, locale, narration, width = 1280, height = 720, fps = 30 }) {
   if (!court?.renderer || !court?.canvas || !court?.scene || !court?.camera) throw new Error('A loaded 3D court is required');
   if (!play?.steps?.length || !['zh', 'en'].includes(locale)) throw new Error('Invalid play or language');
@@ -47,7 +54,8 @@ export async function capturePlaybook({ court, play, locale, narration, width = 
     // Draw immediately after rendering: WebGL's buffer need not be preserved.
     court.renderer.render(court.scene, court.camera);
     ctx.fillStyle = '#0b1628'; ctx.fillRect(0, 0, width, height);
-    ctx.drawImage(court.canvas, 0, 0, width, height);
+    const rect = containRect(court.canvas.width, court.canvas.height, width, height);
+    ctx.drawImage(court.canvas, rect.x, rect.y, rect.width, rect.height);
     ctx.fillStyle = 'rgba(7,15,29,.86)'; ctx.fillRect(0, height - 135, width, 135);
     ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
     let fontSize = 30, lines;

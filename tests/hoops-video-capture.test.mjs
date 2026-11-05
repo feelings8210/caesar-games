@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { capturePlaybook, wrapCaption } from '../scripts/hoops-video-capture.mjs';
+import { capturePlaybook, wrapCaption, containRect } from '../scripts/hoops-video-capture.mjs';
 
 test('capture refuses missing narration before creating a recording', async () => {
   const court = { renderer: {}, canvas: {}, scene: {}, camera: {} };
@@ -12,4 +12,10 @@ test('capture refuses missing narration before creating a recording', async () =
 test('English captions wrap at word boundaries and Chinese captions wrap by character', () => {
   assert.deepEqual(wrapCaption('A screen and dribble', 10, x => x.length, 'en'), ['A screen', 'and', 'dribble']);
   assert.deepEqual(wrapCaption('牛角战术', 2, x => x.length, 'zh'), ['牛角', '战术']);
+});
+
+test('capture preserves court proportions in landscape and portrait outputs', () => {
+  assert.deepEqual(containRect(1000, 1000, 1600, 900), { x: 350, y: 0, width: 900, height: 900 });
+  assert.deepEqual(containRect(1600, 900, 900, 1600), { x: 0, y: 546.875, width: 900, height: 506.25 });
+  assert.throws(() => containRect(0, 1, 1, 1), /dimensions/);
 });
