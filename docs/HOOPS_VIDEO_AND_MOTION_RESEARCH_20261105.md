@@ -10,7 +10,7 @@
 
 CMU 官方 [Motion Capture Database](https://mocap.cs.cmu.edu/) 说明动作可用于商业销售产品，但不得直接转售原始数据或其转换格式。官方 [篮球索引](https://mocap.cs.cmu.edu/search.php?maincat=4&subcat=1) 有运球、变向、投篮等；[全库索引](https://mocap.cs.cmu.edu/search.php) 的 subject 124 还列有跳投及上篮。官网特别说明手和脚趾数据可能有噪声、手指和拇指并未捕捉。是否有球轨迹、节奏质量、重定向后接触与 iPad 开销还未核实。
 
-Owner 2026-11-05 明确授权按需下载入库；已在 GLOBAL_ASSET_SOURCES 登记限定篮球 ASF/AMC 的 CMU 来源，并经 asset_acquire_3d 入库；因传输验证问题，该来源现已设为暂停采集，五个条目的 commercial_use 暂设为未知，直至核验通过。CMU 原站 HTTPS 证书链在 worker 和 Mac 上校验失败，原站 HTTP 可访问；以下原文件从 HTTP 获取，SHA 只证明入库后的字节一致性，不证明传输真实性。**须经可信来源独立核对后才能用于正式资产**。原始数据不得直接转售，PWA 的具体分发许可需另核；未加入游戏或公开仓库。
+Owner 2026-11-05 明确授权按需下载入库；已在 GLOBAL_ASSET_SOURCES 登记限定篮球 ASF/AMC 的 CMU 来源，并经 asset_acquire_3d 入库；来源现暂停再次采集，避免默认客户端证书链缺失时再次走 HTTP。CMU 原站 HTTPS 证书链在 worker 和 Mac 上校验失败，原站 HTTP 可访问；以下原文件从 HTTP 获取，SHA 只证明入库后的字节一致性，不证明传输真实性。随后从 Let’s Encrypt 官方获取中间证书并使用系统根证书完整验证 HTTPS（hostname 与 CA 校验启用、partial-chain 禁用），五份 HTTPS 内容与入库 SHA 全部相同，证据 `/srv/ai-data/media-work/asset-library/evidence/cmu-basketball-mocap/https-verification-20261105.json`；条目解除传输隔离并标记商用产品可用。原始数据不得直接转售，PWA 的具体分发许可需另核；未加入游戏或公开仓库。
 
 | 原文件 | 可用 canonical 路径（3090） | SHA-256 |
 |---|---|---|
@@ -31,3 +31,5 @@ Owner 2026-11-05 明确授权按需下载入库；已在 GLOBAL_ASSET_SOURCES �
 它们还没有生成通过质量门的旁白或 MP4，也没有逐字字幕。输入必须使用通过质量门的各步音频。此前 `research=true` 生成的样音未过关且研究路径无正式次数上限，禁止用于成片。正式配音服务需要 episode 而独立游戏教学视频接入方式未验证；不能伪造 episode 或把研究样音当成已批准语音。
 
 下一步在注册 3090 worker 上建立真实游戏画面采集、已通过旁白和字幕按同一时间线合成的闭环，先以牛角一套完成真实播放、同步、逐帧采样及听审证据；然后扩战术、纵横视频。需要支持失败、取消和不覆盖已有成品，iPad 与浏览器支持单独验证。Owner 视觉听觉判定之前不标生产完成。
+
+2026-11-05：用 MIT 许可的 [amc2bvh](https://github.com/thcopeland/amc2bvh)（提交 f89c7312588a2a4265bf8384dc7309f461be91a7），通过注册 worker CPU 路径把 124_05 和 124_06 分别转换为 120fps BVH，技术归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-convert/a01/outputs/`。跳投 789 帧 SHA `876dc61d9811debd96cd4d6bb8c812ba693edf1b68d71dad5016ff9795cd0d0a`；上篮 694 帧 SHA `376f7bc8d9e235c78e31492b6a54366dbc0aaba64c65338a79bfc7fc94fe476d`；所有数据数值有限、帧列数一致。转换器作者提示可能存在零长骨骼；不同项目指出缺失旋转通道初始化风险。**这些仅是容器转换与数值检查，不证明动作正确、可重定向或达到游戏质量；需在 3090 的 Blender 中导入，逐动作目视并核对接触和时序后再决定是否接入。**

@@ -1,3 +1,9 @@
+## CMU 来源核验与转换（2026-11-05）
+
+Owner 允许采集；原始五文件来自 CMU HTTP 后，已从 Let’s Encrypt 官方获取中间证书补全系统信任链，hostname/CA 校验开启、partial-chain 禁用，通过 HTTPS 再取同一五份并全部 SHA 匹配；证据 `/srv/ai-data/media-work/asset-library/evidence/cmu-basketball-mocap/https-verification-20261105.json`。条目解除隔离并标商用产品许可，原始数据直接转售禁止，redistribution=false，PWA 分发仍待核；注册来源暂不开放新采集，因为默认客户端证书链不全。
+
+在 CB0001 注册 CPU 路径用 MIT amc2bvh f89c731 转换了 subject124 跳投和上篮，收集到 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-convert/a01/outputs/`；789/694 帧、96 通道、有限值仅为机械检查。跳投 SHA `876dc61d9811debd96cd4d6bb8c812ba693edf1b68d71dad5016ff9795cd0d0a`；上篮 SHA `376f7bc8d9e235c78e31492b6a54366dbc0aaba64c65338a79bfc7fc94fe476d`。尚未用 Blender 观察或接入；须核转换器零长骨及缺失旋转通道、人体比例和脚/手/球接触。详情在 `docs/HOOPS_VIDEO_AND_MOTION_RESEARCH_20261105.md`。
+
 ## 篮球动捕素材与静音录制实验（2026-11-05）
 
 Owner 明确授权所需 CMU 动作下载并纳入素材库，要求测试静音且结束后关闭。已受控采集 CMU subject 124 的跳投/上篮和 subject 06 的变向运球投篮，以及两套 ASF 骨架，共五份；canonical 路径、许可、原始来源和 SHA 在 `docs/HOOPS_VIDEO_AND_MOTION_RESEARCH_20261105.md`。CMU 原站 HTTPS 证书链在 worker 和 Mac 校验失败，五份通过 HTTP 获取；SHA 仅是内部字节校验。五份现已隔离（index commercial_use=NULL，provenance quarantine），CMU 来源暂停再次采集，先独立验证安全来源及 PWA 分发权限，不能入游戏或声称商用可用。动作本身、骨架适配、真人接触尚未实测。
