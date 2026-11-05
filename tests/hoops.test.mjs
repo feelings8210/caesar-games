@@ -197,6 +197,19 @@ test('playbook plays are complete, bilingual and on the floor', () => {
   }
 });
 
+test('elevator shooter clears the gap before the two screeners close it', () => {
+  const play = PLAYS.find(p => p.id === 'elevator-shooter');
+  assert.ok(play);
+  const beats = play.steps.flatMap(step => step.beats);
+  const cut = beats.findIndex(beat => beat.move?.o2);
+  const close = beats.findIndex(beat => beat.move?.o4 && beat.move?.o5);
+  assert.ok(cut >= 0 && close > cut);
+  assert.deepEqual(beats[cut].move.o2.at(-1), [0, 25]);
+  assert.ok(Math.abs(beats[close].move.o5[0] - beats[close].move.o4[0]) <
+    Math.abs(play.setup.o5[0] - play.setup.o4[0]));
+  assert.match(play.steps.at(-1).say.en, /unguarded/);
+});
+
 test('every coach line exists in both languages and is precached', () => {
   const ids = new Set([...Object.values(VOICE_POOLS).flat(), ...PRAISE_LEVELS.map(id => `praise_${id}`),
     ...STREAK_LINES.map(n => `streak_${n}`), 'pb_hint', 'pb_done', 'pb_done_3', 'pb_watch_end', 'react_slow',

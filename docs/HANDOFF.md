@@ -1,3 +1,13 @@
+## 篮球战术与教学视频：进行中（2026-11-05）
+
+Owner 要求继续打磨游戏，不等教练，研究 NBA 常见战术（牛角、电梯门及变化），自动生成带讲解视频。当前开发 worktree `codex/hoops-tactics-video`，从 `codex/hoops-local` local.35 开始；原军棋 checkout 和未提交改动保留。此项未完成、未发布、没有 PR。`v2.9.0-local.36`：战术本加入牛角挡拆外弹和电梯门无防守示范；后者先让射手过门再让掩护人合拢，文字强调实战合法掩护与给防守人避让空间；无防守场景不能验证真实碰撞与裁判判罚。原牛角挡拆顺下仍在。修战术面板按钮被 primary 200px 最小宽挤出的问题。资料：[NBA Horns](https://www.nba.com/lakers/playbookclippershtml)、[NBA Elevator](https://api-hub.nba.com/news/cleveland-cavaliers-golden-state-warriors-go-plays-breakdown)、[NBA screening](https://official.nba.com/third-installment-of-the-nba-rule-authority/)。原创数据，没有复制视频素材。
+
+验证：篮球测试通过；浏览器 3D 电梯门自动演示跑到终点，截图 `/Volumes/MiniStorage/media-projects/caesar-hoops-tactics-20261105/`；控制按钮 44px、未越界。未做 iPad 真机、听审、Owner 审美或市场级验收。完整测试及最终修改后的浏览器复测以本轮结果为准。
+
+**视频功能未实现**：还需一个使用同一战术数据的可复现时间线、讲解与字幕同步、导出与真实可播放验证，不能把现有 Watch 或录屏称作自动讲解导出。中文旁白研究尝试 `caesar_hoops_horns_pop_20261105_a01` 经注册 CB0003 完成但 0/1 通过，最终约235汉字/分，目标255–260；归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/caesar_hoops_horns_pop_20261105_a01/a-7202b32090ae2a450caa`，SSD `voice-a01/job_result.json`。此次 request 使用 `research=true` 而非正式 episode：代码只在 episode 分支设置四条上限，research 路径首 take 失败后自动生成了七个额外候选，与 `studio/core/VO_RECIPE.json` 的正式配方上限不同；此音频不得进入成片。正式出口及允许的生产接入须先明确并验证，不可假定 research 路径受四条限制。实听和识别细查均未通过或未做。不要重发同一 attempt，勿伪造 episode 通过正式切次门。
+
+下一步：优先修复配音路由的自动重试规则；设计战术数据→同期解说/字幕→受控画面/音频导出，先做牛角一套真实样片，验证画面、动作、讲解同步与文件播放，再扩展电梯门及变化；同时继续球员动作、视听和实际游戏性，不宣称 NBA 水平已达成。遵守素材库和3090生产入口。
+
 ## Current local.35 — continuous near spectator shirts and fuller hands (2026-10-12)
 
 Goal best audiovisual / NBA 2K Mobile ACTIVE and unmet. Branch `codex/hoops-local`, local/private only, no push/PR/publish. New near reaction model has a continuous shirt shell from the approved uncut Human Base male surface, same source proportions/native heat bind, exact neck/waist/sleeve rest-pose cuts before seated evaluation and target bake. Skin retains more arm/palm/finger geometry in both tiers. Existing static casual fallback and far atlas remain unchanged. Runtime event/return/reset/LOD/shadow logic stays34. Both build identities35; current asset already in SW precache. `casual-reactions.provenance.json` includes canonical full source/parent/derivative paths, static parent recipe, builders/helper/output hashes. Final output2,095,600bytes SHA `32e926cf296e451e924e04c077bc784f9546977b21a548d326c7fbebe0ba19fa`, worker `crowd-hems-v8b/crowd-clap.glb`.

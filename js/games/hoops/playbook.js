@@ -70,6 +70,37 @@ export const PLAYS = [
 
   /* ---------------------------------------------------------------- */
   {
+    id: 'horns-pop',
+    category: 'offense',
+    title: T('牛角：挡拆外弹', 'Horns: pick and pop'),
+    sub: T('同样的牛角站位，掩护人外弹接球投篮。', 'The same horns set, with the screener popping out for a shot.'),
+    side: 'o',
+    setup: { o1: [0, 28], o4: [-8, 19], o5: [8, 19], o2: [-22, 4], o3: [22, 4], ball: 'o1' },
+    steps: [
+      { say: T('牛角站位：四号和五号站在两侧肘区，两名射手拉开到底角。', 'Horns alignment: #4 and #5 at the elbows, with shooters in the corners.'), beats: [{ ms: 700, move: { o5: [3, 25] }, screen: 'o5', call: ['o5', SCREEN] }] },
+      { say: T('五号先站稳掩护，一号借掩护向右运球。', '#5 sets a stationary screen; #1 dribbles right off it.'), beats: [{ ms: 1000, move: { o1: [[5, 27], [11, 21]] } }] },
+      { say: T('这次五号不顺下，而是退到外线，给持球人留下传球角度。', 'This time #5 pops out instead of rolling, giving the ball handler a passing angle.'), beats: [{ ms: 900, move: { o5: [2, 28], o4: [-11, 18] } }] },
+      { say: T('如果防守收缩，一号回传给空位的五号，接球投篮。', 'If the defense collapses, #1 passes back to the open #5 for a shot.'), beats: [{ ms: 650, pass: 'o5' }, { ms: 800, shot: 'make' }] }
+    ]
+  },
+
+  /* ---------------------------------------------------------------- */
+  {
+    id: 'elevator-shooter',
+    category: 'offense',
+    title: T('电梯门：射手接球', 'Elevator: free the shooter'),
+    sub: T('射手穿过通道，两名掩护人随后合拢站稳。', 'The shooter cuts through a gap, then the screeners close and set their feet.'),
+    side: 'o',
+    setup: { o1: [17, 21], o2: [0, 6], o3: [-22, 4], o4: [-3, 18], o5: [3, 18], ball: 'o1' },
+    steps: [
+      { say: T('一号持球，二号在篮下准备跑动；四号和五号在罚球线附近站稳，留出通道。', '#1 has the ball. #2 starts under the basket; #4 and #5 set their feet with a lane between them.'), beats: [{ ms: 700, screen: ['o4', 'o5'] }] },
+      { say: T('二号从通道跑向弧顶；经过后，四号和五号合拢并站稳。', '#2 cuts through to the top; once the shooter has passed, #4 and #5 close the gap and set their feet.'), beats: [{ ms: 1200, move: { o2: [[0, 15], [0, 25]] } }, { ms: 600, move: { o4: [-1.6, 18], o5: [1.6, 18] }, screen: ['o4', 'o5'] }] },
+      { say: T('二号接球投篮。这是无防守演示；实战中掩护人要给防守人避让空间，不能移动撞人。', '#2 catches and shoots. This is an unguarded demonstration; in a game, allow defenders room to avoid contact and never screen while moving into them.'), beats: [{ ms: 600, pass: 'o2' }, { ms: 800, shot: 'make' }] }
+    ]
+  },
+
+  /* ---------------------------------------------------------------- */
+  {
     id: 'pin-down',
     category: 'offense',
     title: T('射手绕掩护', 'Pin-down for the shooter'),
