@@ -1,3 +1,9 @@
+## 旁白对齐到战术步骤（2026-11-05 继续）
+
+`scripts/hoops-aligned-cues.mjs` 和 `hoops-alignment-manifest.mjs` 把现有 `mf_align.py` 的字幕 token/对齐报告转成整段录音的战术步骤清单：文字必须按原战术逐字归一后吻合、步骤边界不能落在 token 中、时间必须递增不重叠、报告与 token 覆盖/置信至少0.95、相邻步骤须容纳动作；任何失败拒绝而非猜时间。CLI 绑定音频 SHA，导出器在录制前复核音频 SHA。**这只绑定操作者提供的文件，不证明对齐结果真由此音频生成，也不证明说对了；真实来源、识别及读音/听觉 QC 仍须独立验证。** 对不满足条件的真实语音须回到对齐/编排处理，不得剪自然呼吸或变速。
+
+用此前8秒合成音调和人为构造的假对齐文件作端到端技术测试，自动生成清单并录制 `continuous-voice-a01/video-aligned-fixture.webm`；实际浏览器频谱检查四种测试音调相对字幕事件分别约 +80/+64/+66/+84ms。**这是合成测试数据，不是实际语音识别、自动配音或合格样片。** 错误音频 SHA 拒绝；30项 Node 测试通过。调查偶发3D降级得到一次明确错误：动态模块加载 `ERR_CONNECTION_RESET`，本地临时 Python 服务的 accept 队列从默认加到128，下一次3D导出成功；尚未反复验证全部加载故障。浏览器与临时服务关闭。接下来按正式配音流程完成真实音轨和可溯源的对齐并听审，完成用户界面和 iPad/Owner 验收；Goal ACTIVE。
+
 ## a03 落地区间逐帧核对（2026-11-05 继续）
 
 CB0001 `landing-full/a01` 将 `audit_cmu_fixed_foot.py` 和 `audit_landing_reach.py` 指向 a03，在起跳/落地局部逐帧采样；两个输出归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/landing-full/a01/outputs/`，`fixed-foot.json` SHA `a7859487f3c75629f998f4b42433a132163b7bf0a118cdd16329c1cb74fc1949`、`reach.json` SHA `efb94cf271b1a35b892cafdb455b51ad8e0c4ee590ab6dd255f2d74a5e426106`。左脚落地451–501共51帧，筛选顶点最低高度四舍五入约0cm；右鞋最低约 -0.034～+0.031cm。右鞋同一个顶点在该区间横向移动6.42cm，与基线一致：本次 IK 没解决脚滑；源脚骨经身高比例换算约3.04cm，但不是同一解剖点，也不是足底接触标记。左脚固定点水平位移1.64cm，与基线相同。

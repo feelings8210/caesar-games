@@ -38,6 +38,8 @@ const clips = (continuous ? [manifest.audio] : manifest.steps.map(step => step.a
   if (!bytes.length) throw new Error(`Empty audio at step ${i + 1}`);
   return { encoded: bytes.toString('base64'), sha256: sha256(bytes) };
 });
+if (manifest.alignment && (!continuous || manifest.alignment.audioSha256 !== clips[0].sha256))
+  throw new Error('Aligned narration does not match the bound audio SHA256');
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || '/opt/node22/lib/node_modules/playwright');
 const handle = fs.openSync(outputPath, 'wx');
@@ -45,7 +47,9 @@ let reportHandle;
 let success = false, browser, server;
 try {
   reportHandle = fs.openSync(`${outputPath}.json`, 'wx');
-  const serverCode = 'import functools,http.server,sys\nh=functools.partial(http.server.SimpleHTTPRequestHandler,directory=sys.argv[1])\ns=http.server.ThreadingHTTPServer(("127.0.0.1",0),h)\nprint(s.server_port,flush=True)\ns.serve_forever()';
+  // The 3D court loads many ES modules at once. Python's small default accept
+  // queue can reset module requests and silently make the game fall back to 2D.
+  const serverCode = 'import functools,http.server,sys\nclass Server(http.server.ThreadingHTTPServer):\n request_queue_size=128\nh=functools.partial(http.server.SimpleHTTPRequestHandler,directory=sys.argv[1])\ns=Server(("127.0.0.1",0),h)\nprint(s.server_port,flush=True)\ns.serve_forever()';
   server = spawn('python3', ['-u', '-c', serverCode, path.resolve(import.meta.dirname, '..')], { stdio: ['ignore', 'pipe', 'ignore'] });
   const port = await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('Local server startup timed out')), 10000);
@@ -57,15 +61,22 @@ try {
   const origin = `http://127.0.0.1:${port}`;
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--mute-audio'] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, serviceWorkers: 'block' });
-  const errors = [];
+  const errors = [], warnings = [];
   page.on('pageerror', e => errors.push(e.message));
+  page.on('console', msg => { if (['warning', 'error'].includes(msg.type())) warnings.push(msg.text()); });
   await page.goto(`${origin}/?hoopsQuality=low`);
   await page.waitForFunction(() => !!window.caesarApp, null, { timeout: 60000 });
   await page.click('#btn-hoops');
+  const courtKind = await page.evaluate(async playId => {
+    const game = window.caesarApp.hoops;
+    await game.pb.open(playId);
+    return game.root.dataset.court;
+  }, manifest.playId);
+  if (courtKind !== '3d') throw new Error(`3D court unavailable (${courtKind}): ${warnings.join('; ') || 'no browser warning'}`);
   const result = await page.evaluate(async ({ playId, locale, clips, continuous, cuesMs }) => {
     const { capturePlaybook } = await import('/scripts/hoops-video-capture.mjs');
     const game = window.caesarApp.hoops;
-    await game.pb.open(playId); await game.court.ready;
+    await game.court.ready;
     const audio = new AudioContext(), events = [];
     try {
       const narration = [];
