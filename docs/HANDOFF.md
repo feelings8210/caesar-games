@@ -1,3 +1,9 @@
+## 投篮手部与实验球轨迹（2026-11-05 继续）
+
+`tools/blender/audit_cmu_hands.py` 在 CB0001 对 right-foot/a01 的301–461帧逐帧采样 AnatomicalBody 左右手权重>.85的64+64个顶点；`hands/a01` 已 collect，JSON SHA `14c50e7d5c6498ac6b6a9972fdee533042a7bc3687a134aad6c11672822b09b3`，archive `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/hands/a01/outputs/hands.json`。双手顶点中心距离帧351约28.5cm、371约34.1cm、401约38.6cm、421约52.7cm；游戏当前球直径0.9英尺（约27.4cm，非赛事标准大小结论）。权重顶点中心不是掌心接触面、源动作没有球/出手标注，距离不能证明握球成功。
+
+临时预览 `right-foot-a01/ball-test.html` 仅用于实验：帧330–370放一个球于手骨中点、370后用臆设抛物线，无真实源球、篮筐或手球约束。静音六帧 `right-foot-a01/ball-test-sheet.jpg` 已目视：帧401球仍靠近肩部、与手和出手方向不协调，**该轨迹拒绝，不入游戏**。不能把实验球当动捕数据或成片；接下来需以手掌表面/投篮方向、明确出手时序、篮筐和运动连续性设计球轨迹，并在1×观察。浏览器、服务器与临时symlink已关。正式自动讲解视频仍未完成，Goal ACTIVE。
+
 ## 右膝逐帧及无声对照素材（2026-11-05 继续）
 
 CB0001 `right-knee/a01` 对比 landing-ik/a03 与 right-foot/a01 的431–521帧右腿，输出 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/right-knee/a01/outputs/reach.json` SHA `02ce72929d534c75b8539c3dea429ad729acee35101b55e5320a71e4a1da2849`。髋—膝—踝夹角基线约126.11–152.42度，最大帧间1.59度；候选约126.10–152.42度，最大帧间1.48度；最大膝位置帧间速度两版均约266cm/s（该时间段含落地，不是品质阈值）。这些数值仅覆盖窗口，不足以证明自然、无穿模或脚滑合格。审计脚本支持明确指定基线、候选和左右腿，输入路径均绑定 worker manifest。
