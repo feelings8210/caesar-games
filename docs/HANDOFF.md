@@ -1,3 +1,9 @@
+## 固定鞋底顶点与落地比较（2026-11-05 继续）
+
+新 `tools/blender/audit_cmu_fixed_foot.py` 在 CB0001 逐帧追踪起跳/落地附近选中的同一个鞋顶点，与源脚骨做对照，`fixed-foot/a01` 已 collect；JSON SHA `c44b028301602451ba817fc8b8367514b00307d7fc2c93e9bc0a09436eac2e8b`，archive `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/fixed-foot/a01/outputs/fixed-foot.json`。右脚落地后451→501帧，目标固定点水平移动6.42cm；源脚骨位移经当前 root_scale 3.7108 换算为目标比例约3.04cm。左脚351→376：2.61cm vs 2.67cm；右脚361→381：5.56cm vs 3.27cm。注意源脚骨与目标鞋顶点并非同一解剖点，源也没有真实接触标记，窗口仅供研究、不能把差异当确定滑移量。上次口头未先应用比例、把右脚源位移误报0.82cm，已向 Owner 更正。逐帧检查这些窗口右鞋最低约 -0.06cm；左脚落地后最低约2cm以上，显示整个人抬高引起悬空仍在。
+
+带网格地面的静音六帧 `retarget-a08/ground-sheet-b.jpg` 已目视：可观察起跳和落地姿态，但无球、无接触阴影，静帧无法判断连续动作与真实鞋底接触，未在游戏使用。对比脚滑应设计与源动作相应的可观察接触时段，避免锁住真实跑步/起跳；持球需另定球轨与手约束。该 GPU attempt 已完成、没有后台任务，测试浏览器与服务清理。正式旁白视频仍未完成，Goal ACTIVE。
+
 ## CMU 鞋底修正独立复测（2026-11-05 继续）
 
 原占用 GPU 的 PID 663580/663851 已结束，预检通过后在 CB0001 启动并 collect `cmu-shoes/a02`，独立复测 a08 逐5帧鞋权重顶点最低高度，JSON SHA `ba748841fb2e7fd46862387e24ab898140f64e00f3aaa78126feeff738fd7827`；归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-shoes/a02/outputs/shoe-contact.json`。a07 的右鞋158个样点最低 -0.11309 英尺（约 -3.45cm），39点低于 -0.01 英尺；a08 最低 -0.00198 英尺（约 -0.60mm），0点低于 -0.01 英尺。左鞋最低从 -0.03044 英尺改善到 -0.00031 英尺。第461帧右鞋近地，但左鞋被整体上移约0.145英尺（4.4cm）；这是整个人抬高而非独立落脚求解，不能把该改动当脚锁或自然动作。采样每5帧不能排除插值帧穿地，鞋子按足骨权重筛选也不是精确鞋底材质边界。
