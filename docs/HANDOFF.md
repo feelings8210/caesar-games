@@ -1,3 +1,9 @@
+## MP4 转码与播放检查（2026-11-05 继续）
+
+`scripts/hoops-video-transcode.sh` 是注册 `media.ffmpeg` worker 用的转码脚本，读取 manifest SHA 绑定的 WebM，输出 H.264/yuv420p、48kHz 双声道 AAC、faststart MP4 和 ffprobe 信息。CB0001 两个 CPU attempt `continuous-mp4/a01`、`a02` 完成并 collect；a02 用此脚本且输出与先前命令输出逐字节一致，MP4 SHA `2d4649f8c619f58375de69ab6eb52066365f962ee8378646518853323ecd36db`，归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/continuous-mp4/a02/outputs/video.mp4`。SSD 测试副本 `continuous-voice-a01/test.mp4`。这是合成音调技术测试，不是正式影片。
+
+ffprobe：1280×720 H.264 + 48kHz stereo AAC，10.1秒。静音 Chromium 同源播放分析4种音调，其起点相对对应字幕事件约 +0.06～0.08秒；本地文件在3→0→2→1的非顺序跳转均到达预期时间、4帧 `mp4-file-seek-sheet.jpg` 目视字幕和动作正确。用 Python 简易 HTTP server 的定位测试时间均返回0，其不支持 Range，不能据此认定文件定位坏；先注册 seeked 后再注册视频帧回调也超时，属于测试方法失败。未在 iPad 或发布渠道验证，未生成正式语音和讲解成片。浏览器与本次 HTTP 服务已关闭。CB0001 其他GPU任务仍运行（PID 663580/663851），鞋底复测继续等待。Goal ACTIVE。
+
 ## 单段连续旁白与战术时点（2026-11-05 继续）
 
 `capturePlaybook` 与 `hoops-video-export.mjs` 新增整段音频模式：一个音频文件只播一次，清单给每步的毫秒时点，期间不裁剪、变速或插入语音；动作与字幕随时点触发。时点不递增、越过音轨、动作预估装不下会拒绝；实际播放跑过下一个时点超过 250ms 也会失败，不输出成片。`tests/hoops-video-capture.test.mjs` 覆盖时点与动作不能容纳的边界，错误清单在启动浏览器前即拒绝。
