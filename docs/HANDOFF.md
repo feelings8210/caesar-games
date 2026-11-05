@@ -1,3 +1,9 @@
+## CMU 鞋底修正独立复测（2026-11-05 继续）
+
+原占用 GPU 的 PID 663580/663851 已结束，预检通过后在 CB0001 启动并 collect `cmu-shoes/a02`，独立复测 a08 逐5帧鞋权重顶点最低高度，JSON SHA `ba748841fb2e7fd46862387e24ab898140f64e00f3aaa78126feeff738fd7827`；归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/cmu-shoes/a02/outputs/shoe-contact.json`。a07 的右鞋158个样点最低 -0.11309 英尺（约 -3.45cm），39点低于 -0.01 英尺；a08 最低 -0.00198 英尺（约 -0.60mm），0点低于 -0.01 英尺。左鞋最低从 -0.03044 英尺改善到 -0.00031 英尺。第461帧右鞋近地，但左鞋被整体上移约0.145英尺（4.4cm）；这是整个人抬高而非独立落脚求解，不能把该改动当脚锁或自然动作。采样每5帧不能排除插值帧穿地，鞋子按足骨权重筛选也不是精确鞋底材质边界。
+
+静音浏览器看 a08 六个姿态 `retarget-a08/pose-sheet.jpg`，能辨认跳投，但预览模型太小、没有地面和篮球；未能检查手球接触或连续1×动作，不能做审美验收，也没接入游戏。落脚近地的顶点质心会随接触区域变化，水平位移不能直接当脚滑结论；下一步以明确脚底点与源动作接触时段比较，并在带地面和球的正常速度画面审查。此次测试浏览器、8197 服务与临时 symlink 已关闭。正式旁白视频、产品导出和 iPad/Owner 评审未完成，Goal ACTIVE。
+
 ## MP4 转码与播放检查（2026-11-05 继续）
 
 `scripts/hoops-video-transcode.sh` 是注册 `media.ffmpeg` worker 用的转码脚本，读取 manifest SHA 绑定的 WebM，输出 H.264/yuv420p、48kHz 双声道 AAC、faststart MP4 和 ffprobe 信息。CB0001 两个 CPU attempt `continuous-mp4/a01`、`a02` 完成并 collect；a02 用此脚本且输出与先前命令输出逐字节一致，MP4 SHA `2d4649f8c619f58375de69ab6eb52066365f962ee8378646518853323ecd36db`，归档 `/srv/media-vault/projects/CAESAR_HOOPS_TACTICS/checkpoints/continuous-mp4/a02/outputs/video.mp4`。SSD 测试副本 `continuous-voice-a01/test.mp4`。这是合成音调技术测试，不是正式影片。
