@@ -1,3 +1,9 @@
+## 战术视频音频接入原型（2026-11-05 继续）
+
+新增 `scripts/hoops-video-export.mjs`：读入战术 ID、语言与逐步音频清单，逐条核对文字必须和当前战术完全一致，使用独立的本地临时服务器和静音 Chromium 调用实际 3D 录制器，导出 WebM，禁止覆盖已有文件。音频需另经正式配音及审听流程；脚本不生成或认证旁白，也不是面向用户的游戏按钮。测试清单和四个合成音调（不是正式人声）在 SSD `export-prototype-a01/`，导出 `test.webm` 为 1280×720，浏览器播放至5秒无解码错误，`playback.png` 已目视；错误文字和重复输出均拒绝，6项视频单测通过。浏览器与本次服务器正常退出。尚未独立核整片音画同步、音频审听、真实旁白、MP4/iPad 或 Owner 审美。该工具为内部原型，依赖 Node 22、Playwright 和 Chromium；`PLAYWRIGHT_MODULE` / `CHROMIUM_PATH` 可指定环境。
+
+正式中文配音全局配方 `studio/core/VO_RECIPE.json` 要求 episode 和 longform，先前 research 输出未通过且不可用于成片；不要伪造 episode 或绕过重试限制。CB0001 的其他项目 PID 663580 / 663851 仍运行，等其释放后复测 cmu-shoes/a02。Goal 仍 ACTIVE。
+
 ## 战术开场取景修正（2026-11-05 继续）
 
 `v2.9.0-local.38`：上一轮牛角开场截图缺底角球员，复测镜头稳定后五人均在画面。原因是 `court3d.js setScene` 把 arena 镜头定位到完整阵型后，又把观察目标重置成旧展示位；现在仅 classic 模式保留旧入场移动，arena 从完整广播取景开始。静音浏览器加载后核对五名球员坐标在球场容器内，并目视 `/Volumes/MiniStorage/media-projects/caesar-hoops-tactics-20261105/horns-v38-start.png`；稳定后对照 `horns-v37-settled.png`。27项 Node 测试通过。浏览器用 `--mute-audio`，本次 session 与 8198 服务已退出。这个桌面检查不代表 iPad 或视觉品质验收。
