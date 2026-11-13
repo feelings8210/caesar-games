@@ -45,6 +45,8 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || '/opt/node22/lib/n
 const handle = fs.openSync(outputPath, 'wx');
 let reportHandle;
 let success = false, browser, server;
+let videoBytes = 0;
+const videoHash = createHash('sha256');
 try {
   reportHandle = fs.openSync(`${outputPath}.json`, 'wx');
   // The 3D court loads many ES modules at once. Python's small default accept
@@ -61,6 +63,12 @@ try {
   const origin = `http://127.0.0.1:${port}`;
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--mute-audio'] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, serviceWorkers: 'block' });
+  await page.exposeBinding('hoopsWriteVideoChunk', (_source, encoded) => {
+    const bytes = Buffer.from(encoded, 'base64');
+    fs.writeFileSync(handle, bytes);
+    videoBytes += bytes.length;
+    videoHash.update(bytes);
+  });
   const errors = [], warnings = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', msg => { if (['warning', 'error'].includes(msg.type())) warnings.push(msg.text()); });
@@ -85,27 +93,28 @@ try {
         narration.push(await audio.decodeAudioData(bytes.buffer));
       }
       const voice = continuous ? { continuousNarration: { buffer: narration[0], cuesMs } } : { narration };
-      const video = await capturePlaybook({ court: game.court, play: game.pb.play, locale, ...voice, onEvent: event => events.push(event) });
-      const bytes = new Uint8Array(await video.arrayBuffer());
-      let binary = '';
-      for (let i = 0; i < bytes.length; i += 32768) binary += String.fromCharCode(...bytes.subarray(i, i + 32768));
-      return { encoded: btoa(binary), type: video.type, events, captionTexts: game.pb.play.steps.map(step => step.say[locale]),
+      await capturePlaybook({ court: game.court, play: game.pb.play, locale, ...voice, onEvent: event => events.push(event),
+        onChunk: async blob => {
+          const bytes = new Uint8Array(await blob.arrayBuffer());
+          let binary = '';
+          for (let i = 0; i < bytes.length; i += 32768) binary += String.fromCharCode(...bytes.subarray(i, i + 32768));
+          await window.hoopsWriteVideoChunk(btoa(binary));
+        } });
+      return { events, captionTexts: game.pb.play.steps.map(step => step.say[locale]),
         narrationMs: narration.map(buffer => buffer.duration * 1000) };
     } finally { await audio.close(); game.leave(); }
   }, { playId: manifest.playId, locale: manifest.locale, clips, continuous, cuesMs: continuous ? manifest.steps.map(s => s.startMs) : [] });
   if (errors.length) throw new Error(`Browser errors: ${errors.join('; ')}`);
   if (result.captionTexts.length !== manifest.steps.length || result.captionTexts.some((text, i) => text !== manifest.steps[i].text))
     throw new Error('The recorded playbook text changed during export');
-  const video = Buffer.from(result.encoded, 'base64');
-  if (video.length < 1000) throw new Error('Recorded video is unexpectedly small');
-  fs.writeFileSync(handle, video);
+  if (videoBytes < 1000) throw new Error('Recorded video is unexpectedly small');
   const report = { schema: 'caesar-hoops-capture-observation-v1', playId: manifest.playId, locale: manifest.locale,
-    manifestSha256: sha256(fs.readFileSync(manifestPath)), audioSha256: clips.map(c => c.sha256), videoSha256: sha256(video),
+    manifestSha256: sha256(fs.readFileSync(manifestPath)), audioSha256: clips.map(c => c.sha256), videoSha256: videoHash.digest('hex'),
     narrationMs: result.narrationMs, cuesMs: continuous ? manifest.steps.map(s => s.startMs) : null,
     captionTexts: result.captionTexts, events: result.events,
     note: 'Browser event timestamps are observations, not verified encoded-media timestamps or narration QC.' };
   fs.writeFileSync(reportHandle, JSON.stringify(report, null, 2) + '\n'); success = true;
-  console.log(JSON.stringify({ output: outputPath, bytes: video.length, type: result.type, narrationQC: 'not assessed' }));
+  console.log(JSON.stringify({ output: outputPath, bytes: videoBytes, narrationQC: 'not assessed' }));
 } finally {
   await browser?.close();
   server?.kill();

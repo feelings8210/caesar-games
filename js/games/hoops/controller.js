@@ -367,7 +367,7 @@ export class HoopsGame {
     cancelAnimationFrame(this._timerRaf);
     await this._ensureCourt();
     if (flow !== this.flow) return;
-    sfx.preload().then(() => { if (this.view === 'play') sfx.startCrowd(() => this.courtOnScreen()); });
+    sfx.preload().then(() => { if (flow === this.flow && this.courtOnScreen()) sfx.startCrowd(() => this.courtOnScreen()); });
     stopVoice();
     this.current = lvl;
     // A stable shuffled display order avoids teaching "always press A".

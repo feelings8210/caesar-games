@@ -10,6 +10,7 @@ class Probe extends BeatRunner {
   _renderBall(bounce) { this.frames.push({ bounce, holder: this.ball.holder, flight: this.ball.flight?.kind, progress: this.ball.flight?.raw }); }
 }
 
+
 async function withFrames(run) {
   const original = { performance: globalThis.performance, raf: globalThis.requestAnimationFrame, mute: sounds.isMuted };
   const queue = [];
