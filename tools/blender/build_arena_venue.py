@@ -136,7 +136,22 @@ def floor_material(name, tint):
     mix2.inputs['Factor'].default_value = 1.0
     l.new(mix.outputs['Result'], mix2.inputs['A'])
     l.new(fcol.outputs[0], mix2.inputs['B'])
-    l.new(mix2.outputs['Result'], b.inputs['Base Color'])
+    col_out = mix2.outputs['Result']
+    if ASSETS.get('court_design') and os.path.exists(ASSETS['court_design']):
+        # Our home-court design (tools/court/make_court_design.py) painted over the maple:
+        # the texture spans x -35..35, z -12..106 ft; alpha = how much paint covers the wood.
+        dmp = n.new('ShaderNodeMapping')
+        dmp.inputs['Scale'].default_value = (1 / 70, 1 / 118, 1)
+        dmp.inputs['Location'].default_value = (35 / 70, 106 / 118, 0)
+        l.new(tc.outputs['Object'], dmp.inputs['Vector'])
+        dt = n.new('ShaderNodeTexImage'); dt.image = image(ASSETS['court_design']); dt.extension = 'EXTEND'
+        dt.interpolation = 'Cubic'
+        l.new(dmp.outputs['Vector'], dt.inputs['Vector'])
+        mix3 = n.new('ShaderNodeMix'); mix3.data_type = 'RGBA'; mix3.blend_type = 'MIX'
+        l.new(dt.outputs['Alpha'], mix3.inputs['Factor'])
+        l.new(col_out, mix3.inputs['A']); l.new(dt.outputs['Color'], mix3.inputs['B'])
+        col_out = mix3.outputs['Result']
+    l.new(col_out, b.inputs['Base Color'])
     nm = n.new('ShaderNodeNormalMap'); nm.inputs['Strength'].default_value = 0.35
     l.new(nor.outputs['Color'], nm.inputs['Color'])
     l.new(nm.outputs['Normal'], b.inputs['Normal'])
@@ -286,57 +301,6 @@ for (x0, x1, z0, z1) in [(-35, 35, -12, 106)]:
 floor = new_obj('Floor_Maple', bm, M['maple'])
 bm = bmesh.new(); box(bm, G(0, 47, -0.06), (600, 600, 0.1)); new_obj('Ground', bm, M['concrete'])
 
-# Two-tone stain outside the arc, both halves.
-bm = bmesh.new()
-for far in (False, True):
-    pts = [G(-25, 0), G(-22, 0), G(-22, CZ)] + arc(0, HOOP_Z, 23.75, math.pi - A3, A3, 72)[1:-1] + [G(22, CZ), G(22, 0), G(25, 0), G(25, 47), G(-25, 47)]
-    flat_poly(bm, mirror_far(pts) if far else pts, 0.004)
-new_obj('Floor_Stain', bm, M['stain'])
-
-# Navy apron around the court.
-bm = bmesh.new()
-for (x0, x1, z0, z1) in [(-35, -25, -12, 106), (25, 35, -12, 106), (-25, 25, -12, 0), (-25, 25, 94, 106)]:
-    flat_poly(bm, [G(x0, z0), G(x1, z0), G(x1, z1), G(x0, z1)], 0.006)
-new_obj('Floor_Apron', bm, M['apron_navy'])
-
-# Painted keys and centre circle.
-bm = bmesh.new()
-for far in (False, True):
-    key = [G(-8, 0), G(8, 0), G(8, 19), G(-8, 19)]
-    flat_poly(bm, mirror_far(key) if far else key, 0.008)
-circ = [G(6 * math.cos(t * math.tau / 96), 47 + 6 * math.sin(t * math.tau / 96)) for t in range(96)]
-flat_poly(bm, circ, 0.008)
-new_obj('Floor_Paint', bm, M['paint_navy'])
-
-# Gold pinstripe inside each lane.
-bm = bmesh.new()
-for far in (False, True):
-    p = [G(-7.45, 0.55), G(7.45, 0.55), G(7.45, 18.45), G(-7.45, 18.45)]
-    strip(bm, mirror_far(p) if far else p, 0.09, 0.011, closed=True)
-new_obj('Floor_Pinstripe', bm, M['paint_gold'])
-
-# Lines.
-bm = bmesh.new()
-H = 0.012
-strip(bm, [G(-25 + LW / 2, LW / 2), G(25 - LW / 2, LW / 2), G(25 - LW / 2, 94 - LW / 2), G(-25 + LW / 2, 94 - LW / 2)], LW, H, closed=True)
-strip(bm, [G(-25, 47), G(25, 47)], LW, H)
-strip(bm, circ, LW, H, closed=True)
-strip(bm, [G(2 * math.cos(t * math.tau / 64), 47 + 2 * math.sin(t * math.tau / 64)) for t in range(64)], LW, H, closed=True)
-for far in (False, True):
-    mk = (lambda pts: mirror_far(pts)) if far else (lambda pts: pts)
-    strip(bm, mk([G(-8, 0), G(-8, 19), G(8, 19), G(8, 0)]), LW, H)
-    strip(bm, mk([G(-22, 0), G(-22, CZ)] + arc(0, HOOP_Z, 23.75, math.pi - A3, A3, 96)[1:-1] + [G(22, CZ), G(22, 0)]), LW, H)
-    strip(bm, mk(arc(0, 19, 6, 0, math.pi, 48)), LW, H)                      # FT circle, outside the lane
-    for k in range(8):                                                       # dashed half inside the lane
-        a0 = math.pi + k * math.pi / 8 + 0.06
-        strip(bm, mk(arc(0, 19, 6, a0, a0 + math.pi / 8 - 0.12, 6)), LW, H)
-    strip(bm, mk([G(-4, 4)] + arc(0, HOOP_Z, 4, math.pi, 0, 40)[0:] + [G(4, 4)]), LW, H)
-    for z in (7, 8, 11, 14):
-        strip(bm, mk([G(-8.8, z), G(-8, z)]), LW, H)
-        strip(bm, mk([G(8, z), G(8.8, z)]), LW, H)
-new_obj('Floor_Lines', bm, M['paint_line'])
-
-
 def text_mesh(name, body, size, mat, at, rot_z, extrude=0.0, h=0.014):
     cu = bpy.data.curves.new(name, 'FONT')
     cu.body = body
@@ -353,32 +317,84 @@ def text_mesh(name, body, size, mat, at, rot_z, extrude=0.0, h=0.014):
     return ob
 
 
-# Lettering on the apron: readable from the broadcast side (camera at -x).
-text_mesh('Apron_Name_Near', 'CD GAMES', 5.0, M['paint_line'], G(-30, 47), -math.pi / 2)
-text_mesh('Apron_Name_Far', 'HOOPS IQ', 5.0, M['paint_gold'], G(30, 47), -math.pi / 2)
-for zc, rot in ((-6, 0.0), (100, math.pi)):
-    text_mesh(f'Baseline_{zc}', 'CD GAMES', 3.2, M['paint_line'], G(0, zc), rot)
+# Geometry markings: only when no court-design texture is given (the texture now carries
+# the stain, apron, lanes, lines, lettering and centre mark in one painted design).
+if not (ASSETS.get('court_design') and os.path.exists(ASSETS['court_design'])):
+    # Two-tone stain outside the arc, both halves.
+    bm = bmesh.new()
+    for far in (False, True):
+        pts = [G(-25, 0), G(-22, 0), G(-22, CZ)] + arc(0, HOOP_Z, 23.75, math.pi - A3, A3, 72)[1:-1] + [G(22, CZ), G(22, 0), G(25, 0), G(25, 47), G(-25, 47)]
+        flat_poly(bm, mirror_far(pts) if far else pts, 0.004)
+    new_obj('Floor_Stain', bm, M['stain'])
 
-# Centre-court CD mark.
-if ASSETS.get('logo') and os.path.exists(ASSETS['logo']):
-    img = image(ASSETS['logo'])
-    m = bpy.data.materials.new('LogoGold')
-    m.use_nodes = True
-    n = m.node_tree.nodes
-    b = n['Principled BSDF']
-    t = n.new('ShaderNodeTexImage'); t.image = img
-    b.inputs['Base Color'].default_value = (0.82, 0.6, 0.28, 1)
-    b.inputs['Roughness'].default_value = 0.35
-    b.inputs['Coat Weight'].default_value = 1.0
-    b.inputs['Coat Roughness'].default_value = 0.06
-    m.node_tree.links.new(t.outputs['Alpha'], b.inputs['Alpha'])
-    w = 9.5
-    bpy.ops.mesh.primitive_plane_add(size=1, location=(0, -47, 0.016))
-    lg = bpy.context.active_object
-    lg.name = 'Floor_Logo'
-    lg.scale = (w, w * img.size[1] / max(1, img.size[0]), 1)
-    lg.rotation_euler = (0, 0, -math.pi / 2)
-    lg.data.materials.append(m)
+    # Navy apron around the court.
+    bm = bmesh.new()
+    for (x0, x1, z0, z1) in [(-35, -25, -12, 106), (25, 35, -12, 106), (-25, 25, -12, 0), (-25, 25, 94, 106)]:
+        flat_poly(bm, [G(x0, z0), G(x1, z0), G(x1, z1), G(x0, z1)], 0.006)
+    new_obj('Floor_Apron', bm, M['apron_navy'])
+
+    # Painted keys and centre circle.
+    bm = bmesh.new()
+    for far in (False, True):
+        key = [G(-8, 0), G(8, 0), G(8, 19), G(-8, 19)]
+        flat_poly(bm, mirror_far(key) if far else key, 0.008)
+    circ = [G(6 * math.cos(t * math.tau / 96), 47 + 6 * math.sin(t * math.tau / 96)) for t in range(96)]
+    flat_poly(bm, circ, 0.008)
+    new_obj('Floor_Paint', bm, M['paint_navy'])
+
+    # Gold pinstripe inside each lane.
+    bm = bmesh.new()
+    for far in (False, True):
+        p = [G(-7.45, 0.55), G(7.45, 0.55), G(7.45, 18.45), G(-7.45, 18.45)]
+        strip(bm, mirror_far(p) if far else p, 0.09, 0.011, closed=True)
+    new_obj('Floor_Pinstripe', bm, M['paint_gold'])
+
+    # Lines.
+    bm = bmesh.new()
+    H = 0.012
+    strip(bm, [G(-25 + LW / 2, LW / 2), G(25 - LW / 2, LW / 2), G(25 - LW / 2, 94 - LW / 2), G(-25 + LW / 2, 94 - LW / 2)], LW, H, closed=True)
+    strip(bm, [G(-25, 47), G(25, 47)], LW, H)
+    strip(bm, circ, LW, H, closed=True)
+    strip(bm, [G(2 * math.cos(t * math.tau / 64), 47 + 2 * math.sin(t * math.tau / 64)) for t in range(64)], LW, H, closed=True)
+    for far in (False, True):
+        mk = (lambda pts: mirror_far(pts)) if far else (lambda pts: pts)
+        strip(bm, mk([G(-8, 0), G(-8, 19), G(8, 19), G(8, 0)]), LW, H)
+        strip(bm, mk([G(-22, 0), G(-22, CZ)] + arc(0, HOOP_Z, 23.75, math.pi - A3, A3, 96)[1:-1] + [G(22, CZ), G(22, 0)]), LW, H)
+        strip(bm, mk(arc(0, 19, 6, 0, math.pi, 48)), LW, H)                      # FT circle, outside the lane
+        for k in range(8):                                                       # dashed half inside the lane
+            a0 = math.pi + k * math.pi / 8 + 0.06
+            strip(bm, mk(arc(0, 19, 6, a0, a0 + math.pi / 8 - 0.12, 6)), LW, H)
+        strip(bm, mk([G(-4, 4)] + arc(0, HOOP_Z, 4, math.pi, 0, 40)[0:] + [G(4, 4)]), LW, H)
+        for z in (7, 8, 11, 14):
+            strip(bm, mk([G(-8.8, z), G(-8, z)]), LW, H)
+            strip(bm, mk([G(8, z), G(8.8, z)]), LW, H)
+    new_obj('Floor_Lines', bm, M['paint_line'])
+    # Lettering on the apron: readable from the broadcast side (camera at -x).
+    text_mesh('Apron_Name_Near', 'CD GAMES', 5.0, M['paint_line'], G(-30, 47), -math.pi / 2)
+    text_mesh('Apron_Name_Far', 'HOOPS IQ', 5.0, M['paint_gold'], G(30, 47), -math.pi / 2)
+    for zc, rot in ((-6, 0.0), (100, math.pi)):
+        text_mesh(f'Baseline_{zc}', 'CD GAMES', 3.2, M['paint_line'], G(0, zc), rot)
+
+    # Centre-court CD mark.
+    if ASSETS.get('logo') and os.path.exists(ASSETS['logo']):
+        img = image(ASSETS['logo'])
+        m = bpy.data.materials.new('LogoGold')
+        m.use_nodes = True
+        n = m.node_tree.nodes
+        b = n['Principled BSDF']
+        t = n.new('ShaderNodeTexImage'); t.image = img
+        b.inputs['Base Color'].default_value = (0.82, 0.6, 0.28, 1)
+        b.inputs['Roughness'].default_value = 0.35
+        b.inputs['Coat Weight'].default_value = 1.0
+        b.inputs['Coat Roughness'].default_value = 0.06
+        m.node_tree.links.new(t.outputs['Alpha'], b.inputs['Alpha'])
+        w = 9.5
+        bpy.ops.mesh.primitive_plane_add(size=1, location=(0, -47, 0.016))
+        lg = bpy.context.active_object
+        lg.name = 'Floor_Logo'
+        lg.scale = (w, w * img.size[1] / max(1, img.size[0]), 1)
+        lg.rotation_euler = (0, 0, -math.pi / 2)
+        lg.data.materials.append(m)
 
 
 # --------------------------------------------------------------------------- baskets
