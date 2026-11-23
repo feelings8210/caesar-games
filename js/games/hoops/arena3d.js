@@ -19,7 +19,7 @@ import { buildArchitecture } from './arena-architecture.js';
 const GROUND_Y = -2.4;
 
 const MAT = {
-  lacquer: () => new THREE.MeshStandardMaterial({ color: 0x14284A, roughness: 0.4, envMapIntensity: 0.3 }),
+  lacquer: () => new THREE.MeshStandardMaterial({ color: 0x34508A, roughness: 0.5, envMapIntensity: 0.12 }),   // saturated navy apron (docs/ARENA_REFERENCE.md)
   gold: () => new THREE.MeshStandardMaterial({ color: 0xC9A76A, roughness: 0.3, metalness: 1 }),
   ground: () => new THREE.MeshStandardMaterial({ color: 0x0D1015, roughness: 0.92 }),
   tread: () => new THREE.MeshStandardMaterial({ color: 0x41464E, roughness: 0.9 }),

@@ -14,7 +14,7 @@ export function buildCrowdImpostors(root, seats, texture, { seatedAudience = nul
     const p=new THREE.Vector3(x,y-1.535+2.5,z+.65).applyMatrix4(g.matrixWorld);
     centres.push(...p.toArray());yaws.push(new THREE.Euler().setFromQuaternion(g.getWorldQuaternion(new THREE.Quaternion())).y);
     styles.push(Math.floor((Math.sin(i*127.1+31.7)*.5+.5)*5.999));
-    brightness.push(.20+(Math.sin(i*13.7)*.5+.5)*.18);
+    brightness.push(.40+(Math.sin(i*13.7)*.5+.5)*.28);
   });
   geometry.setAttribute('fanCentre',new THREE.InstancedBufferAttribute(new Float32Array(centres),3));
   geometry.setAttribute('fanYaw',new THREE.InstancedBufferAttribute(new Float32Array(yaws),1));
@@ -32,7 +32,7 @@ export function buildCrowdImpostors(root, seats, texture, { seatedAudience = nul
       float col=mod(floor(yaw/0.78539816339+.5)+8.,8.);
       float pitch=atan(viewDelta.y,length(viewDelta.xz));
       float row=fanStyle*2.+step(.3665191429,pitch);
-      vCrowdTile=vec2(col,row);vFanBrightness=fanBrightness*(1.-.6*smoothstep(3.,36.,fanCentre.y));`);
+      vCrowdTile=vec2(col,row);vFanBrightness=fanBrightness*(1.-.35*smoothstep(3.,36.,fanCentre.y));`);
     shader.vertexShader=shader.vertexShader.replace('#include <project_vertex>',`
       vec3 right=vec3(viewMatrix[0][0],viewMatrix[1][0],viewMatrix[2][0]);
       vec3 up=vec3(viewMatrix[0][1],viewMatrix[1][1],viewMatrix[2][1]);
@@ -45,7 +45,7 @@ export function buildCrowdImpostors(root, seats, texture, { seatedAudience = nul
       vec4 sampledDiffuseColor=texture2D(map,atlasUV);
       diffuseColor*=sampledDiffuseColor;diffuseColor.rgb*=vFanBrightness;`);
   };
-  material.customProgramCacheKey=()=> 'hoops-crowd-multiview-v2';
+  material.customProgramCacheKey=()=> 'hoops-crowd-multiview-v3';
   const mesh=new THREE.Mesh(geometry,material);mesh.name='AudienceMultiview';mesh.frustumCulled=false;
   mesh.userData.fanCount=people.length;root.add(mesh);
   return {mesh,setQuality(q){geometry.instanceCount=q==='low'?Math.ceil(people.length/2):people.length;},dispose(){texture.dispose();}};

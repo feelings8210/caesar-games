@@ -332,7 +332,7 @@ export class Court3D extends BeatRunner {
     for (let i = 0; i < d.length; i += 64) { r += d[i]; gr += d[i + 1]; b += d[i + 2]; }
     const n = d.length / 64;
     // Honey maple, with the grain and plank-to-plank variation drawn out.
-    const mean = [r / n, gr / n, b / n], tone = this.venueLook ? [184,155,112] : this.arenaLook ? [175, 153, 114] : [186, 133, 80], k = this.venueLook ? .82 : this.arenaLook ? 0.52 : 1.3;
+    const mean = [r / n, gr / n, b / n], tone = this.venueLook ? [250,226,170] : this.arenaLook ? [175, 153, 114] : [186, 133, 80], k = this.venueLook ? .82 : this.arenaLook ? 0.52 : 1.3;
     for (let i = 0; i < d.length; i += 4) {
       for (let c = 0; c < 3; c++) d[i + c] = tone[c] + (d[i + c] - mean[c]) * k;
     }

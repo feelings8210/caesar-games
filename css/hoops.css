@@ -838,8 +838,8 @@ body.hoops-playing .hoops[data-view="play"] {
 .hoops[data-look="arena"] .hc3d::before {
   content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(2,5,10,.62) 0%, rgba(2,5,10,.30) 22%, rgba(2,5,10,0) 42%),
-    radial-gradient(ellipse 85% 75% at 50% 60%, transparent 62%, rgba(2,5,10,.45) 100%);
+    linear-gradient(180deg, rgba(2,5,10,.34) 0%, rgba(2,5,10,.14) 22%, rgba(2,5,10,0) 42%),
+    radial-gradient(ellipse 85% 75% at 50% 60%, transparent 62%, rgba(2,5,10,.34) 100%);
 }
 .hoops[data-look="arena"] .hc3d-labels { z-index: 2; }
 .hoops[data-look="arena"] .hc3d-vignette { z-index: 3; }
