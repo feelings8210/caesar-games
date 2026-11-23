@@ -119,12 +119,14 @@ def key_paint(c):
     g = c.g
     g.save()
     g.rectangle(-8, 0, 16, 19); g.clip()
-    g.rectangle(-8, 0, 16, 19); c.fill(NAVY_KEY, 0.94)
+    # Opaque: with a translucent base the doubled-up chevrons came out much darker than the
+    # base (the pale maple showing through the base, not through the chevrons) -- a16.
+    g.rectangle(-8, 0, 16, 19); c.fill(NAVY_KEY, 1.0)
     # Tonal chevrons pointing at the rim: the lane says "attack".
     for k in range(-1, 9):
         z = 1.2 + k * 2.6
         g.move_to(-8.5, z + 4.2); g.line_to(0, z); g.line_to(8.5, z + 4.2)
-        c.stroke(NAVY_CHEVRON, 0.94, 0.75)
+        c.stroke(NAVY_CHEVRON, 1.0, 0.75)
     g.restore()
     # Gold pinstripe just inside the lane.
     g.rectangle(-7.45, 0.55, 14.9, 17.9); c.stroke(GOLD, 0.95, LW)

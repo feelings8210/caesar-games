@@ -19,7 +19,7 @@ from mathutils import Euler, Matrix, Vector
 
 argv = sys.argv[sys.argv.index('--') + 1:]
 OUT, ATHLETE, ASF, AMC, CUR_GLB, CUR_ACTION = argv[:6]
-opt = {'step': 4, 'res': '960x540', 'label': 'clip'}
+opt = {'step': 4, 'res': '960x540', 'label': 'clip', 'align': 'facing'}
 i = 6
 while i < len(argv):
     k = argv[i].lstrip('-'); opt[k] = argv[i + 1]; i += 2
@@ -135,8 +135,12 @@ for o in src_objs:
 for a in [cur_arm, new_arm]:
     if a.animation_data:
         a.animation_data.action = None
-assign(cur_arm, act)
 cur_range = [int(v) for v in act.frame_range]
+# The current clip loops (NLA strip repeated) so it can be compared with the longer mocap.
+tr = (cur_arm.animation_data or cur_arm.animation_data_create()).nla_tracks.new()
+st = tr.strips.new(act.name, 1, act)
+st.repeat = 12
+st.extrapolation = 'HOLD'
 
 # Place them side by side (Blender X), both facing the camera at -Y.
 cur_arm.location.x -= 3.2
@@ -156,11 +160,36 @@ cmu_leg = (bones['lfemur']['len'] + bones['ltibia']['len']) * unit
 S = rig_leg / cmu_leg
 print('[retarget] frames', len(frames), 'cmu leg', cmu_leg, 'scale', S)
 
-FLIP = Matrix.Rotation(math.pi, 3, 'Z') if facing_flip else Matrix.Identity(3)
-p0, _ = fk(bones, hier, unit, frames[0])
-ground = min(min(to_b(v).z for v in fk(bones, hier, unit, f)[0].values()) for f in frames)
+# Trim the idle lead-in/out: keep from 12 frames before the root first moves (>0.25 ft
+# horizontally or 0.15 ft vertically from frame 0) to 18 frames after it settles.
+fkall = [fk(bones, hier, unit, f) for f in frames]
+r0 = to_b(fkall[0][0]['root'])
+def moved(k):
+    d = to_b(fkall[k][0]['root']) - r0
+    return Vector((d.x, d.y)).length * S > 0.25 or abs(d.z) * S > 0.15
+act_idx = [k for k in range(len(frames)) if moved(k)]
+if act_idx:
+    a_, b_ = max(0, act_idx[0] - 12), min(len(frames), act_idx[-1] + 18)
+    frames, fkall = frames[a_:b_], fkall[a_:b_]
+print('[retarget] trimmed to', len(frames))
+# Align: 'facing' turns the subject to face the camera (-Y) at the start; 'travel' turns the
+# net path to run left-to-right across the frame (layups), so nobody runs into the lens.
+if opt['align'] == 'travel':
+    d = to_b(fkall[-1][0]['root']) - to_b(fkall[0][0]['root'])
+    yaw = -math.atan2(d.y, d.x)
+else:
+    fwd = to_b(fkall[0][1] @ Vector((0, 0, 1)))
+    yaw = math.atan2(-1, 0) - math.atan2(fwd.y, fwd.x)
+ALIGN = Matrix.Rotation(yaw, 3, 'Z')
+FLIP = ALIGN @ (Matrix.Rotation(math.pi, 3, 'Z') if facing_flip else Matrix.Identity(3))
+p0, _ = fkall[0]
+ground = min(min(to_b(v).z for v in pk.values()) for pk, _ in fkall)
 origin = Vector((to_b(p0['root']).x, to_b(p0['root']).y, ground))
 offset = new_arm.matrix_world.translation.copy()
+if opt['align'] == 'travel':
+    span = (FLIP @ ((to_b(fkall[-1][0]['root']) - origin) * S)).x
+    offset.x += 3.0 - span / 2
+    cur_arm.location.x -= 8.0
 
 TARGETS = {    # our bone -> CMU joint it points at
     'spine_01': 'upperback', 'spine_02': 'thorax', 'spine_03': 'lowerneck', 'neck_01': 'upperneck', 'Head': 'head',
@@ -176,8 +205,7 @@ rot_e = bpy.data.objects.new('cmu_pelvis_rot', None); scene.collection.objects.l
 rot_e.rotation_mode = 'QUATERNION'
 pelvis_rest = (new_arm.matrix_world @ new_arm.data.bones['pelvis'].matrix_local).to_3x3()
 
-for fi, fr in enumerate(frames):
-    pos, rm = fk(bones, hier, unit, fr)
+for fi, (pos, rm) in enumerate(fkall):
     f = fi + 1
     for j, e in emp.items():
         v = FLIP @ ((to_b(pos[j]) - origin) * S) + offset
@@ -219,7 +247,7 @@ w = bpy.data.worlds.new('w'); scene.world = w; w.use_nodes = True
 w.node_tree.nodes['Background'].inputs['Color'].default_value = (0.05, 0.055, 0.07, 1)
 cd = bpy.data.cameras.new('cam'); cd.lens = 35
 cam = bpy.data.objects.new('cam', cd); scene.collection.objects.link(cam)
-cam.location = (0, -19, 5.2)
+cam.location = (0, -30, 5.6) if opt['align'] == 'travel' else (0, -19, 5.2)
 cam.rotation_euler = (Vector((0, 0, 3.6)) - cam.location).to_track_quat('-Z', 'Y').to_euler()
 scene.camera = cam
 
