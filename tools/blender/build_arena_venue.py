@@ -93,10 +93,16 @@ def floor_material(name, tint):
     hsv = n.new('ShaderNodeHueSaturation')
     # docs/ARENA_REFERENCE.md: pale warm maple, hue 36-43 deg, saturation 0.16-0.29
     # (a03 measured 19 deg, pinkish orange, so pull the hue toward yellow).
-    hsv.inputs['Hue'].default_value = 0.53
-    hsv.inputs['Saturation'].default_value = 1.1
-    hsv.inputs['Value'].default_value = 1.15
-    l.new(diff.outputs['Color'], hsv.inputs['Color'])
+    # Owner 11-23: a17 read pale and textureless (measured Y 0.81, sat 0.13, grain cv 0.04:
+    # near clipping, so AgX bleached it). Real NBA broadcast maple is honey with visible
+    # strips: darker albedo, more saturation, the scan's own grain contrast pushed up.
+    hsv.inputs['Hue'].default_value = 0.55
+    hsv.inputs['Saturation'].default_value = 1.55
+    hsv.inputs['Value'].default_value = 0.86
+    bc = n.new('ShaderNodeBrightContrast')
+    bc.inputs['Contrast'].default_value = 0.08   # 0.45 exposed the 2.5 ft scan tile as a checkerboard (a18b)
+    l.new(diff.outputs['Color'], bc.inputs['Color'])
+    l.new(bc.outputs['Color'], hsv.inputs['Color'])
     mix = n.new('ShaderNodeMix'); mix.data_type = 'RGBA'; mix.blend_type = 'MULTIPLY'
     mix.inputs['Factor'].default_value = 1.0
     l.new(hsv.outputs['Color'], mix.inputs['A'])
@@ -125,11 +131,11 @@ def floor_material(name, tint):
     yy = mth('ADD', sep.outputs['Y'], mth('MULTIPLY', noise3(bx, 7.0, 0.0), SL * 1.7))
     ys = mth('DIVIDE', yy, SL * (0.75))
     by = mth('FLOOR', ys)
-    shade = mth('ADD', 0.9, mth('MULTIPLY', noise3(bx, by, 3.0), 0.16))
+    shade = mth('ADD', 0.78, mth('MULTIPLY', noise3(bx, by, 3.0), 0.38))
     seam_x = mth('LESS_THAN', mth('FRACT', xs), 0.045)
     seam_y = mth('LESS_THAN', mth('FRACT', ys), 0.004)
     seam = mth('MAXIMUM', seam_x, seam_y)
-    fac = mth('MULTIPLY', shade, mth('SUBTRACT', 1.0, mth('MULTIPLY', seam, 0.22)))
+    fac = mth('MULTIPLY', shade, mth('SUBTRACT', 1.0, mth('MULTIPLY', seam, 0.38)))
     fcol = n.new('ShaderNodeCombineXYZ')
     for k_ in range(3): l.new(fac, fcol.inputs[k_])
     mix2 = n.new('ShaderNodeMix'); mix2.data_type = 'RGBA'; mix2.blend_type = 'MULTIPLY'
@@ -162,8 +168,10 @@ def floor_material(name, tint):
     l.new(rr.outputs['Result'], b.inputs['Roughness'])
     # Satin, not wet plastic (Owner 11-22: the glare and the plastic look): a thinner,
     # slightly blurred finish so lamp reflections are soft pools, not hot dots.
-    b.inputs['Coat Weight'].default_value = 0.55
-    b.inputs['Coat Roughness'].default_value = 0.17
+    # 11-23: NBA floors mirror the LED boards and crowd; a glossier coat gives that depth,
+    # while the base roughness keeps lamp hot spots from turning into plastic glare.
+    b.inputs['Coat Weight'].default_value = 0.85
+    b.inputs['Coat Roughness'].default_value = 0.07
     return m
 
 
@@ -181,7 +189,7 @@ def vertex_color_material(name, rough=0.7):
 
 
 M = {
-    'maple': floor_material('Maple', (1.0, 0.88, 0.66)),
+    'maple': floor_material('Maple', (1.0, 0.85, 0.56)),
     'stain': floor_material('MapleStained', (0.92, 0.78, 0.58)),
     'paint_navy': principled('PaintNavy', (0.011, 0.028, 0.08), 0.42, coat=0.55, coat_rough=0.17),
     'apron_navy': principled('ApronNavy', (0.015, 0.036, 0.1), 0.42, coat=0.55, coat_rough=0.17),   # floor/apron ~8x
