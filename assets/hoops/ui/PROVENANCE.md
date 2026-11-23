@@ -1,8 +1,9 @@
 # assets/hoops/ui
 
 `arena-poster.jpg` — menu poster (home Hoops tile, Hoops menu header).
-Our own render: `tools/blender/build_arena_venue.py`, broadcast camera, Blender 5.2.2
-Cycles on the 3090 (cd001), work dir
-`/srv/ai-data/media-work/projects/CAESAR_HOOPS_TACTICS/work/arena-venue-a03/`.
-Floor grain from Poly Haven `laminate_floor_02` (CC0) via the asset library; font Anton (OFL 1.1).
-Converted to JPEG (quality 78) with `sips`.
+An in-game frame of Hoops IQ itself (level 1 title, broadcast camera), captured with
+`scripts/ui-screens.mjs` at 1700x1180 and cropped to the court, JPEG quality 82.
+Everything in it is ours or already in the repo with its own provenance (players,
+crowd atlas, floor textures, Anton font).
+Earlier versions used the Blender venue render (`tools/blender/build_arena_venue.py`);
+its box-shaped crowd looked cheap at poster size, so the poster shows the game.

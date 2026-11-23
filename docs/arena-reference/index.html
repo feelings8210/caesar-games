@@ -67,7 +67,7 @@ ol.fix { margin: 0; padding-left: 20px; display: grid; gap: 8px; max-width: 72ch
   </header>
 
   <section class="verdict">
-    <p><strong>结论：</strong>头部球馆的共同点是「舞台」：浅色、接近奶白的枫木地板是全场最亮的东西，比观众亮 5–13 倍，比天花板亮 15–40 倍，外圈是饱和的深海军蓝。我们两边都没做到，而且错得方向相反：游戏里观众压得太黑、地板不够亮、外圈发灰；Blender 预览观众和天花板太亮、木头偏粉橙、看不出木纹。</p>
+    <p><strong>结论：</strong>游戏球场和 Blender 球馆都已按这些数调好（见下表）。头部球馆的共同点是「舞台」：浅色、接近奶白的枫木地板是全场最亮的东西，比观众亮 5–13 倍，比天花板亮 15–40 倍，外圈是饱和的深海军蓝。我们两边都没做到，而且错得方向相反：游戏里观众压得太黑、地板不够亮、外圈发灰；Blender 预览观众和天花板太亮、木头偏粉橙、看不出木纹。</p>
   </section>
 
   <section>
@@ -109,15 +109,19 @@ ol.fix { margin: 0; padding-left: 20px; display: grid; gap: 8px; max-width: 72ch
         <div class="row"><span>湖人</span><div class="track"><i class="tgt" style="left:20%;width:32%"></i><i class="fill" style="width:53.6%"></i></div><span class="num">13.4</span></div>
         <div class="row"><span>快船</span><div class="track"><i class="tgt" style="left:20%;width:32%"></i><i class="fill" style="width:23.2%"></i></div><span class="num">5.8</span></div>
         <div class="row"><span>勇士</span><div class="track"><i class="tgt" style="left:20%;width:32%"></i><i class="fill" style="width:17.6%"></i></div><span class="num">4.4</span></div>
-        <div class="row ours"><span><b>游戏现状</b></span><div class="track"><i class="tgt" style="left:20%;width:32%"></i><i class="fill" style="width:83.2%"></i></div><span class="num">20.8</span></div>
+        <div class="row ours"><span><b>游戏调整前</b></span><div class="track"><i class="tgt" style="left:20%;width:32%"></i><i class="fill" style="width:83.2%"></i></div><span class="num">20.8</span></div>
+        <div class="row ours ok"><span><b>游戏调整后</b></span><div class="track"><i class="tgt" style="left:20%;width:32%"></i><i class="fill" style="width:45.6%"></i></div><span class="num">11.4</span></div>
         <div class="row ours"><span><b>Blender a03</b></span><div class="track"><i class="tgt" style="left:20%;width:32%"></i><i class="fill" style="width:10.8%"></i></div><span class="num">2.7</span></div>
+        <div class="row ours ok"><span><b>Blender 定稿</b></span><div class="track"><i class="tgt" style="left:20%;width:32%"></i><i class="fill" style="width:31.6%"></i></div><span class="num">7.9</span></div>
       </div>
       <div class="bar-group">
         <h3>地板比外圈（apron）亮几倍</h3>
         <p>参考是快船场边近景的 8.1 倍，外圈是饱和的深海军蓝。</p>
         <div class="row"><span>快船近景</span><div class="track"><i class="tgt" style="left:28%;width:8%"></i><i class="fill" style="width:32.4%"></i></div><span class="num">8.1</span></div>
-        <div class="row ours"><span><b>游戏现状</b></span><div class="track"><i class="tgt" style="left:28%;width:8%"></i><i class="fill" style="width:13.6%"></i></div><span class="num">3.4</span></div>
+        <div class="row ours"><span><b>游戏调整前</b></span><div class="track"><i class="tgt" style="left:28%;width:8%"></i><i class="fill" style="width:100%"></i></div><span class="num">29.9</span></div>
+        <div class="row ours ok"><span><b>游戏调整后</b></span><div class="track"><i class="tgt" style="left:28%;width:8%"></i><i class="fill" style="width:37.2%"></i></div><span class="num">9.3</span></div>
         <div class="row ours"><span><b>Blender a03</b></span><div class="track"><i class="tgt" style="left:28%;width:8%"></i><i class="fill" style="width:14.8%"></i></div><span class="num">3.7</span></div>
+        <div class="row ours ok"><span><b>Blender 定稿</b></span><div class="track"><i class="tgt" style="left:28%;width:8%"></i><i class="fill" style="width:38.4%"></i></div><span class="num">9.6</span></div>
       </div>
       <p class="legend"><em></em>目标范围 · 刻度 0–25 倍 · 红色=我们没达标</p>
     </div>
@@ -126,14 +130,14 @@ ol.fix { margin: 0; padding-left: 20px; display: grid; gap: 8px; max-width: 72ch
   <section>
     <h2>逐项对照</h2>
     <div class="tbl"><table>
-      <thead><tr><th>项目</th><th>头部球馆</th><th>游戏现状</th><th>Blender a03</th></tr></thead>
+      <thead><tr><th>项目</th><th>头部球馆</th><th>游戏调整前</th><th>游戏调整后</th><th>Blender 定稿 a08</th></tr></thead>
       <tbody>
-        <tr><td>地板亮度 Y</td><td>0.70–0.74（接近奶白）</td><td class="no">0.48 · 暗半档</td><td class="no">0.53</td></tr>
-        <tr><td>木头颜色（色相 / 饱和）</td><td>36–43° / 0.16–0.29 暖黄</td><td class="ok">36° / 0.28 ✓</td><td class="no">19° / 0.17 偏粉橙</td></tr>
-        <tr><td>地板 ÷ 观众</td><td>5–13 倍（取 8）</td><td class="no">20.8 · 观众太黑</td><td class="no">2.7 · 观众太亮</td></tr>
-        <tr><td>地板 ÷ 外圈</td><td>≈ 8 倍，深海军蓝</td><td class="no">3.4 · 外圈发灰</td><td class="no">3.7 · 蓝得太亮</td></tr>
-        <tr><td>地板 ÷ 天花板</td><td>15–40 倍，几乎全黑</td><td>画面里看不到</td><td class="no">7.1 · 天花板太亮</td></tr>
-        <tr><td>木纹可见度（cv）</td><td>≈ 0.1，木条 5.7 cm 看得见</td><td class="ok">0.16</td><td class="no">0.02 · 看不出</td></tr>
+        <tr><td>地板亮度 Y</td><td>0.70–0.74（接近奶白）</td><td class="no">0.48 · 暗半档</td><td class="ok">0.69 ✓</td><td class="ok">0.74 ✓</td></tr>
+        <tr><td>木头颜色（色相 / 饱和）</td><td>36–43° / 0.16–0.29 暖黄</td><td class="ok">36° / 0.28 ✓</td><td class="ok">43° / 0.16 ✓</td><td class="ok">34° / 0.17 ≈</td></tr>
+        <tr><td>地板 ÷ 观众</td><td>5–13 倍（取 8）</td><td class="no">20.8 · 观众太黑</td><td class="ok">11.4 ✓</td><td class="ok">7.9 ✓</td></tr>
+        <tr><td>地板 ÷ 外圈</td><td>≈ 8 倍，深海军蓝</td><td class="no">29.9 · 外圈太暗</td><td class="ok">9.3 · 颜色 48,76,131 ✓</td><td class="ok">9.6 ✓</td></tr>
+        <tr><td>地板 ÷ 天花板</td><td>15–40 倍，几乎全黑</td><td>画面里看不到</td><td>—</td><td class="no">246 · 比参考更黑（顶上还没有灯架）</td></tr>
+        <tr><td>木纹可见度（cv）</td><td>≈ 0.1，木条 5.7 cm 看得见</td><td class="ok">0.16</td><td class="ok">0.16 + 木条</td><td class="ok">加了 2¼ 英寸木条</td></tr>
       </tbody>
     </table></div>
   </section>
@@ -141,8 +145,10 @@ ol.fix { margin: 0; padding-left: 20px; display: grid; gap: 8px; max-width: 72ch
   <section>
     <h2>我们的两张画面</h2>
     <div class="frames">
-      <figure><img src="game-current.jpg" alt="游戏现在的比赛画面"><figcaption><b>游戏现状（three.js）</b> · 木色对，但地板偏暗，观众几乎黑成一片，外圈灰蓝。</figcaption></figure>
-      <figure><img src="blender-a03.jpg" alt="Blender 球馆预览 a03"><figcaption><b>Blender 预览 a03</b> · 结构完整，但观众是方块且太亮，天花板发灰，木头偏粉橙、没有木纹。</figcaption></figure>
+      <figure><img src="game-current.jpg" alt="游戏调整前的比赛画面"><figcaption><b>游戏调整前</b> · 地板偏暗，观众几乎黑成一片，外圈太暗。</figcaption></figure>
+      <figure><img src="game-after.jpg" alt="游戏调整后的比赛画面"><figcaption><b>游戏调整后</b> · 浅色枫木、深海军蓝外圈、观众看得清但比球场暗 11 倍。</figcaption></figure>
+      <figure><img src="blender-a03.jpg" alt="Blender 球馆预览 a03"><figcaption><b>Blender a03（调整前）</b> · 观众太亮、天花板发灰、木头偏粉橙。</figcaption></figure>
+      <figure><img src="blender-a08.jpg" alt="Blender 球馆定稿 a08"><figcaption><b>Blender 定稿 a08</b> · 舞台式布光：60° 光束只打球场，看台用朝外的场馆灯。观众仍是方块，只适合远景，海报改用游戏画面。</figcaption></figure>
     </div>
   </section>
 

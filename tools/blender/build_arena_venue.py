@@ -1,7 +1,7 @@
 """CD Games Hoops IQ — arena venue built in Blender (look-dev + later bake/export).
 
 Run only on a certified 3090 Blender (never on the Mac):
-  blender-5.2.2 -b -P build_arena_venue.py -- <out_dir> <assets_json> [--samples N] [--res WxH] [--cams a,b] [--no-render]
+  blender-5.2.2 -b -P build_arena_venue.py -- <out_dir> <assets_json> [--samples N] [--res WxH] [--cams a,b] [--house W] [--no-render]
 
 assets_json: {"floor_diff":…, "floor_nor":…, "floor_rough":…, "font":…, "logo":…}
 Coordinates match the game: 1 Blender unit = 1 ft. Game (x, z from the near
@@ -26,6 +26,7 @@ while i < len(argv):
     if a == '--samples': opt['samples'] = int(argv[i + 1]); i += 2
     elif a == '--res': opt['res'] = argv[i + 1]; i += 2
     elif a == '--cams': opt['cams'] = argv[i + 1]; i += 2
+    elif a == '--house': opt['house'] = float(argv[i + 1]); i += 2
     elif a == '--no-render': opt['render'] = False; i += 1
     else: i += 1
 os.makedirs(OUT, exist_ok=True)
@@ -148,8 +149,8 @@ def vertex_color_material(name, rough=0.7):
 M = {
     'maple': floor_material('Maple', (1.0, 0.88, 0.66)),
     'stain': floor_material('MapleStained', (0.92, 0.78, 0.58)),
-    'paint_navy': principled('PaintNavy', (0.018, 0.045, 0.12), 0.35, coat=1.0, coat_rough=0.06),
-    'apron_navy': principled('ApronNavy', (0.009, 0.022, 0.062), 0.35, coat=1.0, coat_rough=0.06),   # floor/apron ~8x
+    'paint_navy': principled('PaintNavy', (0.011, 0.028, 0.08), 0.35, coat=1.0, coat_rough=0.06),
+    'apron_navy': principled('ApronNavy', (0.015, 0.036, 0.1), 0.35, coat=1.0, coat_rough=0.06),   # floor/apron ~8x
     'paint_line': principled('PaintLine', (0.92, 0.91, 0.87), 0.4, coat=1.0, coat_rough=0.06),
     'paint_gold': principled('PaintGold', (0.78, 0.56, 0.24), 0.35, coat=1.0, coat_rough=0.06),
     'concrete': principled('Concrete', (0.06, 0.065, 0.075), 0.85),
@@ -556,6 +557,7 @@ new_obj('Scoreboard_Ring', bm, M['led_gold'])
 
 # Catwalk light banks: visible fixtures plus the area lights that really light the court.
 lamp_bm = bmesh.new()
+HOUSE_W = opt.get('house', 45000.0)   # watts per house light (--house)
 LIGHTS = []
 for side in (-1, 1):
     for zc in range(-4, 99, 13):
@@ -567,6 +569,7 @@ for k, p in enumerate(LIGHTS):
     ld = bpy.data.lights.new(f'CourtLight{k}', 'AREA')
     ld.shape = 'RECTANGLE'; ld.size = 4.5; ld.size_y = 3.0
     ld.energy = 26000
+    ld.spread = math.radians(60)   # stage lighting: beams on the court, the bowl stays dark (ARENA_REFERENCE)
     ld.color = (1.0, 0.96, 0.9)
     lo = bpy.data.objects.new(f'CourtLight{k}', ld); COLL.objects.link(lo)
     lo.location = p
@@ -574,12 +577,15 @@ for k, p in enumerate(LIGHTS):
     aim.z = 0
     lo.rotation_euler = (aim - p).to_track_quat('-Z', 'Y').to_euler()
 new_obj('Lamp_Fixtures', lamp_bm, M['lamp'])
-# Soft fill so the lower bowl reads but stays darker than the floor.
-for p in (G(0, -60, 60), G(0, 154, 60), G(-90, 47, 60), G(90, 47, 60)):
-    ld = bpy.data.lights.new('BowlFill', 'AREA'); ld.size = 40; ld.energy = 5000;   # a03: floor/crowd 2.7, floor/ceiling 7 -> darker bowl
-    ld.color = (0.8, 0.86, 1.0)
-    lo = bpy.data.objects.new('BowlFill', ld); COLL.objects.link(lo); lo.location = p
-    lo.rotation_euler = (G(0, 47, 10) - p).to_track_quat('-Z', 'Y').to_euler()
+# House light on the stands: from the catwalk over centre court, aimed outward at
+# each side of the bowl so the crowd reads without lighting the floor (a06: fills
+# aimed at the court left the crowd 37x darker than the floor; target ~8x).
+for tgt in (G(-75, 47, 28), G(75, 47, 28), G(0, -45, 28), G(0, 139, 28)):
+    p = G(0, 47, 84) + (tgt - G(0, 47, 84)) * 0.25
+    ld = bpy.data.lights.new('HouseLight', 'AREA'); ld.size = 12; ld.energy = HOUSE_W
+    ld.spread = math.radians(70); ld.color = (0.85, 0.9, 1.0)
+    lo = bpy.data.objects.new('HouseLight', ld); COLL.objects.link(lo); lo.location = p
+    lo.rotation_euler = (tgt - p).to_track_quat('-Z', 'Y').to_euler()
 
 world = bpy.data.worlds.new('Arena'); scene.world = world
 world.use_nodes = True
