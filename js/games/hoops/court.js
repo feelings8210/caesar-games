@@ -73,7 +73,7 @@ export class CourtView extends BeatRunner {
   _drawCourt() {
     const g = this.gCourt;
     el('rect', { x: -27.5, y: -4, width: 55, height: 53.5, rx: 1.4, fill: '#1B3358' }, g);
-    el('text', { x: 0, y: -1.7, class: 'hc-apron-text', 'text-anchor': 'middle' }, g).textContent = 'CAESAR GAMES · HOOPS IQ';
+    el('text', { x: 0, y: -1.7, class: 'hc-apron-text', 'text-anchor': 'middle' }, g).textContent = 'CD GAMES · HOOPS IQ';
     el('rect', { x: -25, y: 0, width: 50, height: 47, fill: 'url(#hc-wood)' }, g);
     el('rect', { x: -25, y: 0, width: 50, height: 47, fill: 'url(#hc-glow)' }, g);
 

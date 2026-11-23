@@ -14,7 +14,7 @@ export class FloorReflection {
       minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:true,samples:0
     });
     this.uniforms={floorReflectionMap:{value:this.target.texture},floorReflectionMatrix:{value:this.matrix},
-      floorReflectionStrength:{value:.22},floorReflectionTexel:{value:new THREE.Vector2(1/512,1/512)}};
+      floorReflectionStrength:{value:.32},floorReflectionTexel:{value:new THREE.Vector2(1/512,1/512)}};
     const previous=material.onBeforeCompile;
     material.onBeforeCompile=shader=>{
       previous?.(shader);Object.assign(shader.uniforms,this.uniforms);

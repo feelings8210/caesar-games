@@ -141,7 +141,10 @@ export class HoopsGame {
           <div class="hp-choice-tray hp-choice-stage" role="group" aria-label="Actions"></div>
         </div>
         <aside class="hp-panel" aria-live="polite">
-          <button class="hp-back" type="button"></button>
+          <div class="hp-panel-top">
+            <button class="hp-back" type="button"></button>
+            <button class="hp-sound" type="button"></button>
+          </div>
           <p class="hp-eyebrow hp-level-eyebrow"></p>
           <h2 class="hp-title"></h2>
           <div class="hp-phase hp-watch"><span class="hp-dot"></span><span class="hp-watch-text"></span></div>
@@ -220,6 +223,10 @@ export class HoopsGame {
       this.menuTab = this.mode === 'read' || this.mode === 'possession' ? 'read' : this.mode === 'playbook' ? 'playbook' : 'chapter';
       this.showMenu();
     });
+    this.$('.hp-sound').addEventListener('click', () => {
+      document.getElementById('btn-sound')?.click();
+      this._renderSound();
+    });
     this.$('.hp-retry').addEventListener('click', () => { sounds.tap(); this.startLevel(this.index); });
     this.$('.hp-best').addEventListener('click', () => { sounds.tap(); this.demoBest(); });
     this.$('.hp-next').addEventListener('click', () => {
@@ -239,6 +246,9 @@ export class HoopsGame {
   render() {
     this.root.dataset.view = this.view;
     this.root.dataset.phase = this.phase;
+    // Playing is a full-screen broadcast: the site header steps away.
+    document.body.classList.toggle('hoops-playing', this.view === 'play' && this.arenaLook);
+    this._renderSound();
     if (this.view === 'menu') this._renderMenu();
     else this._renderPanel();
   }
@@ -261,6 +271,15 @@ export class HoopsGame {
     this.view = 'menu';
     this.phase = 'idle';
     this.root.dataset.phase = 'idle';
+    document.body.classList.remove('hoops-playing');
+  }
+
+  _renderSound() {
+    const on = document.getElementById('btn-sound')?.getAttribute('aria-pressed') !== 'false';
+    const b = this.$('.hp-sound');
+    if (!b) return;
+    b.textContent = t(on ? 'bar.soundOn' : 'bar.soundOff');
+    b.classList.toggle('is-off', !on);
   }
 
   showMenu() {
@@ -885,7 +904,8 @@ export class HoopsGame {
     if (!show) return;
     if (this.phase !== 'review' && this.phase !== 'demo') hud.classList.remove('is-cue');
     const [a, b] = lvl.hud?.score || [0, 0];
-    this.$('.hp-hud-score').textContent = `${t('hoops.home')} ${a + (this.homeBonus || 0)}  ·  ${t('hoops.away')} ${b}`;
+    const team = (cls, name, pts) => `<span class="hp-hud-team ${cls}"><b>${name}</b><strong>${pts}</strong></span>`;
+    this.$('.hp-hud-score').innerHTML = team('is-home', 'CD', a + (this.homeBonus || 0)) + team('is-away', 'RIVALS', b);
     this.$('.hp-hud-clock').textContent = lvl.hud ? (this.clock ?? 0).toFixed(1) : 'HOOPS IQ';
     this.$('.hp-hud-note').textContent = lvl.hud ? t('hoops.clockOff') : this.mode === 'possession' ? (zhNow() ? '实战回合' : 'LIVE')
       : getLocale() === 'zh' ? '训练回合' : 'TRAINING';

@@ -53,8 +53,9 @@ export function buildHoop({ hoop = [0, 5.25], rimY = 10, mark = null } = {}) {
     [sq.w, lw, 0, sq.y + sq.h - lw / 2], [sq.w, lw, 0, sq.y + lw / 2],
     [lw, sq.h, -sq.w / 2 + lw / 2, sq.y + sq.h / 2], [lw, sq.h, sq.w / 2 - lw / 2, sq.y + sq.h / 2]
   ]) box(w, h, 0.02, mat.white, hx + x, y, zf + 0.012, false);
-  // Black pad along the bottom edge.
+  // Black pad along the bottom edge and up the lower corners, as on arena goals.
   box(BOARD.w + 0.3, 0.32, 0.34, mat.black, hx, BOARD.bottom - 0.12, zf - 0.17);
+  for (const sx of [-1, 1]) box(0.3, 1.25, 0.34, mat.black, hx + sx * (BOARD.w / 2 + 0.02), BOARD.bottom + 0.5, zf - 0.17);
 
   // Rim on its bracket.
   const ring = add(new THREE.TorusGeometry(0.75, 0.055, 10, 48), mat.rim, hx, rimY, hz);
@@ -62,11 +63,25 @@ export function buildHoop({ hoop = [0, 5.25], rimY = 10, mark = null } = {}) {
   box(0.4, 0.16, hz - 0.75 - zf + 0.1, mat.rim, hx, rimY - 0.05, (zf + hz - 0.75) / 2 + 0.05);
   box(0.62, 0.42, 0.06, mat.rim, hx, rimY - 0.08, zf + 0.03);
 
-  // Support: lacquer base behind the baseline, black post, steel arm.
-  const baseZ0 = -9.6, baseZ1 = -3.0, baseH = 2.2, baseW = 4.6;
-  const bz = (baseZ0 + baseZ1) / 2;
-  box(baseW, baseH, baseZ1 - baseZ0, mat.lacquer, hx, baseH / 2, bz);
-  box(baseW + 0.05, 0.06, baseZ1 - baseZ0 + 0.05, mat.white, hx, baseH - 0.2, bz, false);
+  // Support: an arena stanchion. A tall sloped base and a padded post in
+  // team navy (rounded, slightly glossy vinyl), a gold stripe across the
+  // court-facing pad, then the steel arm out to the board.
+  const baseZ1 = -3.0, baseH = 2.2, baseW = 4.6;
+  const pad = new THREE.MeshPhysicalMaterial({ color: 0x163262, roughness: 0.48, clearcoat: 0.4, clearcoatRoughness: 0.45 });
+  {
+    // Side profile in (z, y): low at the back, tall and rounded at the front.
+    const prof = new THREE.Shape();
+    prof.moveTo(-10.2, 0); prof.lineTo(baseZ1, 0); prof.lineTo(baseZ1, 3.15);
+    prof.quadraticCurveTo(baseZ1, 3.7, baseZ1 - 0.6, 3.72);
+    prof.lineTo(-8.4, 3.05); prof.quadraticCurveTo(-10.2, 2.8, -10.2, 1.9); prof.lineTo(-10.2, 0);
+    const geo = new THREE.ExtrudeGeometry(prof, { depth: baseW, bevelEnabled: true, bevelThickness: 0.22, bevelSize: 0.2, bevelSegments: 4, curveSegments: 12 });
+    geo.rotateY(-Math.PI / 2);
+    geo.translate(hx + baseW / 2, 0, 0);
+    add(geo, pad, 0, 0, 0);
+    // Gold stripe and a dark kick plate on the court-facing pad.
+    box(baseW + 0.42, 0.14, 0.06, mat.gold, hx, 2.75, baseZ1 + 0.21, false);
+    box(baseW + 0.42, 0.42, 0.06, new THREE.MeshStandardMaterial({ color: 0x0C1424, roughness: 0.7 }), hx, 0.21, baseZ1 + 0.21, false);
+  }
   // Shot clock on top of the board.
   box(1.9, 0.62, 0.5, mat.black, hx, BOARD.bottom + BOARD.h + 0.42, zf - 0.3);
   {
@@ -85,7 +100,19 @@ export function buildHoop({ hoop = [0, 5.25], rimY = 10, mark = null } = {}) {
     g.add(face);
   }
   const postZ = -6.3;
-  add(new THREE.CylinderGeometry(0.36, 0.44, 6.2, 18), mat.black, hx, baseH + 3.1, postZ);
+  {
+    // Padded post: a rounded square column from the base up to the arm.
+    const w = 1.5, d = 1.35, r = 0.32, h = 5.0;
+    const sec = new THREE.Shape();
+    sec.moveTo(-w / 2 + r, -d / 2); sec.lineTo(w / 2 - r, -d / 2); sec.quadraticCurveTo(w / 2, -d / 2, w / 2, -d / 2 + r);
+    sec.lineTo(w / 2, d / 2 - r); sec.quadraticCurveTo(w / 2, d / 2, w / 2 - r, d / 2); sec.lineTo(-w / 2 + r, d / 2);
+    sec.quadraticCurveTo(-w / 2, d / 2, -w / 2, d / 2 - r); sec.lineTo(-w / 2, -d / 2 + r); sec.quadraticCurveTo(-w / 2, -d / 2, -w / 2 + r, -d / 2);
+    const geo = new THREE.ExtrudeGeometry(sec, { depth: h, bevelEnabled: true, bevelThickness: 0.12, bevelSize: 0.08, bevelSegments: 3, curveSegments: 6 });
+    geo.rotateX(-Math.PI / 2);
+    geo.translate(hx, 3.0, postZ);
+    add(geo, pad, 0, 0, 0);
+    box(w + 0.2, 0.12, d + 0.2, mat.gold, hx, 3.0 + h - 0.35, postZ, false);
+  }
   const arm = new THREE.CatmullRomCurve3([
     new THREE.Vector3(hx, baseH + 5.6, postZ),
     new THREE.Vector3(hx, baseH + 7.6, postZ + 0.4),
@@ -114,7 +141,7 @@ export function buildHoop({ hoop = [0, 5.25], rimY = 10, mark = null } = {}) {
     const w = 2.3;
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * c.height / c.width),
       new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.05, metalness: 0.9, roughness: 0.3, depthWrite: false }));
-    m.position.set(hx, 1.0, baseZ1 + 0.012);
+    m.position.set(hx, 1.45, baseZ1 + 0.23);
     g.add(m);
   }
   return g;

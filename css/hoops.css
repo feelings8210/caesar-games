@@ -716,3 +716,133 @@
 @media (max-width: 860px), (orientation: portrait) {
   .hp-pb-cards { grid-template-columns: 1fr; }
 }
+
+/* ------------------------------------------------------------------ *
+ * Broadcast presentation (arena look, playing)
+ * The site header steps away, the court runs edge to edge on black, the
+ * score is a TV scorebug over the floor and the coaching panel is a dark
+ * broadcast rail. Court size does not change between phases.
+ * ------------------------------------------------------------------ */
+@font-face {
+  font-family: "HoopsBroadcast";
+  src: url("../assets/hoops/fonts/Anton_Regular.ttf") format("truetype");
+  font-display: swap;
+}
+body.hoops-playing { background: #04070C; }
+body.hoops-playing #app-bar { display: none; }
+body.hoops-playing .hoops[data-view="play"] {
+  padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  height: 100dvh; box-sizing: border-box;
+}
+.hoops[data-look="arena"][data-view="play"] .hp-play {
+  gap: 0; grid-template-columns: minmax(0, 1fr) minmax(280px, 330px);
+  background: #04070C;
+}
+.hoops[data-look="arena"][data-view="play"] .hp-stage { display: block; position: relative; }
+.hoops[data-look="arena"][data-view="play"] .hp-court { width: 100%; height: 100%; max-height: none; }
+.hoops[data-look="arena"][data-view="play"] .hc3d { border-radius: 0; }
+
+/* Scorebug */
+.hoops[data-look="arena"][data-view="play"] .hp-hud {
+  position: absolute; z-index: 6; top: 18px; left: 18px; bottom: auto; right: auto;
+  transform: none; display: flex; align-items: stretch; gap: 0; flex-wrap: nowrap;
+  padding: 0; border: 0; border-radius: 4px; overflow: hidden;
+  background: rgba(6,11,20,.9); box-shadow: 0 6px 22px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.hoops[data-look="arena"][data-view="play"] .hp-hud-score { display: flex; }
+.hp-hud-team { display: flex; align-items: center; gap: 10px; padding: 0 12px 0 10px; min-height: 42px; }
+.hp-hud-team b { font: 400 15px/1 "HoopsBroadcast", "Arial Narrow", sans-serif; letter-spacing: .06em; color: rgba(255,255,255,.82); }
+.hp-hud-team strong { font: 400 26px/1 "HoopsBroadcast", "Arial Narrow", sans-serif; color: #fff; min-width: 1.3em; text-align: right; font-variant-numeric: tabular-nums; }
+.hp-hud-team.is-home { background: linear-gradient(180deg, #1D3B6E, #142A4F); box-shadow: inset 4px 0 0 #E2BE72; }
+.hp-hud-team.is-away { background: linear-gradient(180deg, #6E2430, #4E1820); box-shadow: inset 4px 0 0 #E8E2D6; }
+.hoops[data-look="arena"][data-view="play"] .hp-hud-clock {
+  display: flex; align-items: center; padding: 0 14px; min-width: 0;
+  font: 400 19px/1 "HoopsBroadcast", "Arial Narrow", sans-serif; letter-spacing: .08em; color: #F3C987;
+  background: #0A1220;
+}
+.hoops[data-look="arena"][data-view="play"] .hp-hud-note {
+  display: flex; align-items: center; padding: 0 12px; font: 650 11px/1 var(--font-cn); letter-spacing: .12em;
+  color: #0A1220; background: #E2BE72;
+}
+.hoops[data-look="arena"][data-view="play"] .hp-hud.is-cue { box-shadow: 0 0 0 2px #F1D3A8, 0 0 26px rgba(241,211,168,.6); }
+
+/* Title card: broadcast lower third */
+.hoops[data-look="arena"] .hp-title-card {
+  top: auto; bottom: 12%; left: 0; transform: translateX(-30px); align-items: flex-start; gap: 2px;
+  padding: 14px 34px 14px 28px; border-radius: 0 6px 6px 0;
+  background: linear-gradient(90deg, rgba(10,18,32,.96), rgba(20,38,68,.94));
+  box-shadow: inset 6px 0 0 #E2BE72, 0 10px 30px rgba(0,0,0,.45);
+}
+.hoops[data-look="arena"] .hp-title-card.is-on { transform: none; }
+.hoops[data-look="arena"] .hp-title-card span { font: 400 14px/1.2 "HoopsBroadcast", sans-serif; letter-spacing: .18em; color: #E2BE72; }
+.hoops[data-look="arena"] .hp-title-card strong { font: 750 30px/1.15 var(--font-cn); }
+
+/* Result banner: lower third with a team-colour edge */
+.hoops[data-look="arena"] .hp-banner {
+  bottom: 28px; border-radius: 4px; padding: 12px 26px; font: 700 19px/1.3 var(--font-cn);
+  background: linear-gradient(90deg, rgba(10,18,32,.95), rgba(22,40,70,.95));
+  box-shadow: inset 0 -3px 0 #E2BE72, 0 10px 28px rgba(0,0,0,.45);
+}
+.hoops[data-look="arena"] .hp-banner.is-score, .hoops[data-look="arena"] .hp-banner.is-stop {
+  background: linear-gradient(90deg, #17345F, #23497F); box-shadow: inset 0 -3px 0 #F3C987, 0 0 34px rgba(243,201,135,.35);
+}
+.hoops[data-look="arena"] .hp-banner.is-turnover, .hoops[data-look="arena"] .hp-banner.is-allowed, .hoops[data-look="arena"] .hp-banner.is-miss {
+  background: linear-gradient(90deg, #4E1820, #6E2430); box-shadow: inset 0 -3px 0 #E8E2D6, 0 10px 28px rgba(0,0,0,.45);
+}
+
+/* Coaching rail */
+.hoops[data-look="arena"][data-view="play"] .hp-panel {
+  border-radius: 0; padding: 18px 20px 22px; gap: 12px;
+  background: linear-gradient(180deg, #0C1626 0%, #0A111D 100%);
+  box-shadow: inset 1px 0 0 rgba(226,190,114,.35);
+}
+.hp-panel-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hp-panel-top .hp-back { margin: -4px 0 0 -8px; }
+.hp-sound { padding: 6px 10px; border-radius: 999px; font-size: 12px; color: var(--ink-muted); box-shadow: inset 0 0 0 1px var(--hairline); }
+.hp-sound.is-off { color: var(--ink-faint); }
+.hoops[data-look="arena"][data-view="play"] .hp-level-eyebrow { font: 400 13px/1.2 "HoopsBroadcast", var(--font-cn); letter-spacing: .14em; color: #E2BE72; }
+.hoops[data-look="arena"][data-view="play"] .hp-title { font: 800 26px/1.15 var(--font-cn); letter-spacing: .01em; }
+.hoops[data-look="arena"][data-view="play"] .hp-prompt { font: 650 19px/1.45 var(--font-cn); color: #F4F7FC; }
+.hoops[data-look="arena"][data-view="play"] .hp-clock { height: 8px; border-radius: 4px; background: #16233A; box-shadow: none; }
+.hoops[data-look="arena"][data-view="play"] .hp-clock i { background: linear-gradient(90deg, #E2BE72, #F6DDA6); }
+.hoops[data-look="arena"][data-view="play"] .hp-clock.is-urgent i { background: linear-gradient(90deg, #D9534F, #F08A6B); }
+.hoops[data-look="arena"][data-view="play"] .hp-choice {
+  min-height: 54px; padding: 10px 14px; border-radius: 6px; gap: 12px;
+  font: 700 16px/1.25 var(--font-cn);
+  background: linear-gradient(180deg, #1C2C45, #15223A);
+  box-shadow: inset 0 0 0 1px #34496A, 0 2px 0 rgba(0,0,0,.35);
+  transition: transform 90ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+.hoops[data-look="arena"][data-view="play"] .hp-choice:not(:disabled):hover,
+.hoops[data-look="arena"][data-view="play"] .hp-choice:not(:disabled):focus-visible {
+  background: linear-gradient(180deg, #27406A, #1D3255); box-shadow: inset 0 0 0 2px #E2BE72, 0 0 18px rgba(226,190,114,.25);
+}
+.hoops[data-look="arena"][data-view="play"] .hp-choice:not(:disabled):active { transform: scale(.98); background: #E2BE72; color: #0A1220; }
+.hoops[data-look="arena"][data-view="play"] .hp-choice-index {
+  flex: 0 0 30px; height: 30px; border-radius: 4px; font: 400 17px/1 "HoopsBroadcast", sans-serif;
+  background: #E2BE72; color: #0A1220;
+}
+.hoops[data-look="arena"][data-view="play"] .hp-summary { border-radius: 6px; }
+.hoops[data-look="arena"][data-view="play"] .hp-rule { background: linear-gradient(135deg, #17345F, #10244A); box-shadow: inset 4px 0 0 #E2BE72; }
+.hoops[data-look="arena"][data-view="play"] .hp-view { top: 18px; right: 18px; }
+
+@media (max-width: 860px), (orientation: portrait) {
+  .hoops[data-look="arena"][data-view="play"] .hp-play { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  body.hoops-playing .hoops[data-view="play"] { height: auto; min-height: 100dvh; }
+  .hoops[data-look="arena"][data-view="play"] .hp-hud { top: 10px; left: 10px; }
+  .hp-hud-team { min-height: 34px; padding: 0 8px; }
+  .hp-hud-team strong { font-size: 20px; }
+}
+/* Broadcast grade: the bowl falls into shadow above the court, edges settle. */
+.hoops[data-look="arena"] .hc3d::before {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(2,5,10,.62) 0%, rgba(2,5,10,.30) 22%, rgba(2,5,10,0) 42%),
+    radial-gradient(ellipse 85% 75% at 50% 60%, transparent 62%, rgba(2,5,10,.45) 100%);
+}
+.hoops[data-look="arena"] .hc3d-labels { z-index: 2; }
+.hoops[data-look="arena"] .hc3d-vignette { z-index: 3; }
+/* Keep the grade layers inside the court: buttons, banners and cards on the
+   stage stay above them. */
+.hoops[data-look="arena"] .hc3d { isolation: isolate; }

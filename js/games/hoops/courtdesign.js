@@ -33,9 +33,28 @@ export function drawCourt(g, S, mark, { centreMark = true } = {}) {
   const lw = 0.19 * px;                         // two-inch lines, a touch bolder for the iPad
 
   g.save();
+  // Two-tone stain: the floor outside the three-point arc runs a shade
+  // darker, as on modern arena courts, so the arc reads from any camera.
+  {
+    const czA = HOOP_Z + Math.sqrt(23.75 ** 2 - 22 ** 2);
+    const a0 = Math.atan2(czA - HOOP_Z, 22);
+    g.beginPath();
+    g.moveTo(X(-25), Z(0)); g.lineTo(X(-22), Z(0)); g.lineTo(X(-22), Z(czA));
+    g.arc(X(0), Z(HOOP_Z), 23.75 * px, Math.PI - a0, a0, true);
+    g.lineTo(X(22), Z(0)); g.lineTo(X(25), Z(0)); g.lineTo(X(25), Z(50)); g.lineTo(X(-25), Z(50)); g.closePath();
+    g.fillStyle = 'rgba(92,52,20,.16)';
+    g.fill();
+  }
   // Painted key and centre circle in the team navy, the mark in gold.
-  g.fillStyle = NAVY;
+  const key = g.createLinearGradient(0, Z(0), 0, Z(19));
+  key.addColorStop(0, '#132A50'); key.addColorStop(1, '#1C3A6A');
+  g.fillStyle = key;
   g.fillRect(X(-8), Z(0), 16 * px, 19 * px);
+  // A gold pinstripe just inside the lane.
+  g.strokeStyle = 'rgba(217,185,122,.85)';
+  g.lineWidth = 0.09 * px;
+  g.strokeRect(X(-7.45), Z(0.55), 14.9 * px, 17.9 * px);
+  g.fillStyle = NAVY;
   g.beginPath(); g.arc(X(0), Z(47), 6 * px, 0, Math.PI * 2); g.fill();
   if (mark && centreMark) {
     const w = 7.4 * px;

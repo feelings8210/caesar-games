@@ -1,0 +1,12 @@
+{
+  "asset_id": "google-fonts-ofl:a4ba3a92350ebb03",
+  "canonical_path": "las-3090-automation:/srv/ai-data/media-work/asset-library/assets/google-fonts-ofl/a4/Anton_Regular.ttf",
+  "source_url": "https://raw.githubusercontent.com/google/fonts/main/ofl/anton/Anton-Regular.ttf",
+  "license": "SIL Open Font License 1.1",
+  "license_file": "Anton_Regular.OFL.txt",
+  "commercial_use": true,
+  "attribution_required": false,
+  "sha256": "a4ba3a92350ebb031da0cb47630ac49eb265082ca1bc0450442f4a83ab947cab",
+  "resolved_with": "asset_resolve \"Anton Regular\" --type font --commercial",
+  "used_for": "Hoops IQ broadcast scorebug numerals and short labels"
+}

@@ -4,6 +4,16 @@
 
 Owner 当前目标是继续提升篮球游戏的可玩性、球场人物和动作，并实现可自动讲解、可导出分享的战术视频；不必等教练。下方旧记录中“Goal ACTIVE”和等待教练的安排只是历史状态，不代表当前执行命令。牛角/电梯门样片与历史实验详见下方；合成音调不是正式旁白，内部录制不是面向用户完成的导出功能。下一位接手者先核实现有视频链路和旁白生产规则，选一个现有战术推进可审看、讲解与画面同步的端到端样片；同时保留游戏动作修复为并行待办。`scripts/hoops-gait-audit.mjs` 的三画面对比是未完成实验，修订后是否正确尚需重跑和验证，不得当作已验收修复。媒体操作遵循当前全局素材库、3090 与存储规则，测试静音并关闭自己启动的浏览器/服务。
 
+## 转播级画面第一轮 + 改名 CD Games + 录屏工具（2026-11-22 夜，Claude Code，分支 `claude/hoops-narrated-sample`）
+
+Owner 要求：先把基础设施（人物模型、动作、UI、观众、地板、篮筐）往 NBA / 2K 靠；游戏里不再出现 "Caesar"，改成 CD Games；别动不动让他上 iPad 测，做到有大变化再请他看；录屏工具很重要（以后做讲解视频要用），重的软件尽量别装 Mac，装 3090 / 3080。
+
+本轮做了：①**改名**：界面、标题、manifest、球场围挡 / LED 带 / 球衣胸字全部由 Caesar 改为 CD / CD Games（代码注释、测试日志、媒体项目 ID `CAESAR_HOOPS_TACTICS` 未改，用户看不到）。②**转播式比赛画面**（`css/hoops.css` 末尾「Broadcast presentation」，controller `render()` 给 body 加 `hoops-playing`）：比赛中隐藏网站顶栏，球场贴边铺满黑底；比分改成电视角标（CD / RIVALS 队色块 + Anton 字体，`assets/hoops/fonts/Anton_Regular.ttf` 经 3090 资产库 `asset_resolve` 取得，OFL 1.1，SHA256 `a4ba3a92…`，provenance 同目录）；右侧改成深色转播侧栏，选项按钮加大、金色字母块；标题卡和结果横幅改成电视下三分之一条；侧栏加了声音开关（顶栏隐藏后的替代）。③**球馆光线**：看台观众按高度渐暗（`arena-crowd-impostors.js`），球场上方加转播式压暗与暗角（`.hc3d::before`，`isolation:isolate` 防止盖住按钮）。④**篮架**：细黑杆 + 方盒底座换成 NBA 式包软垫的斜面底座和方柱（队色海军蓝亮面软包、金色腰线、正面 CD 标），篮板下角加黑色护垫（`hoop3d.js`）。⑤**地板**：三分线外木色加深一档（双色染色）、禁区渐变 + 金色细内线、清漆与倒影加强（倒影 0.22→0.32，`courtdesign.js` / `court3d.js` / `floor-reflection.js`）。⑥**录屏工具**（repo 内）：`scripts/browser-recorder.mjs`（静音无头 Chrome，输出必须在 `/Volumes/MiniStorage`；修掉 macOS 无头窗口少录底部 81 行灰边的问题：不用模拟视口、窗口加高 87 px）；`scripts/static-server.mjs`（Node 静态服务；Python http.server 只排 5 个连接，模块多的页面会随机 `ERR_CONNECTION_RESET`）；`scripts/hoops-possession-check.mjs`（自动打实战回合、截图、`RECORD=1` 录 WebM）。Playwright 的 ffmpeg 组件（2.5 MB）装在了 Mac 的 Playwright 缓存里；**想把整套录制装到 3090 `/srv/ai-data/tools/browser-recorder` 时被权限拦截，未装**，需 Owner 放行。
+
+成片（SSD `/Volumes/MiniStorage/media-projects/caesar-hoops-tactics-20261122/broadcast-final-a02/`，3090 上 ffmpeg 合成，工作目录 `/srv/ai-data/media-work/projects/CAESAR_HOOPS_TACTICS/work/broadcast-final-a02`）：`hoops-before-after-720.mp4`（同一包夹回合，左旧右新，1920×620 30 fps 18 s，SHA `b04d125e…`）；`hoops-broadcast-3-coverages-720.mp4`（三种防守各一回合，1280×720 30 fps 41.9 s，SHA `ed6d7dbe…`）。录制都无灰边、无页面错误。59 项单测通过。
+
+和 NBA 2K 的差距（自评，按大小排）：①**人物与动作**最大：我们是 CC0 基础人体改造的低模，没有真实面部、汗水/皮肤着色、球衣布料；动作是 14 个通用片段 + 少量篮球片段，跑动脚滑/穿地仍在，没有 2K 那种成千上万的动捕过渡。②**观众**：已压暗，但仍是同一批坐姿重复，没有站起、挥毛巾、手环灯光秀。③**灯光**：没有真正的 HDR 球馆灯、泛光（bloom）和雾气。④**镜头**：只有固定转播机位，没有多机位、慢放回放、特写。⑤UI 已接近转播风格，菜单页仍是网页感。未验证：iPad 真机（按 Owner 要求暂不请他测）、英文界面截图、2D 降级球场。
+
 ## 牛角实战回合：第一个能玩的读防守回合（2026-11-22，Claude Code，分支 `claude/hoops-narrated-sample`）
 
 方向（Owner 11-22 原话要点）：先做游戏和基础设施，配音最后；一个战术有多个选项，按防守 read and react；孩子能打比赛也能学战术，不做 2K 式「五边形」个人能力。已暂停：媒体厂 `HOOPS_HORNS_POP_CN` 集只登记、未锁稿（Owner 未签字），实验期**不生成任何配音**。

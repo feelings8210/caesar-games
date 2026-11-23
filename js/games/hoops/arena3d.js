@@ -148,7 +148,7 @@ function ledBoard() {
   g.textBaseline = 'middle'; g.textAlign = 'center';
   g.font = '800 54px "Helvetica Neue", Arial, sans-serif';
   if ('letterSpacing' in g) g.letterSpacing = '10px';
-  g.fillStyle = '#FFFFFF'; g.fillText('CAESAR GAMES', 300, 50);
+  g.fillStyle = '#FFFFFF'; g.fillText('CD GAMES', 300, 50);
   g.fillStyle = '#E2BE72'; g.fillText('HOOPS IQ', 790, 50);
   g.fillStyle = '#E2BE72'; g.fillRect(560, 40, 12, 12);
   const tex = new THREE.CanvasTexture(c);
@@ -435,7 +435,7 @@ export function buildArena(scene, { hoop, rimY, populated = false, crowdHead = n
   s.set(1,1,1);
 
   // The name on the apron behind the baseline, either side of the basket.
-  for (const [text, x] of [['CAESAR', -13.5], ['GAMES', 13.5]]) root.add(apronWord(text, x, -3.2));
+  for (const [text, x] of [['CD', -13.5], ['GAMES', 13.5]]) root.add(apronWord(text, x, -3.2));
 
   // Walls with pilasters, far enough to sit in the haze.
   const wallH = 70;

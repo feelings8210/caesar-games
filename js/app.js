@@ -1480,7 +1480,7 @@ function boot() {
   document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
   window.caesarApp = new App();
   window.CaesarDebug = { S, MODES, PIECE_TYPES };
-  console.log(`[Caesar Games] ${BUILD.version} ready`);
+  console.log(`[CD Games] ${BUILD.version} ready`);
 
   // Visual-audit hook. Only ever active with an explicit ?state= parameter,
   // so it costs nothing in normal use but keeps screenshot review repeatable.

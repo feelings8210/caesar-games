@@ -212,7 +212,7 @@ export class Court3D extends BeatRunner {
     if(nor&&this.venueLook)floorMat.normalScale.set(.12,.12);
     if (rough) floorMat.roughness = 0.78;                // satin: the spot leaves a soft sheen
     if (this.arenaLook) { floorMat.clearcoat = .2; floorMat.clearcoatRoughness = .4; floorMat.specularIntensity = .16; }
-    if(this.venueLook){floorMat.clearcoat=.16;floorMat.clearcoatRoughness=.4;floorMat.specularIntensity=.12;floorMat.roughness=.7;floorMat.envMapIntensity=.22;}
+    if(this.venueLook){floorMat.clearcoat=.28;floorMat.clearcoatRoughness=.3;floorMat.specularIntensity=.14;floorMat.roughness=.66;floorMat.envMapIntensity=.26;}
     this.floor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), floorMat);
     this.floor.rotation.x = -Math.PI / 2;
     this.floor.position.set(0, 0, 25);
@@ -442,7 +442,7 @@ export class Court3D extends BeatRunner {
     if (this.arenaLook) {
       g.clearRect(0,0,128,128);
       g.fillStyle='#F4F1E8';g.font='800 18px Arial, sans-serif';
-      g.fillText(side==='o'?'CAESAR':'RIVALS',64,25);
+      g.fillText(side==='o'?'CD':'RIVALS',64,25);
       g.font='800 78px Arial, sans-serif';g.lineWidth=3;g.strokeText(String(n),64,78);g.fillText(String(n),64,78);
     }
     const tex = new THREE.CanvasTexture(c);

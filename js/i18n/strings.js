@@ -13,9 +13,9 @@ export const DEFAULT_LOCALE = 'en';
 
 const en = {
   /* brand */
-  'brand.name': 'Caesar Games',
+  'brand.name': 'CD Games',
   'brand.tagline': 'Love & Play',
-  'brand.mark': 'Caesar Games · Love & Play · © 2026 All rights reserved',
+  'brand.mark': 'CD Games · Love & Play · © 2026 All rights reserved',
   'brand.game': 'Junqi',
   'game.junqi.native': '陆战棋',
   'game.junqi.title': 'Junqi',
@@ -354,9 +354,9 @@ const en = {
 };
 
 const zh = {
-  'brand.name': 'Caesar Games',
+  'brand.name': 'CD Games',
   'brand.tagline': 'Love & Play',
-  'brand.mark': 'Caesar Games · Love & Play · © 2026 保留所有权利',
+  'brand.mark': 'CD Games · Love & Play · © 2026 保留所有权利',
   'brand.game': '陆战棋',
   'game.junqi.native': '陆战棋',
   'game.junqi.title': '陆战棋',
