@@ -339,6 +339,29 @@ export class Court3D extends BeatRunner {
     tg.putImageData(img, 0, 0);
     const step = S / 7.5;
     for (let y = 0; y < S; y += step) for (let x = 0; x < S; x += step) g.drawImage(tile, x, y, step + 1, step + 1);
+    if (this.venueLook) this._mapleBoards(g, S);
+  }
+
+  /** NBA floors are 2¼-inch maple strips in random lengths: give each strip its
+   *  own slight shade and draw the seams and staggered end joints, which is what
+   *  reads as "hardwood" from the broadcast camera (docs/ARENA_REFERENCE.md). */
+  _mapleBoards(g, S) {
+    const px = S / 50, w = 2.25 / 12 * px;
+    let seed = 11;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let x = 0; x < S; x += w) {
+      let y = -rnd() * 6 * px;
+      while (y < S) {
+        const len = (2 + rnd() * 6) * px, t = rnd() * 2 - 1;
+        g.fillStyle = t > 0 ? `rgba(255,246,226,${(t * .10).toFixed(3)})` : `rgba(150,104,56,${(-t * .09).toFixed(3)})`;
+        g.fillRect(x, y, w + .5, len);
+        g.fillStyle = 'rgba(96,64,32,.16)';
+        g.fillRect(x, y, w, Math.max(1, .012 * px));          // end joint
+        y += len;
+      }
+      g.fillStyle = 'rgba(96,64,32,.10)';
+      g.fillRect(x, 0, Math.max(1, .01 * px), S);              // seam between strips
+    }
   }
 
   _makeBall() {

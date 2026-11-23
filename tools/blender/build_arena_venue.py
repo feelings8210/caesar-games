@@ -90,14 +90,35 @@ def floor_material(name, tint):
     for t in (diff, nor, rough):
         l.new(mp.outputs['Vector'], t.inputs['Vector'])
     hsv = n.new('ShaderNodeHueSaturation')
-    hsv.inputs['Saturation'].default_value = 1.45
-    hsv.inputs['Value'].default_value = 0.95
+    # docs/ARENA_REFERENCE.md: pale warm maple, hue 36-43 deg, saturation 0.16-0.29
+    # (a03 measured 19 deg, pinkish orange, so pull the hue toward yellow).
+    hsv.inputs['Hue'].default_value = 0.53
+    hsv.inputs['Saturation'].default_value = 1.1
+    hsv.inputs['Value'].default_value = 1.15
     l.new(diff.outputs['Color'], hsv.inputs['Color'])
     mix = n.new('ShaderNodeMix'); mix.data_type = 'RGBA'; mix.blend_type = 'MULTIPLY'
     mix.inputs['Factor'].default_value = 1.0
     l.new(hsv.outputs['Color'], mix.inputs['A'])
     mix.inputs['B'].default_value = (*tint, 1)
-    l.new(mix.outputs['Result'], b.inputs['Base Color'])
+    # 2.25-inch maple strips in staggered lengths, each a slightly different shade.
+    mp2 = n.new('ShaderNodeMapping'); mp2.inputs['Rotation'].default_value = (0, 0, math.pi / 2)
+    l.new(tc.outputs['Object'], mp2.inputs['Vector'])
+    brick = n.new('ShaderNodeTexBrick')
+    brick.offset = 0.37; brick.offset_frequency = 1; brick.squash = 1.0
+    brick.inputs['Scale'].default_value = 1.0
+    brick.inputs['Brick Width'].default_value = 5.0
+    brick.inputs['Row Height'].default_value = 2.25 / 12
+    brick.inputs['Mortar Size'].default_value = 0.004
+    brick.inputs['Bias'].default_value = 0.0
+    brick.inputs['Color1'].default_value = (1.0, 1.0, 1.0, 1)
+    brick.inputs['Color2'].default_value = (0.86, 0.84, 0.8, 1)
+    brick.inputs['Mortar'].default_value = (0.62, 0.52, 0.4, 1)
+    l.new(mp2.outputs['Vector'], brick.inputs['Vector'])
+    mix2 = n.new('ShaderNodeMix'); mix2.data_type = 'RGBA'; mix2.blend_type = 'MULTIPLY'
+    mix2.inputs['Factor'].default_value = 1.0
+    l.new(mix.outputs['Result'], mix2.inputs['A'])
+    l.new(brick.outputs['Color'], mix2.inputs['B'])
+    l.new(mix2.outputs['Result'], b.inputs['Base Color'])
     nm = n.new('ShaderNodeNormalMap'); nm.inputs['Strength'].default_value = 0.35
     l.new(nor.outputs['Color'], nm.inputs['Color'])
     l.new(nm.outputs['Normal'], b.inputs['Normal'])
@@ -116,15 +137,19 @@ def vertex_color_material(name, rough=0.7):
     m.use_nodes = True
     n = m.node_tree.nodes
     attr = n.new('ShaderNodeAttribute'); attr.attribute_name = 'Col'
-    m.node_tree.links.new(attr.outputs['Color'], n['Principled BSDF'].inputs['Base Color'])
+    dim = n.new('ShaderNodeMix'); dim.data_type = 'RGBA'; dim.blend_type = 'MULTIPLY'
+    dim.inputs['Factor'].default_value = 1.0; dim.inputs['B'].default_value = (0.6, 0.6, 0.6, 1)   # crowd sits in the dark
+    m.node_tree.links.new(attr.outputs['Color'], dim.inputs['A'])
+    m.node_tree.links.new(dim.outputs['Result'], n['Principled BSDF'].inputs['Base Color'])
     n['Principled BSDF'].inputs['Roughness'].default_value = rough
     return m
 
 
 M = {
-    'maple': floor_material('Maple', (1.0, 0.80, 0.56)),
-    'stain': floor_material('MapleStained', (0.80, 0.58, 0.36)),
+    'maple': floor_material('Maple', (1.0, 0.88, 0.66)),
+    'stain': floor_material('MapleStained', (0.92, 0.78, 0.58)),
     'paint_navy': principled('PaintNavy', (0.018, 0.045, 0.12), 0.35, coat=1.0, coat_rough=0.06),
+    'apron_navy': principled('ApronNavy', (0.009, 0.022, 0.062), 0.35, coat=1.0, coat_rough=0.06),   # floor/apron ~8x
     'paint_line': principled('PaintLine', (0.92, 0.91, 0.87), 0.4, coat=1.0, coat_rough=0.06),
     'paint_gold': principled('PaintGold', (0.78, 0.56, 0.24), 0.35, coat=1.0, coat_rough=0.06),
     'concrete': principled('Concrete', (0.06, 0.065, 0.075), 0.85),
@@ -252,7 +277,7 @@ new_obj('Floor_Stain', bm, M['stain'])
 bm = bmesh.new()
 for (x0, x1, z0, z1) in [(-35, -25, -12, 106), (25, 35, -12, 106), (-25, 25, -12, 0), (-25, 25, 94, 106)]:
     flat_poly(bm, [G(x0, z0), G(x1, z0), G(x1, z1), G(x0, z1)], 0.006)
-new_obj('Floor_Apron', bm, M['paint_navy'])
+new_obj('Floor_Apron', bm, M['apron_navy'])
 
 # Painted keys and centre circle.
 bm = bmesh.new()
@@ -551,7 +576,8 @@ for k, p in enumerate(LIGHTS):
 new_obj('Lamp_Fixtures', lamp_bm, M['lamp'])
 # Soft fill so the lower bowl reads but stays darker than the floor.
 for p in (G(0, -60, 60), G(0, 154, 60), G(-90, 47, 60), G(90, 47, 60)):
-    ld = bpy.data.lights.new('BowlFill', 'AREA'); ld.size = 40; ld.energy = 30000; ld.color = (0.8, 0.86, 1.0)
+    ld = bpy.data.lights.new('BowlFill', 'AREA'); ld.size = 40; ld.energy = 5000;   # a03: floor/crowd 2.7, floor/ceiling 7 -> darker bowl
+    ld.color = (0.8, 0.86, 1.0)
     lo = bpy.data.objects.new('BowlFill', ld); COLL.objects.link(lo); lo.location = p
     lo.rotation_euler = (G(0, 47, 10) - p).to_track_quat('-Z', 'Y').to_euler()
 
