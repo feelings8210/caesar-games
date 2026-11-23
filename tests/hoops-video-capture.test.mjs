@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { capturePlaybook, wrapCaption, containRect, captureLayout, captionBaselines, validateContinuousNarration, recordingChunks, teachingBeats, setTeachingFrame } from '../scripts/hoops-video-capture.mjs';
+import { capturePlaybook, wrapCaption, containRect, captureLayout, captionBaselines, validateContinuousNarration, beatSchedule, recordingChunks, teachingBeats, setTeachingFrame } from '../scripts/hoops-video-capture.mjs';
 import { PLAYS } from '../js/games/hoops/playbook.js';
 import * as THREE from '../js/vendor/three/three.module.min.js';
 
@@ -90,4 +90,14 @@ test('a failed chunk write fails the capture and prevents subsequent writes', as
   const buffered = recordingChunks();
   buffered.add(new Blob(['old'])); buffered.add(new Blob([' mode']));
   assert.equal(await (await buffered.finish('video/webm')).text(), 'old mode');
+});
+
+test('beat schedule waits for phrase cues and keeps every beat inside its step', () => {
+  const play = { steps: [{ beats: [{ ms: 500 }] }, { beats: [{ ms: 700 }, { ms: 1000 }] }] };
+  assert.deepEqual(beatSchedule(play, [0, 2000], null, 6000), [[0], [2000, 2700]]);
+  assert.deepEqual(beatSchedule(play, [0, 2000], [null, [null, 4000]], 6000), [[0], [2000, 4000]]);
+  // A cue earlier than the previous beat's end waits for that beat.
+  assert.deepEqual(beatSchedule(play, [0, 2000], [null, [null, 2100]], 6000), [[0], [2000, 2700]]);
+  assert.throws(() => beatSchedule(play, [0, 2000], [null, [null, 5500]], 6000), /cannot fit/);
+  assert.throws(() => beatSchedule(play, [0, 2000], [[2500], null], 6000), /outside step/);
 });

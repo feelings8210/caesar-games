@@ -31,7 +31,11 @@ manifest.steps.forEach((step, i) => {
 });
 // Check inter-step timing before starting the browser; the last cue is
 // checked again against the decoded recording's actual duration in capture.
-if (continuous) validateContinuousNarration(play, { buffer: { duration: Infinity }, cuesMs: manifest.steps.map(s => s.startMs) });
+const beatCuesMs = continuous && manifest.steps.some(s => s.beatsMs) ? manifest.steps.map(s => s.beatsMs ?? null) : null;
+if (continuous) validateContinuousNarration(play, { buffer: { duration: Infinity }, cuesMs: manifest.steps.map(s => s.startMs), beatCuesMs });
+// low (default) keeps older review captures comparable; high is for share-quality renders.
+const quality = process.env.HOOPS_EXPORT_QUALITY || 'low';
+if (!['low', 'high'].includes(quality)) throw new Error('HOOPS_EXPORT_QUALITY must be low or high');
 const clips = (continuous ? [manifest.audio] : manifest.steps.map(step => step.audio)).map((audioPath, i) => {
   const file = path.resolve(path.dirname(manifestPath), audioPath);
   const bytes = fs.readFileSync(file);
@@ -72,8 +76,12 @@ try {
   const errors = [], warnings = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', msg => { if (['warning', 'error'].includes(msg.type())) warnings.push(msg.text()); });
-  await page.goto(`${origin}/?hoopsQuality=low`);
+  await page.goto(`${origin}/?hoopsQuality=${quality}`);
   await page.waitForFunction(() => !!window.caesarApp, null, { timeout: 60000 });
+  // On-court calls ("Screen!") follow the app language; match the narration.
+  const appLocale = () => page.evaluate(async () => (await import('/js/i18n/strings.js')).getLocale());
+  if (await appLocale() !== manifest.locale) await page.click('#btn-language');
+  if (await appLocale() !== manifest.locale) throw new Error(`Could not switch the app to ${manifest.locale}`);
   await page.click('#btn-hoops');
   const courtKind = await page.evaluate(async playId => {
     const game = window.caesarApp.hoops;
@@ -81,10 +89,15 @@ try {
     return game.root.dataset.court;
   }, manifest.playId);
   if (courtKind !== '3d') throw new Error(`3D court unavailable (${courtKind}): ${warnings.join('; ') || 'no browser warning'}`);
-  const result = await page.evaluate(async ({ playId, locale, clips, continuous, cuesMs }) => {
+  const result = await page.evaluate(async ({ playId, locale, clips, continuous, cuesMs, beatCuesMs }) => {
     const { capturePlaybook } = await import('/scripts/hoops-video-capture.mjs');
     const game = window.caesarApp.hoops;
     await game.court.ready;
+    // Studio stage: give the court the whole picture area above the caption
+    // band, instead of the in-game panel layout with side bars.
+    const host = game.court.el, hostStyle = host.getAttribute('style');
+    Object.assign(host.style, { position: 'fixed', left: '0', top: '0', width: '1280px', height: '585px', zIndex: '2147483000' });
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const audio = new AudioContext(), events = [];
     try {
       const narration = [];
@@ -92,7 +105,7 @@ try {
         const binary = atob(clip.encoded), bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
         narration.push(await audio.decodeAudioData(bytes.buffer));
       }
-      const voice = continuous ? { continuousNarration: { buffer: narration[0], cuesMs } } : { narration };
+      const voice = continuous ? { continuousNarration: { buffer: narration[0], cuesMs, beatCuesMs } } : { narration };
       await capturePlaybook({ court: game.court, play: game.pb.play, locale, ...voice, onEvent: event => events.push(event),
         onChunk: async blob => {
           const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -102,15 +115,19 @@ try {
         } });
       return { events, captionTexts: game.pb.play.steps.map(step => step.say[locale]),
         narrationMs: narration.map(buffer => buffer.duration * 1000) };
-    } finally { await audio.close(); game.leave(); }
-  }, { playId: manifest.playId, locale: manifest.locale, clips, continuous, cuesMs: continuous ? manifest.steps.map(s => s.startMs) : [] });
+    } finally {
+      await audio.close();
+      if (hostStyle == null) host.removeAttribute('style'); else host.setAttribute('style', hostStyle);
+      game.leave();
+    }
+  }, { playId: manifest.playId, locale: manifest.locale, clips, continuous, cuesMs: continuous ? manifest.steps.map(s => s.startMs) : [], beatCuesMs });
   if (errors.length) throw new Error(`Browser errors: ${errors.join('; ')}`);
   if (result.captionTexts.length !== manifest.steps.length || result.captionTexts.some((text, i) => text !== manifest.steps[i].text))
     throw new Error('The recorded playbook text changed during export');
   if (videoBytes < 1000) throw new Error('Recorded video is unexpectedly small');
   const report = { schema: 'caesar-hoops-capture-observation-v1', playId: manifest.playId, locale: manifest.locale,
     manifestSha256: sha256(fs.readFileSync(manifestPath)), audioSha256: clips.map(c => c.sha256), videoSha256: videoHash.digest('hex'),
-    narrationMs: result.narrationMs, cuesMs: continuous ? manifest.steps.map(s => s.startMs) : null,
+    narrationMs: result.narrationMs, cuesMs: continuous ? manifest.steps.map(s => s.startMs) : null, beatCuesMs, quality,
     captionTexts: result.captionTexts, events: result.events,
     note: 'Browser event timestamps are observations, not verified encoded-media timestamps or narration QC.' };
   fs.writeFileSync(reportHandle, JSON.stringify(report, null, 2) + '\n'); success = true;

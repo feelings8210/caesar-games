@@ -1,3 +1,19 @@
+## 交接与恢复说明（2026-11-22）
+
+本工作树此前被归档，现已从 Codex 归档恢复到 `/Volumes/MiniStorage/CodexData/home/worktrees/hoops-tactics/caesar-games`。恢复后的 HEAD 是 detached 的归档快照 `35c33b8`，它把归档前的未提交工作保存在快照提交中；恢复前的分支/未提交状态不等同于当前状态。接手前先核对 `git status`、`git log` 和快照内容，不要 reset、覆盖或误以为可以直接推送。此前记录多为 2026-11-05 的实验结果，本次恢复没有重跑测试、播放样片或重新验证设备。
+
+Owner 当前目标是继续提升篮球游戏的可玩性、球场人物和动作，并实现可自动讲解、可导出分享的战术视频；不必等教练。下方旧记录中“Goal ACTIVE”和等待教练的安排只是历史状态，不代表当前执行命令。牛角/电梯门样片与历史实验详见下方；合成音调不是正式旁白，内部录制不是面向用户完成的导出功能。下一位接手者先核实现有视频链路和旁白生产规则，选一个现有战术推进可审看、讲解与画面同步的端到端样片；同时保留游戏动作修复为并行待办。`scripts/hoops-gait-audit.mjs` 的三画面对比是未完成实验，修订后是否正确尚需重跑和验证，不得当作已验收修复。媒体操作遵循当前全局素材库、3090 与存储规则，测试静音并关闭自己启动的浏览器/服务。
+
+## 真人声讲解样片端到端打通（2026-11-22，Claude Code，分支 `claude/hoops-narrated-sample`）
+
+牛角挡拆外弹第一次用真人克隆声跑通「战术数据 → 配音 → 逐词对齐 → 3D 录制 → MP4」。声音是 seven-voice MOSS **research 试听**（`research:true`，CB0003，seed 42：27.44 s、241 字/分、声纹 0.80、对稿 0.97；语速未达正式 255–260，ASR 报「牛→扭」声调疑点未听审），**只能当链路验证与内部审看，不可外发**。对齐：新 `tools/voice/align_narration.py` 经 CB0001 `narration-align/trial-a01` 跑 mf_align，覆盖 0.973、20 个短语 token。成片 SSD `/Volumes/MiniStorage/media-projects/caesar-hoops-tactics-20261122/horns-trial-a04-30fps.mp4`（SHA `850357018d47…`，归档 CB0001 `narrated-mp4/trial-a04b`）：1280×720 H.264 30 fps 29.4 s + AAC 48k。编码后实测：旁白在片中 1.237 s 起（互相关 0.99），四步字幕切换比对应语音早 4–24 ms；录制帧间隔均值 33 ms、最大 89 ms。
+
+本轮代码：①`playbook.js` beat 可带 `cue`（该步讲解里的原文短语，游戏忽略），录制时该 beat 在说到这句时才开始；`hoops-aligned-cues.mjs` 由对齐 token 算 `beatsMs`（短语落在 token 内按字符位置估算并标出），`beatSchedule` 校验每拍在下一步前做完。修掉「传球投篮在『一号就可以回传』之前就做完」。②录制画面画上球员号码牌和掩护提示（游戏里号码是 HTML 层，原录制会丢）。③导出时把球场放大到整个画幅（1280×585，去掉两侧黑边），`HOOPS_EXPORT_QUALITY=high`，按讲解语言切 app 语言（之前中文片里出现英文「Screen!」）。④录制前预渲染所有中文字幕/提示，修掉首次出现中文提示时 0.5 s 卡帧。⑤`hoops-video-transcode.sh` 加 `-vf fps=30`：浏览器 WebM 是毫秒时钟，旧脚本输出 1000 fps（29302 帧）MP4，此前所有 MP4 都有这个问题。52 项单测通过。本机录制用 `PLAYWRIGHT_MODULE=/Users/cdmini/AIProjects/bakery-ai-order-guide/node_modules/playwright CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"`（无头硬件渲染约 30 fps）。
+
+**卡点（需 Owner 决定）**：Owner 11-22 要求声音全部改用 ElevenLabs 并整体对标 NBA 2K。`eleven_voice.py` 入口门要求集在 `studio/registry.json` 登记（`ep.py new … --channel`），现有频道都不属于 Hoops IQ；新建 Hoops IQ 频道/集要 Owner 同意，教练语音（87 条中文 + 87 条英文，原 Qwen3-TTS「傅叔」）用谁的声音也待定。
+
+参考片拆解（@NBANFLHistory「Mastering the Horns Offense」，竖屏 62 s，静音无头截图在 SSD `ref-7FKVIvBEkbY/sheet.jpg`）：全 3D 无脸人偶球员 + 球队色球衣号码、**有防守人**、发光跑位/传球轨迹、巨型动态大字、球员名牌、战术板小窗、SLOW MOTION/REPLAY、多机位（俯视/低角/特写）快剪。它用了 NBA 球队与真实球员名，我们不能照搬。我们缺：防守人、轨迹光带、多机位与慢放回放、竖屏、动态字幕层、节奏感；我们强：真人比例人物和完整球馆观众。未完成：ElevenLabs 正式配音、英文版、电梯门样片、动作脚穿地（IK 实验仍未验收）、Owner 观感与 iPad。
+
 ## 脚部 IK 全身起停对照片段（2026-11-05 继续）
 
 `hoops-gait-audit.mjs` 加四帧热身、跑位前250ms和后300ms观察，比较机位后移看全身；静音 `gait-continuous-a10.webm/json` 在 SSD。105次采样从约15ms至1763ms，角色起点 z=6、终点 z=25，最大观察间隔41.5ms；左右为同帧原动作和**未渐变**独立 IK。`gait-continuous-original-a10.png` 和 `gait-continuous-a10-playback.png` 已目视，观察帧中人物头脚可见；Chromium 静音播放到1.10秒无错误。额外渲染可能影响帧速，单帧查看不是持续1×观影或完整动作质量验收，未量全部鞋面、脚滑与膝盖连续；候选不接入游戏。继续处理可用的连续脚部修正、实际观察和正式旁白/用户导出；浏览器/服务已退出，Goal ACTIVE。

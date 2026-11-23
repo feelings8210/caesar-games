@@ -8,7 +8,9 @@ if [[ $# -ne 1 || -z "${MF_OUTPUT_DIR:-}" ]]; then
 fi
 input=$1
 [[ -f "$input" && ! -e "$MF_OUTPUT_DIR/video.mp4" && ! -e "$MF_OUTPUT_DIR/probe.json" ]] || exit 2
-ffmpeg -nostdin -v error -i "$input" -map 0:v:0 -map 0:a:0 \
+# Browser WebM uses a millisecond clock with variable frame timing; without
+# an explicit rate ffmpeg writes a 1000 fps file. Resample to constant 30 fps.
+ffmpeg -nostdin -v error -i "$input" -map 0:v:0 -map 0:a:0 -vf fps=30 \
   -c:v libx264 -preset medium -crf 19 -pix_fmt yuv420p \
   -c:a aac -b:a 192k -ar 48000 -ac 2 -movflags +faststart "$MF_OUTPUT_DIR/video.mp4"
 ffprobe -v error -show_format -show_streams -of json "$MF_OUTPUT_DIR/video.mp4" > "$MF_OUTPUT_DIR/probe.json"
