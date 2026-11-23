@@ -4,6 +4,27 @@
 
 Owner 当前目标是继续提升篮球游戏的可玩性、球场人物和动作，并实现可自动讲解、可导出分享的战术视频；不必等教练。下方旧记录中“Goal ACTIVE”和等待教练的安排只是历史状态，不代表当前执行命令。牛角/电梯门样片与历史实验详见下方；合成音调不是正式旁白，内部录制不是面向用户完成的导出功能。下一位接手者先核实现有视频链路和旁白生产规则，选一个现有战术推进可审看、讲解与画面同步的端到端样片；同时保留游戏动作修复为并行待办。`scripts/hoops-gait-audit.mjs` 的三画面对比是未完成实验，修订后是否正确尚需重跑和验证，不得当作已验收修复。媒体操作遵循当前全局素材库、3090 与存储规则，测试静音并关闭自己启动的浏览器/服务。
 
+## 视频转动作跑通 + CMU 扩库 + 地板 a18（2026-11-23 上午，Claude Code，分支 `claude/hoops-narrated-sample`）
+
+Owner 反馈：a17 地板发白、看不出质感；动作视频里人物"腿脚断开"；同意在 3090 上装视频转动作模型，先拿已有的打球视频试，同时扩 CMU 免费库，并要一份拍摄清单。
+
+**地板 a18**：量 a17 地板 Y 0.81、饱和 0.13、木纹 cv 0.04，亮到接近顶格被 AgX 冲淡。改 `build_arena_venue.py` floor_material（明度、饱和、木条深浅、面漆），见 `docs/ARENA_REFERENCE.md` 末节。终版 SSD `arena-final-a18/`，对比图 `floor-compare-a17-a18.jpg`。游戏里的地板没改。
+
+**腿脚断开**：不是动作问题，是球员模型 `athlete-arena.glb` 本身：脚/鞋（`SuperHero_Male`，材质 Shoe）是单独网格，脚踝处和小腿没缝合，一动就露缝；球衣有破面；皮肤材质金属度 0.85（灰色雕像感）；高低两套 LOD 在 Blender 预览里同时显示。特写 SSD `motion-inspect-i01/check_legs_sheet.jpg`，脚本 SSD `script/inspect_athlete_legs.py`。**下一步先修模型（缝合脚踝、补鞋、修球衣），不用等 Owner。**
+
+**视频转动作（没有新装模型）**：3090 上已有 Meta SAM 3D Body（`runtimes/sam3dbody`，SAM License，允许商用；权重被 model_guard 移进阵列，脚本用符号链接直接读阵列里的 ckpt，没有搬回占盘）。人框用 torchvision Faster R-CNN（权重 167 MB 下到 `runtimes/sam3dbody/torch_home`）。新脚本：
+- `tools/motion/video_to_keypoints.py`：跟住一个球员，逐帧输出 3D 关键点 + 骨架叠画验证片；
+- `tools/blender/retarget_video_preview.py`：拟合地面、按腿长缩放、套到我们的骨架上，渲染"同一机位"和"侧面"两路；
+- `tools/motion/compose_video_compare.py`：原视频 | 同机位叠画 | 侧面，三栏静音对比片。
+
+素材用 Owner 自己拍的西班牙 3v3 比赛（`spain-basketball-01`，GM 5 b，4K60），截 A29（黄衣 1 号运球变向）和 A31（奶油色球衣运球推进），各 217 帧，跟踪零丢失，每段约 160 s。对比片 SSD `motion-video-v01/A29/compare_A29.mp4`、`A31/compare_A31.mp4`。姿势和原视频吻合度高，逐帧看没有明显抖动；没做：手腕/前臂扭转、手指、球、脚步打滑清理，摇镜头时根位置会带一点偏差。视频里是未成年人，只在 Owner 自己的 3090/SSD 上处理，输出只有骨架动作，原片未入共享素材库。
+
+**CMU 扩库**：新登记来源 `cmu-sports-mocap`（Owner 当天原话已写入 GLOBAL_ASSET_SOURCES，旧的 `cmu-basketball-mocap` 不动），只走 HTTPS 且照常校验，证书链用 letsencrypt.org 官方 gen-y 中间证书补全（SHA 与 11-05 证据一致）；`asset_acquire_3d` 放行该来源的 .asf/.amc。备份：`*.bak-pre-cmu-sports-<时间>`。入库 103 个新文件（16 MB）：06 运球、16 跑/急停、**78 号篮球步法全套**（防守横移/Z 字/急停、转身突破、假动作、投篮假动作、轴心脚、左右突破、无球跑）、124、127/128 跑停/侧步。102 号与 78 号是同一批文件（SHA 相同，复用）。记录 `asset-library/evidence/cmu-sports-mocap/acquire-20261123.json`。更正：之前说"CMU 几乎没有防守滑步"是错的。预览 SSD `motion-cmu-m03/defslide2.mp4`（防守滑步）、`spin.mp4`（转身突破）。
+
+**拍摄清单**：`docs/MOTION_SHOOT_LIST.md`，只列 CMU 没有的（投篮、上篮、传球、掩护、卡位、扑防、封盖、待机等）。
+
+都是实验，没有接进游戏；没有推送。
+
 ## 自家主场地板设计 + CMU 动捕套到球员上的实验（2026-11-23 凌晨，Claude Code，分支 `claude/hoops-narrated-sample`）
 
 Owner：地板的设计、颜色、质感、花纹要参考 NBA 主场，做成属于我们自己的设计；继续往下做。另问球员动作打算怎么做。
