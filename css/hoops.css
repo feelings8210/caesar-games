@@ -561,6 +561,7 @@
   color: #F4F6F9;
   box-shadow: var(--lift-2);
 }
+.hp-read-card + .hp-read-card { margin-top: 12px; }
 .hp-read-title { margin: 0 0 6px; font: 650 22px/1.2 var(--font-cn); }
 .hp-read-desc { margin: 0; max-width: 520px; font-size: 14px; line-height: 1.55; color: rgba(244,246,249,.75); }
 .hp-read-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }

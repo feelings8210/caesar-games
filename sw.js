@@ -60,6 +60,8 @@ const PRECACHE = [
   './js/games/hoops/camera-frame.js',
   './js/games/hoops/athlete-surface.js',
   './js/games/hoops/families.js',
+  './js/games/hoops/possession.js',
+  './js/games/hoops/shot-model.js',
   './js/games/hoops/stats.js',
   './js/games/hoops/playbook.js',
   './js/games/hoops/playbook-mode.js',

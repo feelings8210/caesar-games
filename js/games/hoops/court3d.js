@@ -557,6 +557,41 @@ export class Court3D extends BeatRunner {
 
   setYouLabel(s) { if (this.youTag) this.youTag.textContent = s; }
 
+  /** Hand control to another player mid-play (a second read in a live
+   *  possession): move the gold ring, the decision timer and the YOU tag. */
+  setYou(id) {
+    if (id === this.you || !this.players[id]) return;
+    const prev = this.players[this.you];
+    const next = this.players[id];
+    const glowOf = p => p.ring.children[0];
+    const swapBody = (p, you) => {
+      const n = Number(p.id.slice(1));
+      const byMat = new Map(Object.entries(this.materials).map(([k, m]) => [m, k]));
+      p.athlete.root.traverse(o => {
+        if (!o.isMesh || Array.isArray(o.material)) return;
+        const key = byMat.get(o.material);
+        if (!key) return;
+        const slot = key.split(':')[0];
+        o.material = this._material(slot, p.side, you, n);
+      });
+    };
+    if (prev) {
+      glowOf(prev).material.color.setHex(TEAM[prev.side].ring);
+      glowOf(prev).material.opacity = 0.6;
+      if (this.arenaLook) prev.ring.visible = false;
+      this.labels[prev.id]?.classList.remove('is-you');
+      if (!this.arenaLook) swapBody(prev, false);
+    }
+    glowOf(next).material.color.setHex(TEAM.you.ring);
+    glowOf(next).material.opacity = 0.85;
+    next.ring.visible = true;
+    if (this.timerRing) { this.timerRing.removeFromParent(); next.ring.add(this.timerRing); }
+    this.labels[id]?.classList.add('is-you');
+    if (!this.arenaLook) swapBody(next, true);
+    this.you = id;
+    this.wake();
+  }
+
   restore(snap) {
     this._clearFx();
     this.restoreState(snap);
@@ -868,12 +903,12 @@ export class Court3D extends BeatRunner {
 
   /** Include authored runs and every decision spot before the opening beat,
    * so a mirrored read cannot move a target below the screen. */
-  setReadFrame(level) {
+  setReadFrame(level, { snap = true } = {}) {
     this._framingPositions=Object.values(this.pos).map(p=>[...p]);
     for(const beat of level.intro||[])for(const path of Object.values(beat.move||{}))
       this._framingPositions.push(...(Array.isArray(path[0])?path:[path]).map(p=>[...p]));
     for(const option of level.options||[])if(option.at)this._framingPositions.push([...option.at]);
-    if(this.arenaLook)this.setShot('broadcast',true);
+    if(this.arenaLook)this.setShot('broadcast',snap);
   }
 
   setFrozen(on) {

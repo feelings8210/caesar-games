@@ -167,6 +167,16 @@ export class CourtView extends BeatRunner {
 
   setYouLabel(s) { if (this.youLabel) this.youLabel.textContent = s; }
 
+  /** Hand control to another player mid-play; positions and the ball stay. */
+  setYou(id) {
+    if (id === this.you || !this.pos[id]) return;
+    const snap = this.snapshot();
+    const label = this.youLabel?.textContent || '';
+    this.setScene({ ...snap.pos, ball: snap.ball.holder, ballAt: snap.ball.at }, id);
+    this.restoreState(snap);
+    this.setYouLabel(label);
+  }
+
   restore(snap) {
     this.gTrails.textContent = '';
     this.gFx.textContent = '';
