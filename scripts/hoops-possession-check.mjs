@@ -40,7 +40,7 @@ try {
     const { page } = rec;
     page.on('pageerror', e => errors.push(`${tag} pageerror: ${e.message}`));
     page.on('console', m => { if (m.type() === 'error') errors.push(`${tag} console: ${m.text()}`); });
-    await page.goto(`${origin}/?hoopsDecide=12&hoopsCoverage=${run.cov}`);
+    await page.goto(`${origin}/?hoopsDecide=${process.env.DECIDE || 60}&hoopsCoverage=${run.cov}`);
     await page.evaluate(() => localStorage.clear());
     await page.reload();
     const loc = () => page.evaluate(async () => (await import('./js/i18n/strings.js')).getLocale());
@@ -55,7 +55,7 @@ try {
     const entry = { tag, reads: [] };
     for (const [r, pick] of run.picks.entries()) {
       await waitPhase('decide');
-      await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled?.() ?? true, null, { timeout: 30000 }).catch(() => {});
+      await page.waitForFunction(() => window.caesarApp.hoops.court.cameraSettled?.() ?? true, null, { timeout: 6000 }).catch(() => {});
       await page.waitForTimeout(400);
       await page.screenshot({ path: `${outDir}/${tag}-read${r + 1}.png` });
       const idx = await page.evaluate(pick => {

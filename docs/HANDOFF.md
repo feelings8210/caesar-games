@@ -4,6 +4,16 @@
 
 Owner 当前目标是继续提升篮球游戏的可玩性、球场人物和动作，并实现可自动讲解、可导出分享的战术视频；不必等教练。下方旧记录中“Goal ACTIVE”和等待教练的安排只是历史状态，不代表当前执行命令。牛角/电梯门样片与历史实验详见下方；合成音调不是正式旁白，内部录制不是面向用户完成的导出功能。下一位接手者先核实现有视频链路和旁白生产规则，选一个现有战术推进可审看、讲解与画面同步的端到端样片；同时保留游戏动作修复为并行待办。`scripts/hoops-gait-audit.mjs` 的三画面对比是未完成实验，修订后是否正确尚需重跑和验证，不得当作已验收修复。媒体操作遵循当前全局素材库、3090 与存储规则，测试静音并关闭自己启动的浏览器/服务。
 
+## 菜单改版（深色球馆风）+ Blender 球馆第一版 + 3080 Ti 录屏（2026-11-22 深夜，Claude Code，分支 `claude/hoops-narrated-sample`）
+
+Owner 原话：UI「太不好看了，这给孩子的游戏」；「这可不是幼稚园小孩啊，这是十岁到十五岁的这些小孩儿，也有可能青少年都可以用，大人也可以玩」。方向：体育游戏 / 2K 菜单风格，不要卡通、粉彩、幼稚文案。
+
+①**UI 改版**：新文件 `css/theme-arena.css`，只作用于 `body[data-screen="home"|"hoops"]`（`js/app.js` `render()` 给 body 写 `data-screen`），四个棋类自己的棋盘页不受影响。首页：深色球馆底 + 顶部蓝色聚光，CD GAMES 用 Anton，篮球智商做成左侧大海报卡（Blender 球馆渲染 `assets/hoops/ui/arena-poster.jpg` 作底图，「开打 ▸」金色徽章），四个棋类是右侧 2×2 深色卡（各自队色竖条 + 大字水印）。篮球菜单：章节头用球馆图作底、三色顶条；标签改成转播式下划线；关卡卡大号 Anton 编号水印，**下一关**发光金框 +「开打」（controller 加 `is-next` 类），锁住的关卡用斜纹 + 锁图标、文字仍可读（原来是半透明灰）；战术手册卡修掉「米色底白字」看不清；随机应变 / 数据页同风格。中英文、1180×820 横屏和 820×1180 竖屏都截图自查过（SSD `ui-before-a01/` 对比 `ui-after-a01…a03/`），比赛画面不受影响。`scripts/ui-screens.mjs <SSD目录> [WxH] [zh|en]` 一键截全部菜单页。iPad 真机未验证。
+
+②**Blender 球馆**：`tools/blender/build_arena_venue.py`（只在 3090 跑，经 `gpuq submit --worker cd001 --wrapper bare`）。整片地板（Poly Haven `laminate_floor_02` 4K 枫木纹 CC0，经资产库 `asset_acquire`，路径与 SHA 见 3090 工作目录 `in/assets.json`）、篮架、两层看台约 9 千座 / 7.8 千观众、LED 带、记分台、吊顶记分牌、22 盏灯 + 补光、三个机位。**踩坑**：第一版每个座位都调 `bmesh.ops`，每次调用都遍历整个网格，建模变成平方级，28 分钟没进渲染、占着 cd001 锁（Owner 手动 kill）；改成直接造顶点后建模 1.1 s、三机位 64 spp 共 6 s。a02 预览偏曝、上层看台四角漏黑，a03 降曝光 0.7 档、木纹加饱和、补四角。下一步：定稿 look-dev → 烘焙地板贴图（可能含光照）→ 导出 glTF 接入游戏替换现有地板 / 外围。
+
+③**录屏装到 3080 Ti（win3060）**：Owner 自己跑了安装脚本，Playwright 1.60.0 + Chromium + ffmpeg 在 `D:\ai-render\tools\browser-recorder\`，`record-test.cmd "<RUNS>" <名字>` 录实战回合（RUNS 要加引号，cmd 会按逗号拆参数）；已录 3 段无灰边。`browser-recorder.mjs` 允许输出到 `D:\ai-render\`，窗口尺寸不对时用 CDP 自动校正；`hoops-possession-check.mjs` 决策时间默认 60 s（慢机器上原来会超时）。
+
 ## 转播级画面第一轮 + 改名 CD Games + 录屏工具（2026-11-22 夜，Claude Code，分支 `claude/hoops-narrated-sample`）
 
 Owner 要求：先把基础设施（人物模型、动作、UI、观众、地板、篮筐）往 NBA / 2K 靠；游戏里不再出现 "Caesar"，改成 CD Games；别动不动让他上 iPad 测，做到有大变化再请他看；录屏工具很重要（以后做讲解视频要用），重的软件尽量别装 Mac，装 3090 / 3080。

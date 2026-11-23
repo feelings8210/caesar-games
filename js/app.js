@@ -587,7 +587,9 @@ export class App {
     if (st !== S.GAME_END && st !== S.OPEN_END) $('#game-end').classList.remove('is-open');
 
     // Screens
-    $$('.screen').forEach(el => el.classList.toggle('is-active', el.dataset.screen === this.screenFor(st)));
+    const screen = this.screenFor(st);
+    $$('.screen').forEach(el => el.classList.toggle('is-active', el.dataset.screen === screen));
+    document.body.dataset.screen = screen;   // home + Hoops wear the dark arena theme (css/theme-arena.css)
 
     // Dialogs
     const dialog = this.dialogFor(st);

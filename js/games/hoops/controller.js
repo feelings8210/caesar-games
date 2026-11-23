@@ -328,6 +328,7 @@ export class HoopsGame {
       const open = this.unlocked(i);
       b.classList.toggle('is-locked', !open);
       b.classList.toggle('is-done', got > 0);
+      b.classList.toggle('is-next', open && got === 0);   // the level to play now gets the spotlight card
       b.querySelector('.hp-level-title').textContent = L(lvl.title);
       b.querySelector('.hp-level-concept').textContent = open ? L(lvl.concept) : t('hoops.locked');
       b.querySelectorAll('.hp-level-stars i').forEach((s, k) => s.classList.toggle('is-on', k < got));

@@ -11,7 +11,7 @@
  * discards every older cache in one pass.
  */
 
-const BUILD_VERSION = 'v2.9.0-local.44';
+const BUILD_VERSION = 'v2.9.0-local.45';
 const CACHE = `caesar-games-${BUILD_VERSION}`;
 
 const PRECACHE = [
@@ -22,6 +22,7 @@ const PRECACHE = [
   './css/app.css',
   './css/board.css',
   './css/hoops.css',
+  './css/theme-arena.css',
   './js/app.js',
   './js/build.js',
   './js/pwa.js',
@@ -62,6 +63,7 @@ const PRECACHE = [
   './js/games/hoops/families.js',
   './js/games/hoops/possession.js',
   './assets/hoops/fonts/Anton_Regular.ttf',
+  './assets/hoops/ui/arena-poster.jpg',
   './js/games/hoops/shot-model.js',
   './js/games/hoops/stats.js',
   './js/games/hoops/playbook.js',
