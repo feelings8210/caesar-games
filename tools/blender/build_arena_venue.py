@@ -19,7 +19,7 @@ from mathutils import Vector, Matrix
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 OUT = os.path.abspath(argv[0])
 ASSETS = json.load(open(argv[1]))
-opt = {'samples': 256, 'res': '1600x900', 'cams': 'broadcast,courtside,wide', 'render': True}
+opt = {'samples': 256, 'res': '1600x900', 'cams': 'broadcast,courtside,wide,hero', 'render': True}
 i = 2
 while i < len(argv):
     a = argv[i]
@@ -101,35 +101,54 @@ def floor_material(name, tint):
     mix.inputs['Factor'].default_value = 1.0
     l.new(hsv.outputs['Color'], mix.inputs['A'])
     mix.inputs['B'].default_value = (*tint, 1)
-    # 2.25-inch maple strips in staggered lengths, each a slightly different shade.
-    mp2 = n.new('ShaderNodeMapping'); mp2.inputs['Rotation'].default_value = (0, 0, math.pi / 2)
-    l.new(tc.outputs['Object'], mp2.inputs['Vector'])
-    brick = n.new('ShaderNodeTexBrick')
-    brick.offset = 0.37; brick.offset_frequency = 1; brick.squash = 1.0
-    brick.inputs['Scale'].default_value = 1.0
-    brick.inputs['Brick Width'].default_value = 5.0
-    brick.inputs['Row Height'].default_value = 2.25 / 12
-    brick.inputs['Mortar Size'].default_value = 0.004
-    brick.inputs['Bias'].default_value = 0.0
-    brick.inputs['Color1'].default_value = (1.0, 1.0, 1.0, 1)
-    brick.inputs['Color2'].default_value = (0.86, 0.84, 0.8, 1)
-    brick.inputs['Mortar'].default_value = (0.62, 0.52, 0.4, 1)
-    l.new(mp2.outputs['Vector'], brick.inputs['Vector'])
+    # 2.25-inch maple strips in random lengths, each its own shade, with seams and
+    # staggered end joints (strips run along the court = Blender Y).
+    def mth(op, a, b=None, clamp=False):
+        m_ = n.new('ShaderNodeMath'); m_.operation = op; m_.use_clamp = clamp
+        for k_, v_ in enumerate((a, b)):
+            if v_ is None: continue
+            if isinstance(v_, (int, float)): m_.inputs[k_].default_value = v_
+            else: l.new(v_, m_.inputs[k_])
+        return m_.outputs[0]
+    def noise3(x_, y_, z_):
+        c_ = n.new('ShaderNodeCombineXYZ')
+        for k_, v_ in enumerate((x_, y_, z_)):
+            if isinstance(v_, (int, float)): c_.inputs[k_].default_value = v_
+            else: l.new(v_, c_.inputs[k_])
+        w_ = n.new('ShaderNodeTexWhiteNoise'); w_.noise_dimensions = '3D'
+        l.new(c_.outputs[0], w_.inputs['Vector'])
+        return w_.outputs['Value']
+    sep = n.new('ShaderNodeSeparateXYZ'); l.new(tc.outputs['Object'], sep.inputs[0])
+    SW, SL = 2.25 / 12, 4.5
+    xs = mth('DIVIDE', sep.outputs['X'], SW)
+    bx = mth('FLOOR', xs)
+    yy = mth('ADD', sep.outputs['Y'], mth('MULTIPLY', noise3(bx, 7.0, 0.0), SL * 1.7))
+    ys = mth('DIVIDE', yy, SL * (0.75))
+    by = mth('FLOOR', ys)
+    shade = mth('ADD', 0.9, mth('MULTIPLY', noise3(bx, by, 3.0), 0.16))
+    seam_x = mth('LESS_THAN', mth('FRACT', xs), 0.045)
+    seam_y = mth('LESS_THAN', mth('FRACT', ys), 0.004)
+    seam = mth('MAXIMUM', seam_x, seam_y)
+    fac = mth('MULTIPLY', shade, mth('SUBTRACT', 1.0, mth('MULTIPLY', seam, 0.22)))
+    fcol = n.new('ShaderNodeCombineXYZ')
+    for k_ in range(3): l.new(fac, fcol.inputs[k_])
     mix2 = n.new('ShaderNodeMix'); mix2.data_type = 'RGBA'; mix2.blend_type = 'MULTIPLY'
     mix2.inputs['Factor'].default_value = 1.0
     l.new(mix.outputs['Result'], mix2.inputs['A'])
-    l.new(brick.outputs['Color'], mix2.inputs['B'])
+    l.new(fcol.outputs[0], mix2.inputs['B'])
     l.new(mix2.outputs['Result'], b.inputs['Base Color'])
     nm = n.new('ShaderNodeNormalMap'); nm.inputs['Strength'].default_value = 0.35
     l.new(nor.outputs['Color'], nm.inputs['Color'])
     l.new(nm.outputs['Normal'], b.inputs['Normal'])
     rr = n.new('ShaderNodeMapRange')
-    rr.inputs['To Min'].default_value = 0.28
-    rr.inputs['To Max'].default_value = 0.5
+    rr.inputs['To Min'].default_value = 0.34
+    rr.inputs['To Max'].default_value = 0.55
     l.new(rough.outputs['Color'], rr.inputs['Value'])
     l.new(rr.outputs['Result'], b.inputs['Roughness'])
-    b.inputs['Coat Weight'].default_value = 1.0
-    b.inputs['Coat Roughness'].default_value = 0.06
+    # Satin, not wet plastic (Owner 11-22: the glare and the plastic look): a thinner,
+    # slightly blurred finish so lamp reflections are soft pools, not hot dots.
+    b.inputs['Coat Weight'].default_value = 0.55
+    b.inputs['Coat Roughness'].default_value = 0.17
     return m
 
 
@@ -149,9 +168,9 @@ def vertex_color_material(name, rough=0.7):
 M = {
     'maple': floor_material('Maple', (1.0, 0.88, 0.66)),
     'stain': floor_material('MapleStained', (0.92, 0.78, 0.58)),
-    'paint_navy': principled('PaintNavy', (0.011, 0.028, 0.08), 0.35, coat=1.0, coat_rough=0.06),
-    'apron_navy': principled('ApronNavy', (0.015, 0.036, 0.1), 0.35, coat=1.0, coat_rough=0.06),   # floor/apron ~8x
-    'paint_line': principled('PaintLine', (0.92, 0.91, 0.87), 0.4, coat=1.0, coat_rough=0.06),
+    'paint_navy': principled('PaintNavy', (0.011, 0.028, 0.08), 0.42, coat=0.55, coat_rough=0.17),
+    'apron_navy': principled('ApronNavy', (0.015, 0.036, 0.1), 0.42, coat=0.55, coat_rough=0.17),   # floor/apron ~8x
+    'paint_line': principled('PaintLine', (0.92, 0.91, 0.87), 0.45, coat=0.55, coat_rough=0.17),
     'paint_gold': principled('PaintGold', (0.78, 0.56, 0.24), 0.35, coat=1.0, coat_rough=0.06),
     'concrete': principled('Concrete', (0.06, 0.065, 0.075), 0.85),
     'seat': principled('Seat', (0.035, 0.06, 0.13), 0.55),
@@ -166,8 +185,8 @@ M = {
     'steel': principled('Steel', (0.28, 0.29, 0.31), 0.3, metal=1.0),
     'ceiling': principled('Ceiling', (0.02, 0.022, 0.026), 0.9),
     'led_blue': principled('LedBlue', (0.0, 0.0, 0.0), 0.5, emit=(0.08, 0.22, 0.75), emit_strength=6.0),
-    'led_gold': principled('LedGold', (0.0, 0.0, 0.0), 0.5, emit=(1.0, 0.68, 0.25), emit_strength=8.0),
-    'lamp': principled('Lamp', (0, 0, 0), 0.5, emit=(1.0, 0.97, 0.92), emit_strength=40.0),
+    'led_gold': principled('LedGold', (0.0, 0.0, 0.0), 0.5, emit=(1.0, 0.68, 0.25), emit_strength=3.0),
+    'lamp': principled('Lamp', (0, 0, 0), 0.5, emit=(1.0, 0.97, 0.92), emit_strength=9.0),   # lens glow; bright dots on the floor read as glare
     'screen': principled('Screen', (0, 0, 0), 0.4, emit=(0.06, 0.12, 0.3), emit_strength=4.0),
     'table': principled('Table', (0.02, 0.03, 0.06), 0.4),
 }
@@ -454,6 +473,9 @@ crowd_col = crowd_bm.loops.layers.color.new('Col')
 conc_bm, seat_bm, rail_bm = bmesh.new(), bmesh.new(), bmesh.new()
 led_bm = bmesh.new()
 stats = {'seats': 0, 'people': 0}
+SEATS = []   # (matrix, occupied, near) -> instanced seats and 3D audience
+step_bm, portal_bm = bmesh.new(), bmesh.new()
+VOMS = []    # (mouth centre x/z, light height, outward) per vomitory
 
 
 def paint(faces, color):
@@ -462,76 +484,310 @@ def paint(faces, color):
             lp[crowd_col] = (*color, 1.0)
 
 
-def stand(a, b, outward, rows, depth, rise, h0, occupancy, led_top=False):
-    """Seating rows along the floor segment a->b (game x/z), climbing outward."""
+led_uv = led_bm.loops.layers.uv.new('UVMap')
+glass_bm = bmesh.new()
+LED_PANEL_FT, LED_PANELS = 24.0, 6     # make_led_ribbon.py: six 10:1 panels per texture repeat
+
+
+def led_quad(a2, b2, o2, h_lo, h_hi, u0=0.0):
+    """Court-facing LED face on segment a2->b2 (outward o2 points away from the court), UV-mapped so
+    the ad text reads left-to-right for someone on the court; a black backing box gives it depth."""
+    a2, b2, o2 = Vector(a2), Vector(b2), Vector(o2).normalized()
+    L_ = (b2 - a2).length
+    f2 = -o2 * 0.03
+    vs = [led_bm.verts.new(G(*(p + f2), h)) for p, h in ((a2, h_lo), (b2, h_lo), (b2, h_hi), (a2, h_hi))]
+    uvs = {vs[0]: (u0, 0), vs[1]: (u0 - L_ / (LED_PANEL_FT * LED_PANELS), 0),
+           vs[2]: (u0 - L_ / (LED_PANEL_FT * LED_PANELS), 1), vs[3]: (u0, 1)}
+    f = led_bm.faces.new(vs)
+    f.normal_update()
+    want = G(-o2.x, -o2.y) - G(0, 0)
+    if f.normal.dot(want) < 0:
+        f.normal_flip()
+    for lp in f.loops:
+        lp[led_uv].uv = uvs[lp.vert]
+    u2 = (b2 - a2).normalized()
+    box(portal_bm, (0, 0, 0), (L_, 0.2, h_hi - h_lo), Matrix.Translation(G(*((a2 + b2) / 2 + o2 * 0.08), (h_lo + h_hi) / 2)) @ Matrix.Rotation(-math.atan2(u2.y, u2.x), 4, 'Z'))
+
+
+def wedge(bm, pf, pb, u2, hw, zf0, zf1, zb0, zb1):
+    """Prism of half-width hw across u2 between front/back points pf, pb (game x/z); bottom and top
+    heights given separately at the front and the back, so the top can follow a rake."""
+    vs = []
+    for w in (-hw, hw):
+        for p, z0, z1 in ((pf, zf0, zf1), (pb, zb0, zb1)):
+            q = p + u2 * w
+            vs += [bm.verts.new(G(q.x, q.y, z0)), bm.verts.new(G(q.x, q.y, z1))]
+    # vs: 0 f-lo, 1 f-hi, 2 b-lo, 3 b-hi on the -w side; 4..7 the same on +w.
+    fs = [bm.faces.new([vs[i] for i in q]) for q in ((0, 2, 3, 1), (4, 5, 7, 6), (0, 1, 5, 4), (2, 6, 7, 3), (1, 3, 7, 5), (0, 4, 6, 2))]
+    bmesh.ops.recalc_face_normals(bm, faces=fs)
+
+
+def stand(a, b, outward, rows, depth, rise, h0, occupancy, ma=None, mb=None, glass=False):
+    """Seating rows along the floor segment a->b (game x/z), climbing outward.
+
+    ma/mb are the polygon miter vectors at each end: row k's ends slide along them, so neighbouring
+    stands (sides, ends, corner wedges) meet seat-to-seat instead of leaving triangular black gaps."""
     a, b = Vector((a[0], a[1])), Vector((b[0], b[1]))
     o = Vector(outward).normalized()
     along = (b - a)
     length = along.length
     u = along.normalized()
-    yaw = math.atan2(-o.x, o.y)          # seated people face back toward the court
+    ka = Vector(ma).dot(u) if ma else 0.0      # start shift along u per foot of row offset
+    kb = Vector(mb).dot(u) if mb else 0.0
+    Rz = Matrix.Rotation(-math.atan2(u.y, u.x), 4, 'Z')
 
     def W(p2, h):
         return G(p2.x, p2.y, h)
+
+    def riser(t0, t1, front, top):
+        if t1 - t0 > 0.05:
+            box(conc_bm, (0, 0, 0), (t1 - t0, depth, top), Matrix.Translation(W(a + u * ((t0 + t1) / 2) + o * (front + depth / 2), top / 2)) @ Rz)
+    vom_any = length > 60 and h0 < 10
+    VW = 7.0     # half width of the vomitory well
+    mid_t = length / 2
     for r in range(rows):
         front = r * depth
         top = h0 + r * rise
-        c2 = a + along / 2 + o * (front + depth / 2)
-        # Riser block (rectangular, oriented along u/o).
-        cen = W(c2, top / 2)
-        box(conc_bm, (0, 0, 0), (length, depth, top), Matrix.Translation(cen) @ Matrix.Rotation(-math.atan2(u.y, u.x), 4, 'Z'))
-        n = int(length / 1.75)
+        back_f = front + depth
+        t0, t1 = ka * back_f, length + kb * back_f            # riser covers the row's back edge
+        vom = vom_any and 2 <= r <= 9
+        if vom:
+            riser(t0, mid_t - VW, front, top)
+            riser(mid_t + VW, t1, front, top)
+        else:
+            riser(t0, t1, front, top)
+        fs = front + depth * 0.62
+        s0, s1 = ka * fs, length + kb * fs
+        n = max(1, int((s1 - s0) / 1.75))
         for s in range(n):
-            p2 = a + u * ((s + 0.5) * length / n) + o * (front + depth * 0.62)
-            M_ = Matrix.Translation(W(p2, top)) @ Matrix.Rotation(-math.atan2(u.y, u.x), 4, 'Z')
-            box(seat_bm, (0, 0, 0.55), (1.5, 1.2, 0.18), M_)
-            box(seat_bm, (0, -0.62, 1.15), (1.5, 0.18, 1.1), M_)
+            t_ = s0 + (s + 0.5) * (s1 - s0) / n
+            p2 = a + u * t_ + o * fs
+            if n > 12 and s % 14 == 7:
+                # Aisle: two steps per row and a handrail post, no seat.
+                pa = a + u * t_ + o * front
+                for k_ in (0, 1):
+                    box(step_bm, (0, 0, 0), (1.7, depth / 2, 0.05), Matrix.Translation(W(pa + o * (depth * (0.25 + 0.5 * k_)), top + rise * 0.5 * k_ + 0.02)) @ Rz)
+                box(rail_bm, (0, 0, 0), (0.09, 0.09, 3.0), Matrix.Translation(W(pa + o * depth * 0.5 + u * 1.0, top + 1.5)) @ Rz)
+                continue
+            if vom and abs(t_ - mid_t) < VW + 0.6:
+                continue
+            M_ = Matrix.Translation(W(p2, top)) @ Rz
+            SEATS.append((M_, random.random() < occupancy, h0 < 10 and r < 7))
             stats['seats'] += 1
-            if random.random() < occupancy:
-                lean = random.uniform(-0.12, 0.12)
-                tv = box(crowd_bm, (lean, -0.1, 1.55), (1.25 * random.uniform(0.9, 1.15), 0.75, 1.75), M_)
-                legs = box(crowd_bm, (0, 0.55, 0.75), (1.1, 1.1, 0.4), M_)
-                head = ico(crowd_bm, (lean, -0.05, 2.75), M_)
-                shirt = random.choice(SHIRTS)
-                k = random.uniform(0.75, 1.1)
-                paint(tv, tuple(min(1, c * k) for c in shirt))
-                paint(legs, random.choice([(0.08, 0.08, 0.1), (0.15, 0.17, 0.25), (0.3, 0.28, 0.25)]))
-                paint(head, random.choice(SKINS))
-                stats['people'] += 1
-    # Handrail along the front row and the LED ribbon on the top fascia.
-    box(rail_bm, (0, 0, 0), (length, 0.08, 0.08), Matrix.Translation(W(a + along / 2 + o * 0.1, h0 + 3.2)) @ Matrix.Rotation(-math.atan2(u.y, u.x), 4, 'Z'))
-    box(led_bm, (0, 0, 0), (length, 0.15, 2.4), Matrix.Translation(W(a + along / 2 - o * 0.1, h0 - 1.3)) @ Matrix.Rotation(-math.atan2(u.y, u.x), 4, 'Z'))
+    if vom_any:
+        # Vomitory well: floor at row-1 level, back wall at row 10 with a dark tunnel mouth, rail above.
+        f2, f10 = 2 * depth, 10 * depth
+        # Parapets either side follow the rake in one sloped wall (stepped boxes read as a staircase).
+        for sx_ in (-VW - 0.3, VW + 0.3):
+            pf, pb = a + u * (mid_t + sx_) + o * f2, a + u * (mid_t + sx_) + o * f10
+            hf, hb = h0 + 2 * rise + 3.2, h0 + 9 * rise + 3.2
+            wedge(conc_bm, pf, pb, u, 0.3, 0.0, hf, 0.0, hb)
+            wedge(rail_bm, pf, pb, u, 0.1, hf + 0.15, hf + 0.3, hb + 0.15, hb + 0.3)
+        flo = h0 + rise
+        box(conc_bm, (0, 0, 0), (2 * VW, f10 - f2, flo), Matrix.Translation(W(a + u * mid_t + o * ((f2 + f10) / 2), flo / 2)) @ Rz)
+        top10 = h0 + 10 * rise
+        box(portal_bm, (0, 0, 0), (2 * VW - 2.0, 0.4, 8.0), Matrix.Translation(W(a + u * mid_t + o * (f10 - 0.15), flo + 4.0)) @ Rz)
+        VOMS.append((a + u * mid_t + o * (f10 - 1.5), flo + 7.2, o))
+        box(conc_bm, (0, 0, 0), (2 * VW, 0.6, top10 - flo - 8.0), Matrix.Translation(W(a + u * mid_t + o * (f10 + 0.1), flo + 8.0 + (top10 - flo - 8.0) / 2)) @ Rz)
+        for sx_ in (-VW + 0.5, VW - 0.5):
+            box(conc_bm, (0, 0, 0), (1.0, 0.6, 8.0), Matrix.Translation(W(a + u * (mid_t + sx_) + o * (f10 + 0.1), flo + 4.0)) @ Rz)
+        box(rail_bm, (0, 0, 0), (2 * VW, 0.12, 0.12), Matrix.Translation(W(a + u * mid_t + o * (f10 + 0.2), top10 + 3.3)) @ Rz)
+        for sx_ in (-VW + 0.3, 0.0, VW - 0.3):
+            box(rail_bm, (0, 0, 0), (0.1, 0.1, 3.3), Matrix.Translation(W(a + u * (mid_t + sx_) + o * (f10 + 0.2), top10 + 1.65)) @ Rz)
+    # Front: handrail (lower bowl) or glass balustrade (upper bowl), and the LED fascia below it.
+    if glass:
+        box(glass_bm, (0, 0, 0), (length, 0.06, 3.4), Matrix.Translation(W(a + along / 2 + o * 0.12, h0 + 1.7)) @ Rz)
+        box(rail_bm, (0, 0, 0), (length, 0.16, 0.1), Matrix.Translation(W(a + along / 2 + o * 0.12, h0 + 3.45)) @ Rz)
+    else:
+        box(rail_bm, (0, 0, 0), (length, 0.08, 0.08), Matrix.Translation(W(a + along / 2 + o * 0.1, h0 + 3.2)) @ Rz)
+    led_quad(a, b, o, h0 - 2.5, h0 - 0.1, random.randrange(LED_PANELS) / LED_PANELS)
 
 
-# Lower bowl: sides, ends and corner wedges.
+def bowl(verts, **params):
+    """Stands on every edge of a convex polygon (counter-clockwise in game x/z, outward = left of travel)."""
+    V = [Vector(v) for v in verts]
+    N = len(V)
+    nrm = []
+    for i in range(N):
+        u_ = (V[(i + 1) % N] - V[i]).normalized()
+        nrm.append(Vector((-u_.y, u_.x)))
+    mit = [(nrm[i - 1] + nrm[i]) / (1 + nrm[i - 1].dot(nrm[i])) for i in range(N)]
+    for i in range(N):
+        stand(tuple(V[i]), tuple(V[(i + 1) % N]), tuple(nrm[i]), ma=mit[i], mb=mit[(i + 1) % N], **params)
+    return V, mit
+
+
+# Lower bowl: sides, ends and corner wedges as one polygon so the rows wrap the corners.
 LOWER = dict(rows=20, depth=2.9, rise=1.2, h0=2.6, occupancy=0.93)
-stand((-38, -8), (-38, 102), (-1, 0), **LOWER)
-stand((38, 102), (38, -8), (1, 0), **LOWER)
-stand((30, -18), (-30, -18), (0, -1), **LOWER)
-stand((-30, 112), (30, 112), (0, 1), **LOWER)
-for (a, b, o) in [((-38, -8), (-30, -18), (-1, -1)), ((30, -18), (38, -8), (1, -1)), ((38, 102), (30, 112), (1, 1)), ((-30, 112), (-38, 102), (-1, 1))]:
-    stand(a, b, o, **LOWER)
-# Upper bowl: set back and steeper.
+LOWER_POLY = [(-38, -8), (-38, 102), (-30, 112), (30, 112), (38, 102), (38, -8), (30, -18), (-30, -18)]
+LV, LM = bowl(LOWER_POLY, **LOWER)
+# Upper bowl: set back and steeper, glass balustrade on its front edge.
 back = LOWER['rows'] * LOWER['depth'] + 8
 UH = LOWER['h0'] + LOWER['rows'] * LOWER['rise'] + 9
 UPPER = dict(rows=16, depth=2.7, rise=1.75, h0=UH, occupancy=0.82)
-stand((-38 - back, -8 - 20), (-38 - back, 102 + 20), (-1, 0), **UPPER)
-stand((38 + back, 102 + 20), (38 + back, -8 - 20), (1, 0), **UPPER)
-stand((30 + 20, -18 - back), (-30 - 20, -18 - back), (0, -1), **UPPER)
-stand((-30 - 20, 112 + back), (30 + 20, 112 + back), (0, 1), **UPPER)
-# Upper corners: without them the first preview looked straight into the black void.
-for (a_, b_, o_) in [((-38 - back, -28), (-50, -18 - back), (-1, -1)), ((50, -18 - back), (38 + back, -28), (1, -1)),
-                     ((38 + back, 122), (50, 112 + back), (1, 1)), ((-50, 112 + back), (-38 - back, 122), (-1, 1))]:
-    stand(a_, b_, o_, **UPPER)
+UPPER_POLY = [(-38 - back, -28), (-38 - back, 122), (-50, 112 + back), (50, 112 + back), (38 + back, 122),
+              (38 + back, -28), (50, -18 - back), (-50, -18 - back)]
+bowl(UPPER_POLY, glass=True, **UPPER)
 new_obj('Bowl_Concrete', conc_bm, M['concrete'])
-new_obj('Bowl_Seats', seat_bm, M['seat'])
 new_obj('Bowl_Rails', rail_bm, M['rail'])
-new_obj('Bowl_Crowd', crowd_bm, M['crowd'])
-new_obj('Bowl_LedRibbon', led_bm, M['led_blue'])
+new_obj('Bowl_Glass', glass_bm, M['glass'])
+
+
+def seat_proto():
+    """One stadium seat (pan, curved-ish back, pedestal), bevelled."""
+    bm_ = bmesh.new()
+    for c_, s_ in (((0, 0.05, 1.45), (1.55, 1.4, 0.22)), ((0, -0.68, 2.2), (1.55, 0.2, 1.35)), ((0, -0.1, 0.7), (0.3, 0.7, 1.3))):
+        box(bm_, c_, s_)
+    bmesh.ops.bevel(bm_, geom=list(bm_.edges), offset=0.06, segments=3, affect='EDGES', profile=0.5)
+    me_ = bpy.data.meshes.new('SeatProto'); bm_.to_mesh(me_); bm_.free()
+    for p_ in me_.polygons: p_.use_smooth = True
+    me_.materials.append(M['seat'])
+    return me_
+
+
+def person_material(slot):
+    """Per-instance colours: every seated fan gets their own shirt, skin and hair."""
+    pal = {
+        'Jersey': [(0.6, 0.6, 0.58), (0.02, 0.04, 0.12), (0.4, 0.3, 0.1), (0.025, 0.025, 0.03), (0.28, 0.035, 0.04),
+                   (0.14, 0.15, 0.17), (0.7, 0.7, 0.7), (0.03, 0.07, 0.22), (0.1, 0.08, 0.06), (0.26, 0.27, 0.3), (0.05, 0.12, 0.06), (0.04, 0.04, 0.05)],
+        'Skin': [(0.55, 0.33, 0.21), (0.28, 0.15, 0.08), (0.7, 0.47, 0.34), (0.16, 0.08, 0.04), (0.6, 0.4, 0.27), (0.42, 0.25, 0.14)],
+        'Hair': [(0.02, 0.015, 0.01), (0.06, 0.035, 0.02), (0.25, 0.16, 0.07), (0.01, 0.01, 0.01), (0.35, 0.33, 0.3)],
+        'Shorts': [(0.04, 0.05, 0.08), (0.08, 0.1, 0.16), (0.2, 0.17, 0.12), (0.03, 0.03, 0.03), (0.12, 0.12, 0.13)],
+        'Shoe': [(0.7, 0.7, 0.68), (0.04, 0.04, 0.04), (0.3, 0.3, 0.32)],
+    }
+    key = 'Skin' if slot in ('Skin', 'Face') else slot
+    m_ = bpy.data.materials.new(f'Fan_{slot}'); m_.use_nodes = True
+    nt_ = m_.node_tree; bs_ = nt_.nodes['Principled BSDF']
+    bs_.inputs['Roughness'].default_value = 0.55 if key == 'Skin' else 0.85
+    if key not in pal:
+        bs_.inputs['Base Color'].default_value = (0.75, 0.72, 0.68, 1) if slot == 'EyeSclera' else (0.02, 0.015, 0.01, 1)
+        return m_
+    oi = nt_.nodes.new('ShaderNodeObjectInfo')
+    mul = nt_.nodes.new('ShaderNodeMath'); mul.operation = 'MULTIPLY'
+    mul.inputs[1].default_value = {'Jersey': 1.0, 'Skin': 7.31, 'Hair': 5.17, 'Shorts': 3.73, 'Shoe': 2.29}[key]
+    fr = nt_.nodes.new('ShaderNodeMath'); fr.operation = 'FRACT'
+    nt_.links.new(oi.outputs['Random'], mul.inputs[0]); nt_.links.new(mul.outputs[0], fr.inputs[0])
+    ramp = nt_.nodes.new('ShaderNodeValToRGB'); ramp.color_ramp.interpolation = 'CONSTANT'
+    cols = pal[key]; els = ramp.color_ramp.elements
+    els[0].position = 0.0; els[0].color = (*cols[0], 1)
+    els[1].position = 1.0 / len(cols); els[1].color = (*cols[1], 1)
+    for k_, c_ in enumerate(cols[2:], start=2):
+        e_ = els.new(k_ / len(cols)); e_.color = (*c_, 1)
+    nt_.links.new(fr.outputs[0], ramp.inputs['Fac'])
+    nt_.links.new(ramp.outputs['Color'], bs_.inputs['Base Color'])
+    return m_
+
+
+def audience_collections(path):
+    """Import our CC0-derived seated fans (assets/hoops/casual-audience.glb), bake each
+    pose into plain meshes, face +Y (toward the court), feet at z=0. Returns
+    {(pose, lod): collection}, lod 'hi' near the floor and 'lo' further up."""
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=path)
+    new = [o for o in bpy.data.objects if o not in before]
+    dg = bpy.context.evaluated_depsgraph_get()
+    mats = {}
+    out = {}
+    groups = {}
+    for o in new:
+        if o.type != 'MESH': continue
+        head, _, slot = o.name.partition('_')
+        lod = 'lo' if head.startswith('SeatedLow') else 'hi'
+        pose = head.replace('SeatedLow', '').replace('Seated', '')
+        if not pose.isdigit(): continue
+        me_ = bpy.data.meshes.new_from_object(o.evaluated_get(dg))
+        me_.transform(o.matrix_world)
+        slot = slot.split('.')[0]
+        if slot not in mats: mats[slot] = person_material(slot)
+        me_.materials.clear(); me_.materials.append(mats[slot])
+        groups.setdefault((int(pose), lod), []).append((slot, me_))
+    for o in new:
+        bpy.data.objects.remove(o, do_unlink=True)
+    for key, parts in groups.items():
+        xs, ys, zs = [], [], []
+        for _, me_ in parts:
+            for v in me_.vertices: xs.append(v.co.x); ys.append(v.co.y); zs.append(v.co.z)
+        shift = Matrix.Translation((-(min(xs) + max(xs)) / 2, -(min(ys) + max(ys)) / 2, -min(zs)))
+        turn = Matrix.Rotation(math.pi, 4, 'Z')          # source faces -Y; seats face +Y
+        col = bpy.data.collections.new(f'Fan_{key[0]}_{key[1]}')
+        for slot, me_ in parts:
+            me_.transform(turn @ shift)
+            for p_ in me_.polygons: p_.use_smooth = True
+            ob_ = bpy.data.objects.new(f'Fan_{key[0]}_{key[1]}_{slot}', me_); col.objects.link(ob_)
+        out[key] = col
+        stats.setdefault('fan_height_ft', round(max(zs) - min(zs), 2))
+    return out
+
+
+seat_me = seat_proto()
+seat_col = bpy.data.collections.new('SeatInstances'); COLL.children.link(seat_col)
+fan_col = bpy.data.collections.new('FanInstances'); COLL.children.link(fan_col)
+FANS = audience_collections(ASSETS['audience']) if ASSETS.get('audience') and os.path.exists(ASSETS['audience']) else {}
+poses = sorted({k[0] for k in FANS})
+for k, (M_, occupied, near) in enumerate(SEATS):
+    so = bpy.data.objects.new(f'Seat{k}', seat_me); so.matrix_world = M_; seat_col.objects.link(so)
+    if occupied and poses:
+        lod = 'hi' if near else 'lo'
+        key = (random.choice(poses), lod)
+        if key not in FANS: key = (key[0], 'hi' if lod == 'lo' else 'lo')
+        fo = bpy.data.objects.new(f'Fan{k}', None)
+        fo.instance_type = 'COLLECTION'; fo.instance_collection = FANS[key]
+        fo.matrix_world = M_ @ Matrix.Translation((random.uniform(-0.06, 0.06), 0.15, 0.02)) @ Matrix.Rotation(random.uniform(-0.18, 0.18), 4, 'Z')
+        fan_col.objects.link(fo)
+        stats['people'] += 1
+new_obj('Bowl_Steps', step_bm, M['concrete'])
+# LED ribbons show segmented ad panels (team blue, white logo band, gold), not one flat glow.
+mr = bpy.data.materials.new('LedRibbonPanels'); mr.use_nodes = True
+nr = mr.node_tree.nodes; lr = mr.node_tree.links; br = nr['Principled BSDF']; br.inputs['Base Color'].default_value = (0, 0, 0, 1)
+br.inputs['Roughness'].default_value = 0.45
+if ASSETS.get('led') and os.path.exists(ASSETS['led']):
+    # Our own ad panels (tools/blender/make_led_ribbon.py), UV-mapped per stand by led_quad().
+    tir = nr.new('ShaderNodeTexImage'); tir.image = image(ASSETS['led']); tir.extension = 'REPEAT'
+    lr.new(tir.outputs['Color'], br.inputs['Emission Color'])
+else:
+    br.inputs['Emission Color'].default_value = (0.05, 0.16, 0.6, 1)
+br.inputs['Emission Strength'].default_value = 2.0
+# Scorer's table front is an LED board too (faces the court from x = 29.4).
+led_quad((29.4, 59.5), (29.4, 34.5), (1, 0), 0.3, 2.8, 0.0)
+new_obj('Bowl_LedRibbon', led_bm, mr)
+new_obj('Bowl_Vomitories', portal_bm, M['black'])
+
+# Suites ring between the bowls: dark glass, warm lit interiors, mullions every 12 ft.
+suite_bm, mull_bm = bmesh.new(), bmesh.new()
+SB = LOWER['rows'] * LOWER['depth'] + 4
+SZ = LOWER['h0'] + LOWER['rows'] * LOWER['rise'] + 3.8   # band 28.2-32.6 ft: clear of the upper fascia LED
+SV = [v + m * SB for v, m in zip(LV, LM)]      # lower-bowl polygon pushed out to the suites line
+for i_ in range(len(SV)):
+    A_, B_ = SV[i_], SV[(i_ + 1) % len(SV)]; L_ = (B_ - A_).length; U_ = (B_ - A_).normalized()
+    Rz_ = Matrix.Rotation(-math.atan2(U_.y, U_.x), 4, 'Z')
+    box(suite_bm, (0, 0, 0), (L_, 0.3, 4.4), Matrix.Translation(G(*((A_ + B_) / 2), SZ)) @ Rz_)
+    k_ = 0.0
+    while k_ <= L_:
+        pm = A_ + U_ * k_
+        box(mull_bm, (0, 0, 0), (0.35, 0.6, 4.9), Matrix.Translation(G(pm.x, pm.y, SZ)) @ Rz_)
+        k_ += 12.0
+# Suites read as glossy dark glass with warm rooms behind it: each 12 ft bay gets its own brightness
+# (some dim, some bright) and the light falls off toward the bottom of the window.
+ms_ = principled('SuiteGlow', (0.004, 0.005, 0.007), 0.06, emit=(1.0, 0.68, 0.38), emit_strength=1.0)
+ns_, ls_ = ms_.node_tree.nodes, ms_.node_tree.links
+tc_ = ns_.new('ShaderNodeTexCoord')
+dv_ = ns_.new('ShaderNodeVectorMath'); dv_.operation = 'DIVIDE'; dv_.inputs[1].default_value = (12.0, 12.0, 100.0)
+fl_ = ns_.new('ShaderNodeVectorMath'); fl_.operation = 'FLOOR'
+wn_ = ns_.new('ShaderNodeTexWhiteNoise'); wn_.noise_dimensions = '3D'
+mp_ = ns_.new('ShaderNodeMapRange'); mp_.inputs['To Min'].default_value = 0.08; mp_.inputs['To Max'].default_value = 1.4
+sz_ = ns_.new('ShaderNodeSeparateXYZ')
+gr_ = ns_.new('ShaderNodeMapRange'); gr_.inputs['From Min'].default_value = SZ - 2.2; gr_.inputs['From Max'].default_value = SZ + 2.2
+gr_.inputs['To Min'].default_value = 0.35; gr_.inputs['To Max'].default_value = 1.0
+mu_ = ns_.new('ShaderNodeMath'); mu_.operation = 'MULTIPLY'
+ls_.new(tc_.outputs['Object'], dv_.inputs[0]); ls_.new(dv_.outputs[0], fl_.inputs[0]); ls_.new(fl_.outputs[0], wn_.inputs['Vector'])
+ls_.new(wn_.outputs['Value'], mp_.inputs['Value']); ls_.new(tc_.outputs['Object'], sz_.inputs[0]); ls_.new(sz_.outputs['Z'], gr_.inputs['Value'])
+ls_.new(mp_.outputs['Result'], mu_.inputs[0]); ls_.new(gr_.outputs['Result'], mu_.inputs[1])
+ls_.new(mu_.outputs[0], ns_['Principled BSDF'].inputs['Emission Strength'])
+new_obj('Suites_Glass', suite_bm, ms_)
+new_obj('Suites_Mullions', mull_bm, M['black'])
 
 # Courtside: scorer's table and LED boards along the far sideline, team benches.
 bm = bmesh.new(); box(bm, G(31, 47, 1.5), (3, 26, 3)); new_obj('ScorersTable', bm, M['table'])
-bm = bmesh.new(); box(bm, G(29.45, 47, 1.5), (0.1, 25.6, 2.4)); new_obj('ScorersTable_LED', bm, M['led_gold'])
 bm = bmesh.new()
 for zc in list(range(14, 34, 2)) + list(range(62, 82, 2)):
     box(bm, G(32, zc, 0.9), (1.6, 1.6, 0.25)); box(bm, G(32.7, zc, 1.6), (0.2, 1.6, 1.4))
@@ -540,16 +796,52 @@ new_obj('Benches', bm, M['seat'])
 # --------------------------------------------------------------------------- roof, scoreboard, lights
 bm = bmesh.new(); box(bm, G(0, 47, 112), (420, 460, 1)); new_obj('Ceiling', bm, M['ceiling'])
 bm = bmesh.new()
-for xi in range(-150, 151, 25):
-    box(bm, G(xi, 47, 96), (0.8, 380, 2.5))
-for zi in range(-140, 241, 25):
-    box(bm, G(0, zi, 98), (320, 0.8, 2.5))
+
+
+def member(bm_, p0, p1, t=0.55):
+    d_ = p1 - p0; L_ = d_.length
+    Rm_ = d_.to_track_quat('Z', 'Y').to_matrix().to_4x4()
+    box(bm_, (0, 0, 0), (t, t, L_), Matrix.Translation((p0 + p1) / 2) @ Rm_)
+
+
+for xi in range(-140, 141, 28):                 # Warren trusses across the bowl
+    top_, bot_ = 104, 95
+    zs_ = list(range(-150, 245, 10))
+    member(bm, G(xi, zs_[0], top_), G(xi, zs_[-1], top_), 0.9)
+    member(bm, G(xi, zs_[0], bot_), G(xi, zs_[-1], bot_), 0.9)
+    for k_ in range(len(zs_) - 1):
+        za, zb = zs_[k_], zs_[k_ + 1]
+        member(bm, G(xi, za, bot_), G(xi, zb, top_) if k_ % 2 == 0 else G(xi, zb, bot_), 0.45)
+        if k_ % 2: member(bm, G(xi, za, top_), G(xi, zb, bot_), 0.45)
+        member(bm, G(xi, za, bot_), G(xi, za, top_), 0.4)
+for zi in range(-140, 241, 35):                 # purlins
+    member(bm, G(-150, zi, 104.5), G(150, zi, 104.5), 0.5)
+# Catwalk ring around the light banks.
+for side in (-1, 1):
+    member(bm, G(side * 30, -14, 76.6), G(side * 30, 108, 76.6), 0.3)
+    member(bm, G(side * 32.5, -14, 76.6), G(side * 32.5, 108, 76.6), 0.3)
+    member(bm, G(side * 30, -14, 79.6), G(side * 30, 108, 79.6), 0.15)
+    for zc in range(-14, 109, 6):
+        member(bm, G(side * 30, zc, 76.6), G(side * 32.5, zc, 76.6), 0.2)
+        member(bm, G(side * 30, zc, 79.6), G(side * 30, zc, 95), 0.15)
 new_obj('Roof_Truss', bm, M['steel'])
 bm = bmesh.new(); box(bm, G(0, 47, 50), (24, 24, 15)); new_obj('Scoreboard', bm, M['black'])
 bm = bmesh.new()
 for (cx, cz, sx, sz) in [(0, 47 - 12.05, 22, 0.1), (0, 47 + 12.05, 22, 0.1), (-12.05, 47, 0.1, 22), (12.05, 47, 0.1, 22)]:
     box(bm, G(cx, cz, 51), (sx, sz, 11))
-new_obj('Scoreboard_Screens', bm, M['screen'])
+scr = new_obj('Scoreboard_Screens', bm, M['screen'])
+if ASSETS.get('screen') and os.path.exists(ASSETS['screen']):
+    # Real picture on the four faces: box-projected game frame, emissive.
+    ms = bpy.data.materials.new('ScreenImage'); ms.use_nodes = True
+    nn = ms.node_tree.nodes; ll = ms.node_tree.links
+    bs = nn['Principled BSDF']; bs.inputs['Base Color'].default_value = (0, 0, 0, 1)
+    tci = nn.new('ShaderNodeTexCoord'); mpi = nn.new('ShaderNodeMapping')
+    mpi.inputs['Scale'].default_value = (1 / 22, 1 / 22, 1 / 11); mpi.inputs['Location'].default_value = (0.5, 0.5, 0.5)
+    ti = nn.new('ShaderNodeTexImage'); ti.image = image(ASSETS['screen']); ti.projection = 'BOX'; ti.projection_blend = 0.0
+    ll.new(tci.outputs['Object'], mpi.inputs['Vector']); ll.new(mpi.outputs['Vector'], ti.inputs['Vector'])
+    ll.new(ti.outputs['Color'], bs.inputs['Emission Color']); bs.inputs['Emission Strength'].default_value = 3.0
+    scr.location = G(0, 47, 51); scr.data.transform(Matrix.Translation(-G(0, 47, 51)))
+    scr.data.materials.clear(); scr.data.materials.append(ms)
 bm = bmesh.new()
 for (cx, cz, sx, sz) in [(0, 47 - 12.1, 24.2, 0.1), (0, 47 + 12.1, 24.2, 0.1), (-12.1, 47, 0.1, 24.2), (12.1, 47, 0.1, 24.2)]:
     box(bm, G(cx, cz, 43.2), (sx, sz, 0.7))
@@ -564,19 +856,28 @@ for side in (-1, 1):
         LIGHTS.append(G(side * 30, zc, 78))
 for xc in range(-18, 19, 12):
     LIGHTS.append(G(xc, -22, 80)); LIGHTS.append(G(xc, 116, 80))
+lens_bm = bmesh.new()
 for k, p in enumerate(LIGHTS):
-    box(lamp_bm, p + Vector((0, 0, 0.6)), (4.5, 3.0, 0.3))
+    aim0 = G(0, 47, 0) + (p - G(0, 47, 0)) * 0.35; aim0.z = 0
+    Rm = (aim0 - p).to_track_quat('Z', 'Y').to_matrix().to_4x4()
+    bmesh.ops.create_cone(lamp_bm, cap_ends=True, segments=28, radius1=1.15, radius2=1.45, depth=2.0,
+                          matrix=Matrix.Translation(p) @ Rm @ Matrix.Translation((0, 0, -0.2)))
+    bmesh.ops.create_cone(lamp_bm, cap_ends=True, segments=16, radius1=0.35, radius2=0.35, depth=1.6,
+                          matrix=Matrix.Translation(p) @ Rm @ Matrix.Translation((0, 0, -1.6)))   # yoke stem
+    bmesh.ops.create_circle(lens_bm, cap_ends=True, segments=28, radius=1.3,
+                            matrix=Matrix.Translation(p) @ Rm @ Matrix.Translation((0, 0, 0.82)))
     ld = bpy.data.lights.new(f'CourtLight{k}', 'AREA')
-    ld.shape = 'RECTANGLE'; ld.size = 4.5; ld.size_y = 3.0
-    ld.energy = 26000
+    ld.shape = 'DISK'; ld.size = 2.6
+    ld.energy = 17000   # a10: unblocked lamps washed the maple white
     ld.spread = math.radians(60)   # stage lighting: beams on the court, the bowl stays dark (ARENA_REFERENCE)
     ld.color = (1.0, 0.96, 0.9)
     lo = bpy.data.objects.new(f'CourtLight{k}', ld); COLL.objects.link(lo)
-    lo.location = p
+    lo.location = p + (aim0 - p).normalized() * 1.05     # just in front of the lens (a09: the housing blocked it)
     aim = G(0, 47, 0) + (p - G(0, 47, 0)) * 0.35
     aim.z = 0
     lo.rotation_euler = (aim - p).to_track_quat('-Z', 'Y').to_euler()
-new_obj('Lamp_Fixtures', lamp_bm, M['lamp'])
+for ob_ in (new_obj('Lamp_Housings', lamp_bm, M['steel'], smooth=True), new_obj('Lamp_Lenses', lens_bm, M['lamp'])):
+    ob_.visible_shadow = False
 # House light on the stands: from the catwalk over centre court, aimed outward at
 # each side of the bowl so the crowd reads without lighting the floor (a06: fills
 # aimed at the court left the crowd 37x darker than the floor; target ~8x).
@@ -587,6 +888,21 @@ for tgt in (G(-75, 47, 28), G(75, 47, 28), G(0, -45, 28), G(0, 139, 28)):
     lo = bpy.data.objects.new('HouseLight', ld); COLL.objects.link(lo); lo.location = p
     lo.rotation_euler = (tgt - p).to_track_quat('-Z', 'Y').to_euler()
 
+# Each vomitory tunnel is lit from inside (warm), so the mouths read as passages, not black holes.
+for (m2, mh, o2) in VOMS:
+    ld = bpy.data.lights.new('TunnelLight', 'AREA'); ld.shape = 'RECTANGLE'; ld.size = 10; ld.size_y = 1.5
+    ld.energy = 1500; ld.color = (1.0, 0.8, 0.6); ld.spread = math.radians(110)
+    lo = bpy.data.objects.new('TunnelLight', ld); COLL.objects.link(lo); lo.location = G(m2.x, m2.y, mh)
+    aim = G(m2.x - o2.x * 10, m2.y - o2.y * 10, 0.5)
+    lo.rotation_euler = (aim - lo.location).to_track_quat('-Z', 'Y').to_euler()
+
+# Bevel every hard-surface prop: square-cut boxes read as cheap CG (Owner 11-22).
+NO_BEVEL = ('Floor', 'Ground', 'Ceiling', 'Text', 'Word', 'Logo', 'Net', 'Lamp_Lenses', 'Scoreboard_Screens')
+for ob in list(COLL.all_objects):
+    if ob.type != 'MESH' or ob.data.users > 1 or any(ob.name.startswith(t) for t in NO_BEVEL): continue
+    md = ob.modifiers.new('Bevel', 'BEVEL'); md.width = 0.05; md.segments = 3; md.limit_method = 'ANGLE'
+    md.harden_normals = True
+    for p_ in ob.data.polygons: p_.use_smooth = True
 world = bpy.data.worlds.new('Arena'); scene.world = world
 world.use_nodes = True
 world.node_tree.nodes['Background'].inputs['Color'].default_value = (0.004, 0.005, 0.007, 1)
@@ -612,8 +928,10 @@ d = Vector((-0.91, 0.39, 0.14)).normalized() * 80
 gp = tgt + d
 CAMS = {
     'broadcast': camera('Cam_Broadcast', G(gp.x, gp.z, gp.y), G(tgt.x, tgt.z, tgt.y), vfov=38),
-    'courtside': camera('Cam_Courtside', G(-42, 44, 8.5), G(0, 9, 7), lens=32),
+    'courtside': camera('Cam_Courtside', G(-35, 44, 6.0), G(0, 9, 7.5), lens=30),
     'wide': camera('Cam_Wide', G(-62, -38, 62), G(0, 47, 0), lens=22),
+    # Promo hero: high corner of the lower bowl, across the court to the far basket and the scoreboard.
+    'hero': camera('Cam_Hero', G(-58, -22, 34), G(4, 62, 9), lens=20),
 }
 
 # --------------------------------------------------------------------------- render

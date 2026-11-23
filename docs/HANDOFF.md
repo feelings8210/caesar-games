@@ -4,6 +4,21 @@
 
 Owner 当前目标是继续提升篮球游戏的可玩性、球场人物和动作，并实现可自动讲解、可导出分享的战术视频；不必等教练。下方旧记录中“Goal ACTIVE”和等待教练的安排只是历史状态，不代表当前执行命令。牛角/电梯门样片与历史实验详见下方；合成音调不是正式旁白，内部录制不是面向用户完成的导出功能。下一位接手者先核实现有视频链路和旁白生产规则，选一个现有战术推进可审看、讲解与画面同步的端到端样片；同时保留游戏动作修复为并行待办。`scripts/hoops-gait-audit.mjs` 的三画面对比是未完成实验，修订后是否正确尚需重跑和验证，不得当作已验收修复。媒体操作遵循当前全局素材库、3090 与存储规则，测试静音并关闭自己启动的浏览器/服务。
 
+## Blender 球馆"可卖级"一轮：真人观众、整圈看台、LED 广告（2026-11-22 至 23 凌晨，Claude Code，分支 `claude/hoops-narrated-sample`）
+
+Owner 原话要点：远看反光不舒服，地板塑料感重；人物像像素、马赛克；灯四方四正要倒角；要求用 Blender 把场景做到"可以在网上卖"的程度，并向 Cutaway 频道（媒体仓库 `projects/cutaway_airliner_series/CRAFT_SHARED.md`）学习：人物要么真实要么不要，细节密度要量，模型只用 CC0 / CC-BY。
+
+`tools/blender/build_arena_venue.py` 本轮改动（只在 3090 跑，经 `gpuq submit --worker cd001 --wrapper bare`）：
+- **地板**：去掉镜面感，改成缎面清漆（Coat 0.55 / 粗糙 0.17）+ 程序化 2¼ 英寸木条明暗与接缝；外圈和油漆区也从 coat 1.0/0.06 降到同一缎面，场边灯的白色高光点消失。
+- **观众**：方块小人换成 `assets/hoops/casual-audience.glb` 的真实三维坐姿人（CC0 衍生），按衣服/肤色/头发分槽随机配色，集合实例化；独立带倒角的座椅。现在约 1.4 万座、1.2 万人。
+- **看台**：上下两层都改成一个凸多边形（侧边、端线、四个斜角），每排两端沿多边形的斜接方向延伸（`bowl()` / `stand(ma, mb)`），四角接成整圈，不再有三角黑洞；过道台阶 + 扶手；长边下层中间是嵌入看台的出入通道（两侧斜矮墙、内部暖光、黑色隧道口，`wedge()`）；上层前沿是玻璃护栏。
+- **LED**：`tools/blender/make_led_ribbon.py` 生成六块 10:1 广告画面（HOOPS IQ / CD GAMES / READ THE DEFENSE / PLAY SMART / MAKE THE RIGHT READ，Anton 字体，全部自有文字），按看台 UV 贴在场边围挡、上层前沿和记分台正面，字从场内看是正向。
+- **其他**：包厢一圈是深色玻璃 + 每格亮度不同的暖光；顶棚三角桁架和猫道；圆形灯具（锥形灯罩 + 圆镜片 + 支架）；所有硬表面加倒角（Bevel 0.05、3 段）；记分大屏贴游戏截图；新增"宣传主图"机位 `hero`（下层角落高位看对面篮筐和大屏）。
+
+渲染：预览 a11→a14（64 spp 1280×720，一版约 20–60 s）；终版 a14 256 spp 1920×1080 四机位共 71 s。3090 `/srv/ai-data/media-work/projects/CAESAR_HOOPS_TACTICS/work/arena-venue-a14/final/`，SSD 副本 `/Volumes/MiniStorage/media-projects/caesar-hoops-tactics-20261122/arena-final-a14/`（含 JPG 和四宫格）。SHA256：hero `36cde9ef…`、broadcast `59e1e8d8…`、courtside `da290670…`、wide `ce0b4a88…`，脚本 `fd62295f…`；LED 贴图 `6f84c475…`。
+
+还不够"可卖"的地方（自评）：①近看观众姿势基本一样（三种坐姿），没有站立、挥手、拍照；②顶棚太黑，桁架和猫道在多数机位看不到；③没有场边摄影师、记者席、替补席人员；④场地没有球员；⑤尚未按 Cutaway 的边缘密度法（gapmeas）和参考照片定量对比细节密度；⑥还没整理成可交付的 .blend 资产包（集合命名、材质打包、授权清单）。游戏内地板/观众本轮没改；Owner 在 iPad 上看到的是线上旧版本和旧 Blender 海报（方块观众），推送前不会变。
+
 ## 球馆对标与按实测数调整（2026-11-22 深夜，Claude Code，分支 `claude/hoops-narrated-sample`）
 
 Owner 问有没有对标头部球馆现场设计——之前没有。做了：从 Wikimedia Commons 取 4 个 NBA 球馆（湖人、快船两张、勇士）比赛照片，按区域量颜色亮度，写成目标数（`docs/ARENA_REFERENCE.md`，网页版对标板源文件 `docs/arena-reference/index.html`）。核心：地板是全场最亮的浅色枫木（Y≈0.72、色相 36–43°），地板÷观众 5–13 倍，地板÷外圈≈8 倍（外圈深海军蓝 50,77,130），天花板几乎全黑。
