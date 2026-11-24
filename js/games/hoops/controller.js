@@ -13,6 +13,8 @@ import { hoopsAudio as sfx, voiceEnabled, setVoiceEnabled, stopVoice, drawVoice 
 import { CHAPTER, LEVELS } from './levels.js';
 import { FAMILIES, TAGS, pickRound } from './families.js';
 import { PlaybookMode } from './playbook-mode.js';
+import { HORNS_POSSESSION, pickCoverage, readLevel } from './possession.js';
+import { resolveShot, ZONE_NAME, TIER_NAME } from './shot-model.js';
 import { recordRead, readSummary, tagAccuracy, bestStreak, saveBestStreak } from './stats.js';
 import { t, getLocale } from '../../i18n/strings.js';
 import { sounds } from '../../engine/sound.js';
@@ -27,6 +29,7 @@ function ruleVoice(lvl) {
   return i >= 0 ? `level_${pad2(i + 1)}_rule` : null;
 }
 const L = obj => (obj ? obj[getLocale()] ?? obj.en : '');
+const zhNow = () => getLocale() === 'zh';
 
 function readProgress() {
   try {
@@ -59,9 +62,15 @@ export class HoopsGame {
     this.index = 0;
     this.flow = 0;               // bumps to cancel any in-flight sequence
     this.progress = readProgress();
-    this.mode = 'chapter';       // 'chapter' | 'read'
+    this.mode = 'chapter';       // 'chapter' | 'read' | 'possession'
+    this.sessionPoints = 0;      // live possessions: points this session
+    this.possessions = 0;
     this.menuTab = 'chapter';    // 'chapter' | 'read' | 'stats'
     this.current = null;
+    this.previewLevel = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('hoopsPreview') : null;
+    const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+    this.arenaLook = params.get('hoopsLook') !== 'classic' && params.get('hoops2d') !== '1';
+    this.root.dataset.look = this.arenaLook ? 'arena' : 'classic';
     this._build();
     this.pb = new PlaybookMode(this);
     this.court = null;           // created on first level: 3D, or SVG fallback
@@ -106,6 +115,13 @@ export class HoopsGame {
               <button class="btn btn-primary hp-read-start" type="button"></button>
             </div>
           </div>
+          <div class="hp-read-card hp-live-card">
+            <div class="hp-read-copy"><h3 class="hp-read-title hp-live-title"></h3><p class="hp-read-desc hp-live-desc"></p></div>
+            <div class="hp-read-side">
+              <span class="hp-read-best hp-live-note"></span>
+              <button class="btn btn-primary hp-read-start hp-live-start" type="button"></button>
+            </div>
+          </div>
           <ul class="hp-read-families"></ul>
         </div>
         <div class="hp-tabpane" data-pane="playbook"><div class="hp-pb-menu"></div></div>
@@ -122,9 +138,13 @@ export class HoopsGame {
           <div class="hp-title-card"><span></span><strong></strong></div>
           <div class="hp-banner"></div>
           <button class="hp-view is-hidden" type="button"></button>
+          <div class="hp-choice-tray hp-choice-stage" role="group" aria-label="Actions"></div>
         </div>
         <aside class="hp-panel" aria-live="polite">
-          <button class="hp-back" type="button"></button>
+          <div class="hp-panel-top">
+            <button class="hp-back" type="button"></button>
+            <button class="hp-sound" type="button"></button>
+          </div>
           <p class="hp-eyebrow hp-level-eyebrow"></p>
           <h2 class="hp-title"></h2>
           <div class="hp-phase hp-watch"><span class="hp-dot"></span><span class="hp-watch-text"></span></div>
@@ -132,6 +152,7 @@ export class HoopsGame {
             <p class="hp-prompt"></p>
             <p class="hp-howto"></p>
             <div class="hp-clock"><i></i></div>
+            <div class="hp-choice-tray hp-choice-panel" role="group" aria-label="Actions"></div>
           </div>
           <div class="hp-phase hp-review">
             <p class="hp-summary is-hidden"></p>
@@ -175,6 +196,17 @@ export class HoopsGame {
       this.render();
     }));
     this.$('.hp-read-start').addEventListener('click', () => { sounds.tap(); this.startRead(); });
+    this.$('.hp-live-start').addEventListener('click', () => {
+      sounds.tap();
+      this.sessionPoints = 0;
+      this.possessions = 0;
+      this.lastCoverage = null;
+      this.startPossession();
+    });
+    this.$$('.hp-choice-tray').forEach(tray=>tray.addEventListener('click',event=>{
+      const button=event.target.closest('button[data-choice]');
+      if(button&&!button.disabled&&this.phase==='decide')this.choose(Number(button.dataset.choice));
+    }));
     this.$('.hp-voice-toggle').addEventListener('click', () => {
       sounds.tap();
       setVoiceEnabled(!voiceEnabled());
@@ -188,14 +220,19 @@ export class HoopsGame {
     });
     this.$('.hp-back').addEventListener('click', () => {
       sounds.tap();
-      this.menuTab = this.mode === 'read' ? 'read' : this.mode === 'playbook' ? 'playbook' : 'chapter';
+      this.menuTab = this.mode === 'read' || this.mode === 'possession' ? 'read' : this.mode === 'playbook' ? 'playbook' : 'chapter';
       this.showMenu();
+    });
+    this.$('.hp-sound').addEventListener('click', () => {
+      document.getElementById('btn-sound')?.click();
+      this._renderSound();
     });
     this.$('.hp-retry').addEventListener('click', () => { sounds.tap(); this.startLevel(this.index); });
     this.$('.hp-best').addEventListener('click', () => { sounds.tap(); this.demoBest(); });
     this.$('.hp-next').addEventListener('click', () => {
       sounds.tap();
       if (this.mode === 'read') { if (this.readOver) this.startRead(); else this._nextRound(); return; }
+      if (this.mode === 'possession') { this.startPossession(); return; }
       if (this.index + 1 < LEVELS.length) this.startLevel(this.index + 1);
       else this.showMenu();
     });
@@ -209,6 +246,9 @@ export class HoopsGame {
   render() {
     this.root.dataset.view = this.view;
     this.root.dataset.phase = this.phase;
+    // Playing is a full-screen broadcast: the site header steps away.
+    document.body.classList.toggle('hoops-playing', this.view === 'play' && this.arenaLook);
+    this._renderSound();
     if (this.view === 'menu') this._renderMenu();
     else this._renderPanel();
   }
@@ -231,6 +271,15 @@ export class HoopsGame {
     this.view = 'menu';
     this.phase = 'idle';
     this.root.dataset.phase = 'idle';
+    document.body.classList.remove('hoops-playing');
+  }
+
+  _renderSound() {
+    const on = document.getElementById('btn-sound')?.getAttribute('aria-pressed') !== 'false';
+    const b = this.$('.hp-sound');
+    if (!b) return;
+    b.textContent = t(on ? 'bar.soundOn' : 'bar.soundOff');
+    b.classList.toggle('is-off', !on);
   }
 
   showMenu() {
@@ -247,7 +296,8 @@ export class HoopsGame {
   }
 
   unlocked(i) {
-    return i === 0 || (this.progress.stars[LEVELS[i - 1].id] ?? -1) >= 1;
+    // Review links may open one representative scene without writing progress.
+    return LEVELS[i]?.id === this.previewLevel || i === 0 || (this.progress.stars[LEVELS[i - 1].id] ?? -1) >= 1;
   }
 
   _renderMenu() {
@@ -278,6 +328,7 @@ export class HoopsGame {
       const open = this.unlocked(i);
       b.classList.toggle('is-locked', !open);
       b.classList.toggle('is-done', got > 0);
+      b.classList.toggle('is-next', open && got === 0);   // the level to play now gets the spotlight card
       b.querySelector('.hp-level-title').textContent = L(lvl.title);
       b.querySelector('.hp-level-concept').textContent = open ? L(lvl.concept) : t('hoops.locked');
       b.querySelectorAll('.hp-level-stars i').forEach((s, k) => s.classList.toggle('is-on', k < got));
@@ -291,6 +342,13 @@ export class HoopsGame {
     const best = bestStreak();
     this.$('.hp-read-best').textContent = best ? t('hoops.read.best', { n: best }) : t('hoops.read.noBest');
     this.$('.hp-read-start').textContent = t('hoops.read.start');
+    const zh = zhNow();
+    this.$('.hp-live-title').textContent = L(HORNS_POSSESSION.title);
+    this.$('.hp-live-desc').textContent = zh
+      ? '同一个牛角挡拆，防守每回合随机变：退防、换防或包夹。读对了，空位投篮才更容易进。'
+      : 'The same horns pick every time, but the defense changes: drop, switch or trap. Read it right and the open shot falls more often.';
+    this.$('.hp-live-note').textContent = zh ? `${HORNS_POSSESSION.coverages.length} 种防守` : `${HORNS_POSSESSION.coverages.length} coverages`;
+    this.$('.hp-live-start').textContent = zh ? '开始实战' : 'Play it live';
     this.$('.hp-read-families').innerHTML = FAMILIES.map(f => `<li><strong>${L(f.title)}</strong><span>${t('hoops.read.variants', { n: f.variants.length })}</span></li>`).join('');
   }
 
@@ -351,23 +409,92 @@ export class HoopsGame {
     return this._run(lvl, t('hoops.read.round', { n: this.round }));
   }
 
+  /** Live possession: horns entry, a random coverage, one or two reads,
+   *  and a shot decided by openness and the shooter's role card. */
+  startPossession() {
+    this.mode = 'possession';
+    this.possessions++;
+    const poss = HORNS_POSSESSION;
+    const forced = new URLSearchParams(location.search).get('hoopsCoverage');
+    this.coverage = poss.coverages.find(c => c.id === forced) || pickCoverage(poss, this.lastCoverage);
+    this.lastCoverage = this.coverage.id;
+    this.chain = [];
+    this.shotInfo = null;
+    this.possPoints = 0;
+    const top = zhNow() ? `实战回合 ${this.possessions}` : `Possession ${this.possessions}`;
+    return this._run(readLevel(poss, this.coverage, this.coverage.start), top);
+  }
+
+  _shuffleChoices(lvl) {
+    // A stable shuffled display order avoids teaching "always press A".
+    this._choiceOrder = lvl.options.map((_, i) => i);
+    for (let n = this._choiceOrder.length - 1; n > 0; n--) {
+      const j = Math.floor(Math.random() * (n + 1));
+      [this._choiceOrder[n], this._choiceOrder[j]] = [this._choiceOrder[j], this._choiceOrder[n]];
+    }
+  }
+
+  /** Swap `shot: 'model'` beats for make / miss from the shot model, using
+   *  where everyone will stand when the ball is released. `force` true/false
+   *  makes the shot go in / miss (best-play demo). */
+  _resolvePlay(beats, force = null) {
+    let holder = this.court.ball.holder;
+    const pos = Object.fromEntries(Object.entries(this.court.pos).map(([k, v]) => [k, [...v]]));
+    const rng = force === null ? Math.random : () => (force ? 0 : 0.9999);
+    let shot = null;
+    const out = (beats || []).map(b => {
+      for (const [id, dest] of Object.entries(b.move || {})) pos[id] = [...(Array.isArray(dest[0]) ? dest[dest.length - 1] : dest)];
+      if (b.pass) holder = b.pass;
+      if (b.ball) holder = b.ball;
+      if (b.shot !== 'model' || !holder || !pos[holder]) return b;
+      shot = resolveShot(holder, pos[holder], pos, rng);
+      return { ...b, shot: shot.made ? 'make' : 'miss' };
+    });
+    return { beats: out, shot };
+  }
+
+  _resultText(opt, shot) {
+    const r = opt?.result;
+    if (r && r.make) return L(shot && !shot.made ? r.miss : r.make);
+    return L(r);
+  }
+
+  /** The play goes on after a good read: hand control over, run the next
+   *  defensive reaction, freeze again. */
+  async _continueRead(lvl, flow) {
+    this.current = lvl;
+    this._shuffleChoices(lvl);
+    this.choice = null;
+    this.court.setYou?.(lvl.you);
+    this.court.setYouLabel(t('hoops.you'));
+    this.court.setReadFrame?.(lvl, { snap: false });
+    this._setPhase('intro');
+    const intro = this.arenaLook ? lvl.intro.map(beat => ({ ...beat, finishCamera: false })) : lvl.intro;
+    const done = await this.court.play(intro, { slowLast: true });
+    if (!done || flow !== this.flow) return;
+    this.$('.hp-banner').className = 'hp-banner';
+    await this._freezeForRead(flow);
+  }
+
   async _run(lvl, cardTop) {
     const flow = ++this.flow;
     cancelAnimationFrame(this._timerRaf);
     await this._ensureCourt();
     if (flow !== this.flow) return;
-    sfx.preload().then(() => { if (this.view === 'play') sfx.startCrowd(() => this.courtOnScreen()); });
+    sfx.preload().then(() => { if (flow === this.flow && this.courtOnScreen()) sfx.startCrowd(() => this.courtOnScreen()); });
     stopVoice();
     this.current = lvl;
+    this._shuffleChoices(lvl);
     this.view = 'play';
     this.choice = null;
     this.stars = 0;
     this.demoShown = false;
-    this.homeBonus = 0;
+    this.homeBonus = this.mode === 'possession' ? this.sessionPoints : 0;
 
     this.clock = lvl.hud ? lvl.hud.clock : null;
     this.buzzed = false;
     this.court.setScene(lvl.setup, lvl.you);
+    this.court.setReadFrame?.(lvl);
     this.court.el.classList.toggle('has-hud', !!lvl.hud);
     this.court.setYouLabel(t('hoops.you'));
     this.court.setFrozen(false);
@@ -379,7 +506,8 @@ export class HoopsGame {
     card.querySelector('span').textContent = cardTop;
     card.querySelector('strong').textContent = L(lvl.title);
     card.classList.add('is-on');
-    if (this.mode !== 'read') sfx.voice(`level_${pad2(this.index + 1)}_title`, getLocale());
+    if (this.mode === 'chapter') sfx.voice(`level_${pad2(this.index + 1)}_title`, getLocale());
+    else if (this.mode === 'possession') { if (this.possessions === 1) sfx.voice('cue_watch', getLocale()); }
     else if (this.round === 1) sfx.voice('cue_watch', getLocale());
     else if (Math.random() < 0.35) sfx.voice(draw('round'), getLocale());
     await wait(1100);
@@ -389,8 +517,15 @@ export class HoopsGame {
     if (flow !== this.flow) return;
 
     this._setPhase('intro');
-    const done = await this.court.play(lvl.intro, { slowLast: true });
+    // Intro shots teach the whole play; a finish close-up can crop the next
+    // decision spot (notably box-out) below the tappable court.
+    const intro = this.arenaLook ? lvl.intro.map(beat=>({...beat,finishCamera:false})) : lvl.intro;
+    const done = await this.court.play(intro, { slowLast: true });
     if (!done || flow !== this.flow) return;
+    await this._freezeForRead(flow);
+  }
+
+  async _freezeForRead(flow) {
     this.freezeSnap = this.court.snapshot();
     this.freezeClock = this.clock;
     sfx.freeze();
@@ -450,6 +585,11 @@ export class HoopsGame {
     this.choice = i;
     this.stars = opt ? starsFor(opt.grade, elapsed, lvl.decide) : 0;
     const grade = opt ? opt.grade : 0;
+    if (this.mode === 'possession') {
+      // A possession is only as good as its weakest read.
+      this.chain.push({ node: lvl.node, you: lvl.you, grade, stars: this.stars });
+      this.stars = Math.min(...this.chain.map(c => c.stars));
+    }
     recordRead({ tag: lvl.tag, level: lvl.id, grade, ms: elapsed * 1000, mode: this.mode });
     if (this.mode === 'read') {
       if (grade === 3) this.streak++;
@@ -466,11 +606,23 @@ export class HoopsGame {
       sfx.lockIn();
       await wait(160);
       if (flow !== this.flow) return;
-      const done = await this.court.play(opt.play);
+      const { beats, shot } = this._resolvePlay(opt.play);
+      const done = await this.court.play(beats);
       if (!done || flow !== this.flow) return;
-      if (opt.end === 'score') { this.homeBonus = 2; this._renderHud(); }
-      this._endCue(opt.end);
-      this._banner(L(opt.result), opt.end);
+      if (opt.next && this.mode === 'possession') {
+        this._banner(this._resultText(opt, null), 'neutral');
+        return this._continueRead(readLevel(HORNS_POSSESSION, this.coverage, opt.next), flow);
+      }
+      this.shotInfo = shot;
+      const end = shot ? (shot.made ? 'score' : 'miss') : opt.end;
+      if (end === 'score') {
+        const pts = shot ? shot.points : (opt.points ?? 2);
+        if (this.mode === 'possession') { this.possPoints = pts; this.sessionPoints += pts; this.homeBonus = this.sessionPoints; }
+        else this.homeBonus = pts;
+        this._renderHud();
+      }
+      this._endCue(end);
+      this._banner(this._resultText(opt, shot), end);
     } else {
       sfx.whistle();
       this._banner(t('hoops.timeout'), 'turnover');
@@ -492,6 +644,7 @@ export class HoopsGame {
     this.court.showCue(lvl.cue);
     this.$('.hp-hud').classList.toggle('is-cue', lvl.cue.at === 'clock');
     this.$$('.hp-verdict .hp-stars i').forEach(s => s.classList.remove('is-on'));
+    if (this.arenaLook && this.court.shot === 'finish') this.court.setShot('broadcast');
     this._setPhase('review');
     this._coach(opt, flow);
     for (let s = 0; s < this.stars; s++) {
@@ -537,9 +690,11 @@ export class HoopsGame {
     const lvl = this.level;
     const best = lvl.options.find(o => o.grade === 3);
     this.court.restore(this.freezeSnap);
+    this.court.setYou?.(lvl.you);
     this.clock = this.freezeClock;
     this.buzzed = false;
-    this.homeBonus = 0;
+    const live = this.mode === 'possession';
+    this.homeBonus = live ? this.sessionPoints : 0;
     this._renderHud();
     this.court.clearCue();
     this.$('.hp-banner').className = 'hp-banner';
@@ -547,14 +702,27 @@ export class HoopsGame {
     this.court.showCue(lvl.cue);
     await wait(700);
     if (flow !== this.flow) return;
-    const done = await this.court.play(best.play);
-    if (!done || flow !== this.flow) return;
-    if (best.end === 'score') { this.homeBonus = 2; this._renderHud(); }
-    this._endCue(best.end);
-    this._banner(L(best.result), best.end);
+    // A best read that leads to a second read plays the whole chain.
+    let opt = best;
+    let shot = null;
+    for (;;) {
+      const r = this._resolvePlay(opt.play, true);
+      shot = r.shot;
+      if (!(await this.court.play(r.beats)) || flow !== this.flow) return;
+      if (!opt.next || !live) break;
+      const nl = readLevel(HORNS_POSSESSION, this.coverage, opt.next);
+      this.court.setYou?.(nl.you);
+      if (!(await this.court.play(nl.intro)) || flow !== this.flow) return;
+      opt = nl.options.find(o => o.grade === 3);
+    }
+    const end = shot ? 'score' : opt.end;
+    if (end === 'score' && !live) { this.homeBonus = shot ? shot.points : (opt.points ?? 2); this._renderHud(); }
+    this._endCue(end);
+    this._banner(this._resultText(opt, shot), end);
     await wait(900);
     if (flow !== this.flow) return;
     this.demoShown = true;
+    if (this.arenaLook && this.court.shot === 'finish') this.court.setShot('broadcast');
     this._setPhase('review');
     this.$$('.hp-verdict .hp-stars i').forEach((s, k) => s.classList.toggle('is-on', k < this.stars));
   }
@@ -584,6 +752,7 @@ export class HoopsGame {
 
   _renderPanel() {
     const p = this.phase;
+    this._renderChoices();
     this.$('.hp-back').textContent = `‹ ${t(this.mode === 'chapter' ? 'hoops.levels' : 'hoops.back')}`;
     if (p === 'pb') {
       this.$$('.hp-phase').forEach(n => n.classList.remove('is-on'));
@@ -595,17 +764,21 @@ export class HoopsGame {
     const lvl = this.level;
     this.$('.hp-back').textContent = `‹ ${t(this.mode === 'chapter' ? 'hoops.levels' : 'hoops.back')}`;
     const read = this.mode === 'read';
+    const live = this.mode === 'possession';
+    const zh = zhNow();
     this.$('.hp-level-eyebrow').textContent = read
       ? `${t('hoops.read.round', { n: this.round })} · ${t('hoops.read.streak', { n: this.streak })}`
+      : live ? (zh ? `实战回合 ${this.possessions} · 总分 ${this.sessionPoints}` : `Possession ${this.possessions} · ${this.sessionPoints} pts`)
       : `${t('hoops.level', { n: this.index + 1 })} · ${L(lvl.concept)}`;
     // In Read & React the variant's name would give the answer away — show it only afterwards.
-    this.$('.hp-title').textContent = read && p === 'review' && lvl.variantTitle ? L(lvl.variantTitle) : L(lvl.title);
+    this.$('.hp-title').textContent = live && p === 'review' ? `${zh ? '对方防守：' : 'Defense: '}${L(lvl.variantTitle)}`
+      : read && p === 'review' && lvl.variantTitle ? L(lvl.variantTitle) : L(lvl.title);
     const view = this.$('.hp-view');
     view.classList.toggle('is-hidden', !(p === 'decide' && this.root.dataset.court === '3d'));
     view.textContent = t(this.pov ? 'hoops.view.court' : 'hoops.view.player');
     this.$('.hp-watch-text').textContent = t(p === 'demo' ? 'hoops.bestPlay' : 'hoops.watch');
     this.$('.hp-prompt').textContent = L(lvl.prompt);
-    this.$('.hp-howto').textContent = t(lvl.side === 'defense' ? 'hoops.howToDefense' : 'hoops.howTo');
+    this.$('.hp-howto').textContent = getLocale()==='zh'?'点动作按钮，也可以直接点球员、篮筐或拖动跑位。':'Choose an action button, or tap a player, the rim, or drag to a spot.';
     this.court?.setYouLabel(t('hoops.you'));
     this._renderHud();
 
@@ -621,11 +794,11 @@ export class HoopsGame {
       const verdict = !opt ? 'hoops.bad' : opt.grade === 3 ? (this.stars === 3 ? 'hoops.fast' : 'hoops.best') : opt.grade === 1 ? 'hoops.ok' : 'hoops.bad';
       this.$('.hp-verdict').dataset.grade = opt ? opt.grade : 0;
       this.$('.hp-verdict-text').textContent = t(verdict);
-      this.$('.hp-result').textContent = opt ? L(opt.result) : t('hoops.timeout');
+      this.$('.hp-result').textContent = opt ? this._resultText(opt, this.shotInfo) : t('hoops.timeout');
       this.$('.hp-why').textContent = opt ? L(opt.why) : t('hoops.timeoutWhy');
       if (this.demoShown) {
         const best = lvl.options.find(o => o.grade === 3);
-        this.$('.hp-result').textContent = `${t('hoops.bestPlay')} · ${L(best.label) || L(best.result)}`;
+        this.$('.hp-result').textContent = `${t('hoops.bestPlay')} · ${L(best.label) || this._resultText(best, null)}`;
         this.$('.hp-why').textContent = L(best.why);
       }
       const cue = this.$('.hp-cue');
@@ -642,7 +815,12 @@ export class HoopsGame {
       const retry = this.$('.hp-retry');
       const summary = this.$('.hp-summary');
       retry.textContent = t('hoops.retry');
-      if (read) {
+      if (live) {
+        next.textContent = zh ? '再打一回合' : 'Next possession';
+        next.classList.remove('is-hidden');
+        retry.classList.add('is-hidden');
+        this._renderPossessionSummary(summary);
+      } else if (read) {
         next.textContent = t(this.readOver ? 'hoops.read.again' : 'hoops.read.next');
         next.classList.remove('is-hidden');
         retry.classList.add('is-hidden');
@@ -665,6 +843,48 @@ export class HoopsGame {
     }
   }
 
+  /** After a live possession: each read's stars, then why the shot fell or not. */
+  _renderPossessionSummary(box) {
+    const zh = zhNow();
+    const stars = n => '★'.repeat(n) + '☆'.repeat(3 - n);
+    const reads = (this.chain || []).map((c, k) => `${zh ? `第 ${k + 1} 次判断（${c.you.slice(1)} 号）` : `Read ${k + 1} (#${c.you.slice(1)})`} ${stars(c.stars)}`);
+    const lines = [...reads];
+    const s = this.shotInfo;
+    if (s) {
+      const dist = zh ? `${(s.open.feet * 0.3048).toFixed(1)} 米` : `${s.open.feet.toFixed(1)} ft`;
+      const outcome = s.made ? (zh ? `命中 +${s.points}` : `Good +${s.points}`) : (zh ? '没进' : 'Miss');
+      lines.push(zh
+        ? `${s.shooter.slice(1)} 号${L(s.role)} · ${L(ZONE_NAME[s.zone])} ${'★'.repeat(s.rating)} · ${L(TIER_NAME[s.open.tier])}（最近的防守人 ${dist}）· 命中率 ${Math.round(s.chance * 100)}% · ${outcome}`
+        : `#${s.shooter.slice(1)} ${L(s.role)} · ${L(ZONE_NAME[s.zone])} ${'★'.repeat(s.rating)} · ${L(TIER_NAME[s.open.tier])} (nearest defender ${dist}) · ${Math.round(s.chance * 100)}% · ${outcome}`);
+      lines.push(zh ? '投篮进不进，先看空不空，再看是谁投。' : 'Whether it falls: how open first, then who shoots.');
+    }
+    box.replaceChildren(...lines.map((text, k) => { const span = document.createElement('span'); span.textContent = text; span.style.display = 'block'; if (k) span.style.marginTop = '4px'; return span; }));
+    box.dataset.state = this.stars >= 2 ? 'up' : this.stars === 1 ? 'keep' : 'over';
+    box.classList.remove('is-hidden');
+  }
+
+  _renderChoices() {
+    const zh=getLocale()==='zh';
+    const options=this.phase==='pb'?[]:this.level?.options||[];
+    for(const tray of this.$$('.hp-choice-tray')){
+      tray.replaceChildren();tray.setAttribute('aria-label',zh?'选择动作':'Choose an action');
+      const order=(this._choiceOrder||options.map((_,i)=>i)).filter(i=>i<options.length);
+      for(const [displayIndex,i] of order.entries()){
+        const opt=options[i];
+        const button=document.createElement('button');button.type='button';button.dataset.choice=i;
+        button.className='hp-choice';button.disabled=this.phase!=='decide';
+        let label=opt.label?L(opt.label):opt.kind==='shoot'?(zh?'投篮':'Shoot'):(zh?'移动到位置':'Move to the spot');
+        if(opt.kind==='pass'){
+          const [x,z]=this.court?.pos[opt.to]||this.level.setup[opt.to];
+          const spot=Math.abs(x)>=20&&z<12?(zh?'底角':'corner'):z<12&&Math.abs(x)<13?(zh?'篮下':'paint'):Math.abs(x)>12?(zh?'侧翼':'wing'):(zh?'弧顶':'top');
+          label=zh?`传给${opt.to.slice(1)}号 · ${spot}`:`Pass to #${opt.to.slice(1)} · ${spot}`;
+        }else if(opt.kind==='shoot')label=zh?`自己${label}`:label==='Finish'?'Layup at rim':label;
+        const index=document.createElement('span');index.className='hp-choice-index';index.textContent=String.fromCharCode(65+displayIndex);
+        const text=document.createElement('span');text.textContent=label;button.append(index,text);tray.appendChild(button);
+      }
+    }
+  }
+
   /* ---------------------------------------------------------------- *
    * Game clock (last-possession levels)
    * ---------------------------------------------------------------- */
@@ -680,14 +900,18 @@ export class HoopsGame {
   _renderHud() {
     const hud = this.$('.hp-hud');
     const lvl = this.level;
-    const show = this.view === 'play' && !!lvl?.hud;
+    const show = this.view === 'play' && !!lvl && (!!lvl.hud || this.arenaLook);
     hud.classList.toggle('is-hidden', !show);
     if (!show) return;
     if (this.phase !== 'review' && this.phase !== 'demo') hud.classList.remove('is-cue');
-    const [a, b] = lvl.hud.score;
-    this.$('.hp-hud-score').textContent = `${t('hoops.home')} ${a + (this.homeBonus || 0)}  ·  ${t('hoops.away')} ${b}`;
-    this.$('.hp-hud-clock').textContent = (this.clock ?? 0).toFixed(1);
-    this.$('.hp-hud-note').textContent = t('hoops.clockOff');
+    const [a, b] = lvl.hud?.score || [0, 0];
+    const team = (cls, name, pts) => `<span class="hp-hud-team ${cls}"><b>${name}</b><strong>${pts}</strong></span>`;
+    this.$('.hp-hud-score').innerHTML = team('is-home', 'CD', a + (this.homeBonus || 0)) + team('is-away', 'RIVALS', b);
+    this.$('.hp-hud-clock').textContent = lvl.hud ? (this.clock ?? 0).toFixed(1) : 'HOOPS IQ';
+    this.$('.hp-hud-note').textContent = lvl.hud ? t('hoops.clockOff') : this.mode === 'possession' ? (zhNow() ? '实战回合' : 'LIVE')
+      : getLocale() === 'zh' ? '训练回合' : 'TRAINING';
+    this.court.arena?.setScore({home:a+(this.homeBonus||0),away:b,
+      clock:this.$('.hp-hud-clock').textContent,note:this.$('.hp-hud-note').textContent});
   }
 
   /* ---------------------------------------------------------------- *
@@ -755,6 +979,7 @@ export class HoopsGame {
       court.onFrame = (dt, beat) => this._tickClock(dt, beat);
       this.court = court;
       this.root.dataset.court = court instanceof CourtView ? '2d' : '3d';
+      if (court instanceof CourtView) { this.arenaLook = false; this.root.dataset.look = 'classic'; }
       this._bindPointer();
       return court;
     })();

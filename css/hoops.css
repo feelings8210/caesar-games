@@ -21,6 +21,42 @@
 .hoops[data-view="menu"] .hp-menu { display: flex; }
 .hoops[data-view="play"] .hp-play { display: grid; }
 
+/* Local arena presentation: the floor is the main screen; coaching reads as
+   a broadcast-side panel instead of a separate white worksheet. */
+.hoops[data-look="arena"] {
+  --surface: #101C2D; --surface-sunken: #17273D;
+  --ink: #F2F5FA; --ink-muted: #B2C0D3; --ink-faint: #7E92AE;
+  --ink-soft: #BDCADB;
+  --hairline: #2C3D55; --hairline-strong: #3D4F69;
+  --hp-good: #79CBA0;
+}
+.hoops[data-look="arena"] .hp-menu { color: var(--ink); }
+.hoops[data-look="arena"] .hp-menu-head { padding: 26px; border-radius: 14px; background: linear-gradient(115deg,#132743,#101C2D); }
+.hoops[data-look="arena"] .hp-chapter-title { color: #F3F6FC; font-size: 36px; }
+.hoops[data-look="arena"] .hp-level { background: #142238; box-shadow: inset 0 0 0 1px #2A3D58; }
+.hoops[data-look="arena"] .hp-tabs { background: #182940; }
+.hoops[data-look="arena"] .hp-play { grid-template-columns: minmax(0,1fr) minmax(250px,280px); gap: 10px; }
+.hoops[data-look="arena"] .hp-panel { border-radius: 12px; padding: 22px 18px; color: var(--ink); }
+.hoops[data-look="arena"] .hp-title { color: var(--ink); }
+.hoops[data-look="arena"] .hp-prompt,
+.hoops[data-look="arena"] .hp-howto,
+.hoops[data-look="arena"] .hp-why,
+.hoops[data-look="arena"] .hp-clue,
+.hoops[data-look="arena"] .hp-clue-text { color: #BDCADB; }
+.hoops[data-look="arena"] .hp-btn:not(.hp-btn-primary),
+.hoops[data-look="arena"] .hp-retry { color: #E1E9F6; background: #21334D; }
+.hoops[data-look="arena"] .hp-view { top: 16px; right: 16px; left: auto; bottom: auto; }
+.hoops[data-look="arena"] .hc3d { border-radius: 12px; }
+.hoops[data-look="arena"] .hc3d:not(.is-frozen) .hc3-chip { opacity: 0; }
+.hoops[data-look="arena"][data-phase="review"] .hc3d .hc3-chip { opacity: 1; }
+.hoops[data-look="arena"] .hp-hud { top: auto; bottom: 18px; left: 18px; transform: none; border-radius: 3px; border-left: 4px solid #BBD4FF; padding: 11px 16px; background: #0D1829; }
+.hoops[data-look="arena"] .hp-banner { bottom: 72px; }
+@media(max-width:760px) {
+  .hoops[data-look="arena"] .hp-play { grid-template-columns: minmax(0,1fr); }
+  .hoops[data-look="arena"] .hp-hud { bottom: 10px; left: 10px; gap: 8px; padding: 8px; font-size: 11px; }
+  .hoops[data-look="arena"] .hp-hud-clock { font-size: 15px; }
+}
+
 /* ------------------------------------------------------------------ *
  * Menu
  * ------------------------------------------------------------------ */
@@ -373,11 +409,12 @@
   .hp-menu-head { flex-direction: column; align-items: stretch; }
   .hp-rank { align-items: flex-start; }
   .hoops[data-view="play"] { overflow-y: auto; }
-  .hp-play { grid-template-columns: 1fr; grid-template-rows: auto auto; }
+  .hp-play { grid-template-columns: 1fr; grid-template-rows: max-content max-content; align-content: start; }
   .hp-stage { display: block; }
   .hp-court { height: auto; width: min(100%, 62vh); margin: 0 auto; }
   .hp-panel { overflow: visible; }
   .hoops[data-court="3d"] .hp-court { width: 100%; height: min(64vh, 110vw); }
+  .hoops[data-look="arena"] .hp-play { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ------------------------------------------------------------------ *
@@ -421,6 +458,7 @@
 .hc3-chip.is-o { box-shadow: 0 0 0 1.5px #7FB2FF, 0 2px 6px rgba(0,0,0,.35); }
 .hc3-chip.is-d { box-shadow: 0 0 0 1.5px #FF7F70, 0 2px 6px rgba(0,0,0,.35); }
 .hc3-chip.is-you { color: #0E1F3A; background: #F2C66D; box-shadow: 0 0 0 1.5px #FFE6A8, 0 2px 8px rgba(0,0,0,.4); }
+.hc3-chip.is-target { box-shadow: 0 0 0 2px #E2BE72, 0 2px 8px rgba(0,0,0,.4); }
 .hc3d.is-frozen .hc3-chip { min-width: 24px; height: 24px; font-size: 14px; }
 
 .hc3-you {
@@ -460,6 +498,37 @@
 }
 .hc3-target-label.is-hot { background: #C9A76A; color: #0E1F3A; }
 
+/* Keep the score outside the court throughout the play, so freezing for a
+   choice never changes the camera aspect or shifts the targets. */
+.hoops[data-view="play"] .hp-stage {
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 8px;
+}
+.hoops[data-view="play"] .hp-hud {
+  position: static; transform: none; justify-self: start;
+  max-width: 100%; box-sizing: border-box; flex-wrap: wrap;
+}
+.hp-choice-tray { display: grid; gap: 8px; }
+.hp-choice-stage { display: none; }
+.hp-choice { display: flex; align-items: center; gap: 9px; min-height: 46px; padding: 9px 12px;
+  border-radius: 8px; background: #23364F; color: #F4F6F9; text-align: left;
+  font: 650 14px/1.3 var(--font-cn); box-shadow: inset 0 0 0 1px #6B7E95; touch-action: manipulation; }
+.hp-choice:not(:disabled):hover, .hp-choice:not(:disabled):focus-visible { background: #354B69; box-shadow: inset 0 0 0 2px #E2BE72; }
+.hp-choice:not(:disabled):active { background: #B89B60; color: #0E1F3A; }
+.hp-choice:disabled { opacity: .45; }
+.hp-choice-index { display: grid; place-items: center; flex: 0 0 24px; height: 24px; border-radius: 5px; background: #13233A; color: #E2BE72; }
+@media (max-width: 860px), (orientation: portrait) {
+  .hoops[data-court="3d"] .hp-court { height: min(48vh, 110vw); }
+  .hoops[data-view="play"] .hp-stage { grid-template-rows: auto auto auto; }
+  .hp-choice-stage { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); min-height: 100px; }
+  .hp-choice-panel { display: none; }
+  .hoops[data-phase="pb"] .hp-choice-stage { display: none; }
+  .hp-choice { padding: 8px; font-size: 12px; gap: 6px; }
+  .hoops[data-court="3d"][data-view="play"] .hp-title-card { top: min(24vh, 55vw); }
+  .hoops[data-court="3d"][data-view="play"] .hp-banner {
+    top: calc(min(48vh, 110vw) - 12px); bottom: auto; transform: translate(-50%, -100%);
+  }
+}
+
 /* ------------------------------------------------------------------ *
  * Menu tabs, Read & React, stats
  * ------------------------------------------------------------------ */
@@ -492,6 +561,7 @@
   color: #F4F6F9;
   box-shadow: var(--lift-2);
 }
+.hp-read-card + .hp-read-card { margin-top: 12px; }
 .hp-read-title { margin: 0 0 6px; font: 650 22px/1.2 var(--font-cn); }
 .hp-read-desc { margin: 0; max-width: 520px; font-size: 14px; line-height: 1.55; color: rgba(244,246,249,.75); }
 .hp-read-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
@@ -624,8 +694,8 @@
 .hp-pb-steps li.is-past { color: var(--ink-muted); }
 .hp-pb-steps li.is-now { color: var(--ink); font-weight: 600; }
 
-.hp-pb-controls { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 8px; margin-top: 4px; }
-.hp-pb-controls .btn { min-height: 44px; padding: 0 10px; }
+.hp-pb-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.hp-pb-controls .btn { min-width: 0; min-height: 44px; padding: 0 2px; font-size: 0.85rem; white-space: nowrap; }
 .hp-pb-controls .btn:disabled { opacity: .45; }
 .hp-pb-done { display: flex; flex-direction: column; gap: 10px; }
 
@@ -646,3 +716,133 @@
 @media (max-width: 860px), (orientation: portrait) {
   .hp-pb-cards { grid-template-columns: 1fr; }
 }
+
+/* ------------------------------------------------------------------ *
+ * Broadcast presentation (arena look, playing)
+ * The site header steps away, the court runs edge to edge on black, the
+ * score is a TV scorebug over the floor and the coaching panel is a dark
+ * broadcast rail. Court size does not change between phases.
+ * ------------------------------------------------------------------ */
+@font-face {
+  font-family: "HoopsBroadcast";
+  src: url("../assets/hoops/fonts/Anton_Regular.ttf") format("truetype");
+  font-display: swap;
+}
+body.hoops-playing { background: #04070C; }
+body.hoops-playing #app-bar { display: none; }
+body.hoops-playing .hoops[data-view="play"] {
+  padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  height: 100dvh; box-sizing: border-box;
+}
+.hoops[data-look="arena"][data-view="play"] .hp-play {
+  gap: 0; grid-template-columns: minmax(0, 1fr) minmax(280px, 330px);
+  background: #04070C;
+}
+.hoops[data-look="arena"][data-view="play"] .hp-stage { display: block; position: relative; }
+.hoops[data-look="arena"][data-view="play"] .hp-court { width: 100%; height: 100%; max-height: none; }
+.hoops[data-look="arena"][data-view="play"] .hc3d { border-radius: 0; }
+
+/* Scorebug */
+.hoops[data-look="arena"][data-view="play"] .hp-hud {
+  position: absolute; z-index: 6; top: 18px; left: 18px; bottom: auto; right: auto;
+  transform: none; display: flex; align-items: stretch; gap: 0; flex-wrap: nowrap;
+  padding: 0; border: 0; border-radius: 4px; overflow: hidden;
+  background: rgba(6,11,20,.9); box-shadow: 0 6px 22px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.hoops[data-look="arena"][data-view="play"] .hp-hud-score { display: flex; }
+.hp-hud-team { display: flex; align-items: center; gap: 10px; padding: 0 12px 0 10px; min-height: 42px; }
+.hp-hud-team b { font: 400 15px/1 "HoopsBroadcast", "Arial Narrow", sans-serif; letter-spacing: .06em; color: rgba(255,255,255,.82); }
+.hp-hud-team strong { font: 400 26px/1 "HoopsBroadcast", "Arial Narrow", sans-serif; color: #fff; min-width: 1.3em; text-align: right; font-variant-numeric: tabular-nums; }
+.hp-hud-team.is-home { background: linear-gradient(180deg, #1D3B6E, #142A4F); box-shadow: inset 4px 0 0 #E2BE72; }
+.hp-hud-team.is-away { background: linear-gradient(180deg, #6E2430, #4E1820); box-shadow: inset 4px 0 0 #E8E2D6; }
+.hoops[data-look="arena"][data-view="play"] .hp-hud-clock {
+  display: flex; align-items: center; padding: 0 14px; min-width: 0;
+  font: 400 19px/1 "HoopsBroadcast", "Arial Narrow", sans-serif; letter-spacing: .08em; color: #F3C987;
+  background: #0A1220;
+}
+.hoops[data-look="arena"][data-view="play"] .hp-hud-note {
+  display: flex; align-items: center; padding: 0 12px; font: 650 11px/1 var(--font-cn); letter-spacing: .12em;
+  color: #0A1220; background: #E2BE72;
+}
+.hoops[data-look="arena"][data-view="play"] .hp-hud.is-cue { box-shadow: 0 0 0 2px #F1D3A8, 0 0 26px rgba(241,211,168,.6); }
+
+/* Title card: broadcast lower third */
+.hoops[data-look="arena"] .hp-title-card {
+  top: auto; bottom: 12%; left: 0; transform: translateX(-30px); align-items: flex-start; gap: 2px;
+  padding: 14px 34px 14px 28px; border-radius: 0 6px 6px 0;
+  background: linear-gradient(90deg, rgba(10,18,32,.96), rgba(20,38,68,.94));
+  box-shadow: inset 6px 0 0 #E2BE72, 0 10px 30px rgba(0,0,0,.45);
+}
+.hoops[data-look="arena"] .hp-title-card.is-on { transform: none; }
+.hoops[data-look="arena"] .hp-title-card span { font: 400 14px/1.2 "HoopsBroadcast", sans-serif; letter-spacing: .18em; color: #E2BE72; }
+.hoops[data-look="arena"] .hp-title-card strong { font: 750 30px/1.15 var(--font-cn); }
+
+/* Result banner: lower third with a team-colour edge */
+.hoops[data-look="arena"] .hp-banner {
+  bottom: 28px; border-radius: 4px; padding: 12px 26px; font: 700 19px/1.3 var(--font-cn);
+  background: linear-gradient(90deg, rgba(10,18,32,.95), rgba(22,40,70,.95));
+  box-shadow: inset 0 -3px 0 #E2BE72, 0 10px 28px rgba(0,0,0,.45);
+}
+.hoops[data-look="arena"] .hp-banner.is-score, .hoops[data-look="arena"] .hp-banner.is-stop {
+  background: linear-gradient(90deg, #17345F, #23497F); box-shadow: inset 0 -3px 0 #F3C987, 0 0 34px rgba(243,201,135,.35);
+}
+.hoops[data-look="arena"] .hp-banner.is-turnover, .hoops[data-look="arena"] .hp-banner.is-allowed, .hoops[data-look="arena"] .hp-banner.is-miss {
+  background: linear-gradient(90deg, #4E1820, #6E2430); box-shadow: inset 0 -3px 0 #E8E2D6, 0 10px 28px rgba(0,0,0,.45);
+}
+
+/* Coaching rail */
+.hoops[data-look="arena"][data-view="play"] .hp-panel {
+  border-radius: 0; padding: 18px 20px 22px; gap: 12px;
+  background: linear-gradient(180deg, #0C1626 0%, #0A111D 100%);
+  box-shadow: inset 1px 0 0 rgba(226,190,114,.35);
+}
+.hp-panel-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hp-panel-top .hp-back { margin: -4px 0 0 -8px; }
+.hp-sound { padding: 6px 10px; border-radius: 999px; font-size: 12px; color: var(--ink-muted); box-shadow: inset 0 0 0 1px var(--hairline); }
+.hp-sound.is-off { color: var(--ink-faint); }
+.hoops[data-look="arena"][data-view="play"] .hp-level-eyebrow { font: 400 13px/1.2 "HoopsBroadcast", var(--font-cn); letter-spacing: .14em; color: #E2BE72; }
+.hoops[data-look="arena"][data-view="play"] .hp-title { font: 800 26px/1.15 var(--font-cn); letter-spacing: .01em; }
+.hoops[data-look="arena"][data-view="play"] .hp-prompt { font: 650 19px/1.45 var(--font-cn); color: #F4F7FC; }
+.hoops[data-look="arena"][data-view="play"] .hp-clock { height: 8px; border-radius: 4px; background: #16233A; box-shadow: none; }
+.hoops[data-look="arena"][data-view="play"] .hp-clock i { background: linear-gradient(90deg, #E2BE72, #F6DDA6); }
+.hoops[data-look="arena"][data-view="play"] .hp-clock.is-urgent i { background: linear-gradient(90deg, #D9534F, #F08A6B); }
+.hoops[data-look="arena"][data-view="play"] .hp-choice {
+  min-height: 54px; padding: 10px 14px; border-radius: 6px; gap: 12px;
+  font: 700 16px/1.25 var(--font-cn);
+  background: linear-gradient(180deg, #1C2C45, #15223A);
+  box-shadow: inset 0 0 0 1px #34496A, 0 2px 0 rgba(0,0,0,.35);
+  transition: transform 90ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+.hoops[data-look="arena"][data-view="play"] .hp-choice:not(:disabled):hover,
+.hoops[data-look="arena"][data-view="play"] .hp-choice:not(:disabled):focus-visible {
+  background: linear-gradient(180deg, #27406A, #1D3255); box-shadow: inset 0 0 0 2px #E2BE72, 0 0 18px rgba(226,190,114,.25);
+}
+.hoops[data-look="arena"][data-view="play"] .hp-choice:not(:disabled):active { transform: scale(.98); background: #E2BE72; color: #0A1220; }
+.hoops[data-look="arena"][data-view="play"] .hp-choice-index {
+  flex: 0 0 30px; height: 30px; border-radius: 4px; font: 400 17px/1 "HoopsBroadcast", sans-serif;
+  background: #E2BE72; color: #0A1220;
+}
+.hoops[data-look="arena"][data-view="play"] .hp-summary { border-radius: 6px; }
+.hoops[data-look="arena"][data-view="play"] .hp-rule { background: linear-gradient(135deg, #17345F, #10244A); box-shadow: inset 4px 0 0 #E2BE72; }
+.hoops[data-look="arena"][data-view="play"] .hp-view { top: 18px; right: 18px; }
+
+@media (max-width: 860px), (orientation: portrait) {
+  .hoops[data-look="arena"][data-view="play"] .hp-play { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  body.hoops-playing .hoops[data-view="play"] { height: auto; min-height: 100dvh; }
+  .hoops[data-look="arena"][data-view="play"] .hp-hud { top: 10px; left: 10px; }
+  .hp-hud-team { min-height: 34px; padding: 0 8px; }
+  .hp-hud-team strong { font-size: 20px; }
+}
+/* Broadcast grade: the bowl falls into shadow above the court, edges settle. */
+.hoops[data-look="arena"] .hc3d::before {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(2,5,10,.34) 0%, rgba(2,5,10,.14) 22%, rgba(2,5,10,0) 42%),
+    radial-gradient(ellipse 85% 75% at 50% 60%, transparent 62%, rgba(2,5,10,.34) 100%);
+}
+.hoops[data-look="arena"] .hc3d-labels { z-index: 2; }
+.hoops[data-look="arena"] .hc3d-vignette { z-index: 3; }
+/* Keep the grade layers inside the court: buttons, banners and cards on the
+   stage stay above them. */
+.hoops[data-look="arena"] .hc3d { isolation: isolate; }

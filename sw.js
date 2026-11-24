@@ -11,7 +11,7 @@
  * discards every older cache in one pass.
  */
 
-const BUILD_VERSION = 'v2.8.1';
+const BUILD_VERSION = 'v2.9.0';
 const CACHE = `caesar-games-${BUILD_VERSION}`;
 
 const PRECACHE = [
@@ -22,6 +22,7 @@ const PRECACHE = [
   './css/app.css',
   './css/board.css',
   './css/hoops.css',
+  './css/theme-arena.css',
   './js/app.js',
   './js/build.js',
   './js/pwa.js',
@@ -44,19 +45,41 @@ const PRECACHE = [
   './js/games/gomoku/engine.js',
   './js/games/gomoku/ai.js',
   './js/games/hoops/audio.js',
+  './js/games/hoops/arena-courtside.js',
+  './js/games/hoops/arena-crowd-impostors.js',
+  './js/games/hoops/floor-reflection.js',
+  './assets/hoops/seated-audience.glb',
+  './assets/hoops/casual-audience.glb',
+  './assets/hoops/casual-reactions.glb',
+  './assets/hoops/crowd-atlas.png',
   './js/games/hoops/court.js',
   './js/games/hoops/levels.js',
   './js/games/hoops/controller.js',
   './js/games/hoops/runner.js',
+  './js/games/hoops/ball-motion.js',
+  './js/games/hoops/basketball-pose.js',
+  './js/games/hoops/camera-frame.js',
+  './js/games/hoops/athlete-surface.js',
   './js/games/hoops/families.js',
+  './js/games/hoops/possession.js',
+  './assets/hoops/fonts/Anton_Regular.ttf',
+  './assets/hoops/ui/arena-poster.jpg',
+  './js/games/hoops/shot-model.js',
   './js/games/hoops/stats.js',
   './js/games/hoops/playbook.js',
   './js/games/hoops/playbook-mode.js',
   './js/games/hoops/court3d.js',
   './js/games/hoops/arena3d.js',
+  './js/games/hoops/arena-architecture.js',
   './js/games/hoops/courtdesign.js',
   './js/games/hoops/hoop3d.js',
   './js/games/hoops/athlete3d.js',
+  './assets/hoops/athlete-arena.glb',
+  './assets/hoops/athlete-faces.glb',
+  './assets/hoops/skin-micro.png',
+  './assets/hoops/crowd-head.glb',
+  './assets/hoops/basketball-actions.glb',
+  './assets/hoops/jump-shot.glb',
   './js/vendor/three/three.core.min.js',
   './js/vendor/three/three.module.min.js',
   './js/vendor/three/addons/GLTFLoader.js',

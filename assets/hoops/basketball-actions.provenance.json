@@ -1,0 +1,32 @@
+{
+  "source_sha256": "0d4cd3774827a9c84338f86406016882471bf64e12e731d4eae4528a80b85940",
+  "output_sha256": "90406f46c50330edb779e45813862c8cf3222257572a37344c894d63700470d8",
+  "script_sha256": "47da99e63272a96431eaf67821586ea720974ff2d8d1707fad8bfb1d8e693b5e",
+  "duration_s": 1.25,
+  "fps": 60,
+  "license": "CC0-1.0",
+  "quality": "UNVERIFIED",
+  "motion": "Original keyframes and two-bone solves; not extracted NBA motion",
+  "sole_bind_min": {
+    "r": -0.16310633718967438,
+    "l": -0.166624516248703
+  },
+  "source_asset_id": "blender-human-base-meshes:3c121505651140ce",
+  "source_license": "CC0-1.0",
+  "source_canonical_path": "/srv/media-vault/datasets/universal-media-asset-library-v1/assets/models/blender-human-base-meshes/811f43accbb31a88/members/human-base-meshes-bundle-v1.4.1/human_base_meshes_bundle.blend",
+  "parent_canonical_path": "/srv/ai-data/media-work/projects/caesar-hoops-20261010/athlete-neck-blend.glb",
+  "derivative_canonical_worker": "/srv/ai-data/media-work/projects/caesar-hoops-20261011/layup-study/layup-v5.glb",
+  "builder": "tools/blender/build_basketball_actions.py",
+  "output_bytes": 83484,
+  "package": "Animation-only GLB; tiny carrier is discarded at runtime, existing actor geometry unchanged",
+  "purpose": "Original project-specific layup; not a promoted global asset and not extracted NBA footage",
+  "reference": "https://jr.nba.com/basketball-practice-plans/rookie/page/4/",
+  "reference_scope": "Official step order plus authored timing; complete reference motion cycle not observed",
+  "owner_verdict": "PENDING",
+  "checked_at": "2026-10-11",
+  "takeoff_phase": 0.35,
+  "landing_phase": 0.85,
+  "landing_compression_ft": 0.35,
+  "end_compression_ft": 0.25,
+  "root_motion": "Continuous authored ballistic rise/fall with Hermite push and landing compression"
+}

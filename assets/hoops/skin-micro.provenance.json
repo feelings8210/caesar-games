@@ -1,0 +1,30 @@
+{
+  "source_sha256": "03947d566743beed2fe2357be32a1c3d195ab293d000c910d351e436daa17733",
+  "output_sha256": "fe18176b6d779904fd3a395980f2a3d11894c7da022fd78a5c63b850fe6d43a0",
+  "script_sha256": "5b5f814206886a3eeaa1c51036a4ee4680db7190c0609f751a9931c1d9bd1395",
+  "size": [
+    512,
+    512
+  ],
+  "min": 0.21176472306251526,
+  "max": 1.0,
+  "mean": 0.4997490382044134,
+  "crop_pixels": [
+    2400,
+    700,
+    768,
+    768
+  ],
+  "method": "Blender CPU compositor, observed hair-free patch, grayscale minus Gaussian9, gain2.5+0.5 Raw data output",
+  "license": "CC0-1.0",
+  "quality": "UNVERIFIED",
+  "calibration": "Authored micro-height contrast, not measured skin normals or physical scale",
+  "asset_id": "wikimedia-commons-pd:03947d566743beed",
+  "canonical_path": "/srv/ai-data/media-work/asset-library/assets/wikimedia-commons-pd/03/Image_skin_texture_Pixnio_CC0.jpg",
+  "evidence": "/srv/ai-data/media-work/asset-library/licenses/commons-skin-20261011.json",
+  "source_page": "https://commons.wikimedia.org/wiki/File:Image_skin_texture.jpg",
+  "repository_builder": "tools/blender/build_skin_micro.py",
+  "derivative_canonical_worker": "/srv/ai-data/media-work/projects/caesar-hoops-20261011/skin-material-study/skin-micro-v2.png",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "owner_verdict": "PENDING"
+}

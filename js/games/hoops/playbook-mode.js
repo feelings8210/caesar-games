@@ -17,6 +17,18 @@ const L = obj => (obj ? obj[getLocale()] ?? obj.en : '');
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
+// Allow time to read the step text across the diagram and its animation.
+// This is a starting pace, not a measurement of any particular reader.
+export function autoReadDelay(step, locale) {
+  const text = step.say[locale] || step.say.en || '';
+  const units = locale === 'zh'
+    ? (text.match(/[\p{Script=Han}\p{N}]/gu) || []).length
+    : (text.match(/[\p{L}\p{N}]+/gu) || []).length;
+  const readingMs = Math.max(2000, Math.min(18000, units * (locale === 'zh' ? 250 : 400) + 500));
+  const actionMs = step.beats.reduce((sum, beat) => sum + beat.ms, 0);
+  return Math.max(900, readingMs - actionMs);
+}
+
 function readBest() {
   try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { return {}; }
 }
@@ -32,6 +44,7 @@ export class PlaybookMode {
     this.step = 0;
     this.best = readBest();
     this.token = 0;
+    this.autoRun = 0;
     this.el = document.createElement('div');
     this.el.className = 'hp-pb';
     this.el.innerHTML = `
@@ -106,15 +119,16 @@ export class PlaybookMode {
   async open(id) {
     const g = this.game;
     this.play = PLAYS.find(p => p.id === id);
-    g.flow++;
+    const flow = ++g.flow;
     await g._ensureCourt();
+    if (flow !== g.flow) return;
     this._bind();
     g.mode = 'playbook';
     g.current = null;
     g.view = 'play';
     g.phase = 'pb';
     g.$('.hp-banner').className = 'hp-banner';
-    sfx.preload().then(() => { if (g.view === 'play') sfx.startCrowd(() => g.courtOnScreen()); });
+    sfx.preload().then(() => { if (flow === g.flow && g.courtOnScreen()) sfx.startCrowd(() => g.courtOnScreen()); });
     this.startWatch();
   }
 
@@ -181,16 +195,20 @@ export class PlaybookMode {
   }
 
   async toggleAuto() {
-    if (this.auto) { this.auto = false; this.game.render(); return; }
+    if (this.auto) { this.auto = false; this.autoRun++; this.game.render(); return; }
     if (this.step >= this.play.steps.length) this.startWatch();
     this.auto = true;
     const token = this.token;
+    const run = ++this.autoRun;
     this.game.render();
-    while (this.auto && token === this.token && this.step < this.play.steps.length) {
-      await wait(900);
-      if (!this.auto || token !== this.token) return;
+    while (this.auto && token === this.token && run === this.autoRun && this.step < this.play.steps.length) {
+      const step = this.step;
+      await wait(autoReadDelay(this.play.steps[step], getLocale()));
+      if (!this.auto || token !== this.token || run !== this.autoRun) return;
+      if (step !== this.step || this.busy) continue;
       await this.next();
     }
+    if (token !== this.token || run !== this.autoRun) return;
     this.auto = false;
     this.game.render();
   }
@@ -271,7 +289,6 @@ export class PlaybookMode {
     this.tries++;
     sounds.invalid();
     this.feedback = t(this.tries >= 2 ? 'hoops.pb.hint' : 'hoops.pb.wrong');
-    if (this.tries === 2) this.score.total++;      // counted once, as a miss
     if (this.tries <= 2) sfx.voice(this.tries === 1 ? drawVoice('pbWrong') : 'pb_hint', getLocale());
     if (this.tries >= 2) {
       const pos = this.court.pos[this.role];
@@ -290,7 +307,10 @@ export class PlaybookMode {
     if (this.stars > (this.best[this.play.id] || 0)) { this.best[this.play.id] = this.stars; saveBest(this.best); }
     this.done = true;
     this.waiting = false;
-    for (let s = 0; s < this.stars; s++) setTimeout(() => sfx.star(s), 200 * (s + 1));
+    const token = this.token;
+    for (let s = 0; s < this.stars; s++) setTimeout(() => {
+      if (token === this.token && this.game.courtOnScreen()) sfx.star(s);
+    }, 200 * (s + 1));
     if (this.stars === 3) sfx.cheer(0.7);
     sfx.voice(first === total ? 'pb_done_3' : 'pb_done', getLocale());
     this.game.render();

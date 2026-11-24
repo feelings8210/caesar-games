@@ -1,0 +1,19 @@
+{
+  "source_asset_id": "blender-human-base-meshes:3c121505651140ce",
+  "source_sha256": "3c121505651140ceb4d69fd1d8923f7788ffadd81672f5be14845a5f2c75c137",
+  "source_url": "https://download.blender.org/demo/asset-bundles/human-base-meshes/human-base-meshes-bundle-v1.4.1.zip",
+  "source_canonical_path": "/srv/media-vault/datasets/universal-media-asset-library-v1/assets/models/blender-human-base-meshes/811f43accbb31a88/members/human-base-meshes-bundle-v1.4.1/human_base_meshes_bundle.blend",
+  "license": "CC0-1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "parent_sha256": "0d4cd3774827a9c84338f86406016882471bf64e12e731d4eae4528a80b85940",
+  "output_sha256": "2693cfedeed915eb577bc81f8a6eb138f313da24249cae184bf6bedad26cb8e8",
+  "output_bytes": 9808,
+  "builder": "tools/blender/build_crowd_head.py",
+  "build_script_sha256": "b3fe50a8709762d2b3bf67d2556984a90ab91babfc73ca14f27a2a5f758cc942",
+  "derivative_canonical_worker": "/srv/ai-data/media-work/projects/caesar-hoops-20261011/crowd-head/crowd-head-study.glb",
+  "purpose": "Project-specific front-row audience study, not a promoted global reusable asset",
+  "quality": "UNVERIFIED",
+  "owner_verdict": "PENDING",
+  "checked_at": "2026-10-11",
+  "review": "Three-angle silhouette observed; only first row uses anatomical head. Low tier retains sphere heads. Source is not an NBA player scan."
+}

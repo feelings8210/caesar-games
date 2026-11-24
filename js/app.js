@@ -587,7 +587,9 @@ export class App {
     if (st !== S.GAME_END && st !== S.OPEN_END) $('#game-end').classList.remove('is-open');
 
     // Screens
-    $$('.screen').forEach(el => el.classList.toggle('is-active', el.dataset.screen === this.screenFor(st)));
+    const screen = this.screenFor(st);
+    $$('.screen').forEach(el => el.classList.toggle('is-active', el.dataset.screen === screen));
+    document.body.dataset.screen = screen;   // home + Hoops wear the dark arena theme (css/theme-arena.css)
 
     // Dialogs
     const dialog = this.dialogFor(st);
@@ -1480,7 +1482,7 @@ function boot() {
   document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
   window.caesarApp = new App();
   window.CaesarDebug = { S, MODES, PIECE_TYPES };
-  console.log(`[Caesar Games] ${BUILD.version} ready`);
+  console.log(`[CD Games] ${BUILD.version} ready`);
 
   // Visual-audit hook. Only ever active with an explicit ?state= parameter,
   // so it costs nothing in normal use but keeps screenshot review repeatable.

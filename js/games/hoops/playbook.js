@@ -11,6 +11,10 @@
  *
  * Court feet as everywhere in Hoops IQ; inbounders stand just off the floor
  * (y < 0 on the baseline, |x| > 25 on the sideline).
+ *
+ * Optional beat `cue` (director's cue sheet for narrated video): a phrase that
+ * appears verbatim in the step's narration. A narrated recording starts that
+ * beat when the phrase is spoken. The game itself ignores cues.
  */
 
 const T = (zh, en) => ({ zh, en });
@@ -65,6 +69,37 @@ export const PLAYS = [
         beats: [{ ms: 550, pass: 'o5', move: { o5: [1, 7] } }] },
       { say: T('5 号上篮。如果篮下被补防，底角的 2、3 号就是下一个选择。', '#5 finishes. If help comes, the corners — #2 and #3 — are next.'),
         beats: [{ ms: 600, shot: 'make', move: { o5: [0.5, 6] } }] }
+    ]
+  },
+
+  /* ---------------------------------------------------------------- */
+  {
+    id: 'horns-pop',
+    category: 'offense',
+    title: T('牛角：挡拆外弹', 'Horns: pick and pop'),
+    sub: T('同样的牛角站位，掩护人外弹接球投篮。', 'The same horns set, with the screener popping out for a shot.'),
+    side: 'o',
+    setup: { o1: [0, 28], o4: [-8, 19], o5: [8, 19], o2: [-22, 4], o3: [22, 4], ball: 'o1' },
+    steps: [
+      { say: T('先看牛角站位：四号和五号分列罚球线两侧，两名射手站在底线两端，为中间的进攻留出空间。', 'Horns alignment: #4 and #5 at the elbows, with shooters in the corners.'), beats: [{ ms: 700 }] },
+      { say: T('五号上前，站稳掩护；一号借着掩护向右运球。', '#5 steps up and sets a stationary screen; #1 dribbles right off it.'), beats: [{ ms: 700, move: { o5: [3, 25] }, screen: 'o5', call: ['o5', SCREEN] }, { ms: 1000, move: { o1: [[5, 27], [11, 21]] }, cue: T('一号借着掩护', '#1 dribbles right') }] },
+      { say: T('接下来，五号没有冲向篮下，而是退到外线，为接球创造机会。', 'This time #5 pops out instead of rolling, giving the ball handler a passing angle.'), beats: [{ ms: 900, move: { o5: [2, 28], o4: [-11, 18] }, cue: T('而是退到外线', 'pops out') }] },
+      { say: T('如果防守队员向内收缩，五号出现空位，一号就可以回传，让五号接球投篮。', 'If the defense collapses, #1 passes back to the open #5 for a shot.'), beats: [{ ms: 650, pass: 'o5', cue: T('一号就可以回传', '#1 passes back') }, { ms: 800, shot: 'make', cue: T('让五号接球投篮', 'for a shot') }] }
+    ]
+  },
+
+  /* ---------------------------------------------------------------- */
+  {
+    id: 'elevator-shooter',
+    category: 'offense',
+    title: T('电梯门：射手接球', 'Elevator: free the shooter'),
+    sub: T('射手穿过通道，两名掩护人随后合拢站稳。', 'The shooter cuts through a gap, then the screeners close and set their feet.'),
+    side: 'o',
+    setup: { o1: [17, 21], o2: [0, 6], o3: [-22, 4], o4: [-3, 18], o5: [3, 18], ball: 'o1' },
+    steps: [
+      { say: T('一号持球，二号在篮下准备跑动；四号和五号在罚球线附近站稳，留出通道。', '#1 has the ball. #2 starts under the basket; #4 and #5 set their feet with a lane between them.'), beats: [{ ms: 700, screen: ['o4', 'o5'] }] },
+      { say: T('二号从通道跑向弧顶；经过后，四号和五号合拢并站稳。', '#2 cuts through to the top; once the shooter has passed, #4 and #5 close the gap and set their feet.'), beats: [{ ms: 1200, move: { o2: [[0, 15], [0, 25]] } }, { ms: 600, move: { o4: [-1.6, 18], o5: [1.6, 18] }, screen: ['o4', 'o5'], cue: T('四号和五号合拢', '#4 and #5 close the gap') }] },
+      { say: T('二号接球投篮。这是无防守演示；实战中掩护人要给防守人避让空间，不能移动撞人。', '#2 catches and shoots. This is an unguarded demonstration; in a game, allow defenders room to avoid contact and never screen while moving into them.'), beats: [{ ms: 600, pass: 'o2' }, { ms: 800, shot: 'make' }] }
     ]
   },
 

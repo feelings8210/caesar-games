@@ -47,7 +47,15 @@ const voiceCache = new Map();    // url -> Promise<AudioBuffer|null>
 let preloading = null;
 let crowd = null;                // { src, gain }
 let voiceNow = null;
+let voiceGeneration = 0;
+let courtPosition = null;
+const trainingSound = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('hoopsSound') === 'training';
+const legacySound = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('hoopsSound') === 'legacy';
+const POSITIONED = new Set(['dribble', 'pass', 'catch', 'swish', 'rim', 'block', 'backboard', 'squeak']);
 const lastPick = {};
+if (typeof window !== 'undefined') window.addEventListener('caesar-mute', e => {
+  if (e.detail.muted) stopVoice();
+});
 
 function ready(cue) {
   const ctx = sounds._ready(`hoops.${cue}`);
@@ -64,7 +72,8 @@ function buildBus(ctx) {
   muffle.frequency.value = 20000;
   muffle.Q.value = 0.5;
   out.connect(muffle);
-  muffle.connect(sounds.master);
+  const courtMix=ctx.createGain();courtMix.gain.value=1;
+  muffle.connect(courtMix);courtMix.connect(sounds.master);
   const voice = ctx.createGain();
   voice.gain.value = 1.15;
   voice.connect(sounds.master);
@@ -75,7 +84,9 @@ function buildBus(ctx) {
   const ir = ctx.createBuffer(2, len, ctx.sampleRate);
   for (let ch = 0; ch < 2; ch++) {
     const d = ir.getChannelData(ch);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3.2;
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3.2 * (legacySound?1:.018);
+    if(!legacySound)for(const [delay,level] of [[.021,.65],[.038,.43],[.059,.31],[.083,.22],[.112,.13]])
+      d[Math.floor((delay+ch*.003)*ctx.sampleRate)]+=level;
   }
   const verb = ctx.createConvolver();
   verb.buffer = ir;
@@ -83,9 +94,9 @@ function buildBus(ctx) {
   tone.type = 'lowpass';
   tone.frequency.value = 4200;
   const wet = ctx.createGain();
-  wet.gain.value = 0.2;
-  muffle.connect(verb); verb.connect(tone); tone.connect(wet); wet.connect(sounds.master);
-  return { ctx, out, muffle, voice };
+  wet.gain.value = trainingSound ? 0.12 : 0.2;
+  muffle.connect(verb); verb.connect(tone); tone.connect(wet); wet.connect(courtMix);
+  return { ctx, out, muffle, voice, courtMix };
 }
 
 const vary = (v, amt = 0.06) => v * (1 + (Math.random() * 2 - 1) * amt);
@@ -146,8 +157,14 @@ function sample(ctx, name, gain = 0.7, rate = 1) {
   src.buffer = list[i];
   src.playbackRate.value = rate * (1 + (Math.random() * 2 - 1) * 0.035);
   const g = ctx.createGain();
-  g.gain.value = gain;
-  src.connect(g); g.connect(bus.out);
+  g.gain.value = gain * (courtPosition && POSITIONED.has(name) ? courtPosition.level : 1);
+  src.connect(g);
+  let pan = null;
+  if (courtPosition && POSITIONED.has(name) && ctx.createStereoPanner) {
+    pan = ctx.createStereoPanner(); pan.pan.value = courtPosition.pan;
+    g.connect(pan); pan.connect(bus.out);
+  } else g.connect(bus.out);
+  src.onended = () => { src.disconnect(); g.disconnect(); pan?.disconnect(); };
   src.start();
   return true;
 }
@@ -171,18 +188,30 @@ export function setVoiceEnabled(on) {
 }
 
 export function stopVoice() {
+  voiceGeneration++;
   try { voiceNow?.stop(); } catch { /* already ended */ }
   voiceNow = null;
+  setCourtMix(1,.18);
+}
+
+function setCourtMix(level,seconds=.15) {
+  if(!bus?.courtMix||legacySound)return;
+  const gain=bus.courtMix.gain,now=bus.ctx.currentTime;
+  gain.cancelScheduledValues(now);gain.setTargetAtTime(level,now,seconds/3);
 }
 
 function setCrowdLevel(level, seconds = 0.4) {
   if (!crowd || !bus) return;
   const now = bus.ctx.currentTime;
   crowd.gain.gain.cancelScheduledValues(now);
-  crowd.gain.gain.setTargetAtTime(sounds.isMuted ? 0 : level, now, seconds / 3);
+  crowd.gain.gain.setTargetAtTime(sounds.isMuted ? 0 : level * (trainingSound ? .18 : 1), now, seconds / 3);
 }
 
 export const hoopsAudio = {
+  /** Mild screen-relative placement, preserving clarity on tablet speakers. */
+  setCourtPosition(pan, depth, enabled = true) {
+    courtPosition = enabled ? { pan: Math.max(-.55, Math.min(.55, pan * .55)), level: Math.max(.7, 1 - Math.max(0, depth - 8) / 140) } : null;
+  },
   /** Load every recorded cue once; synthesized cues cover the gap until then. */
   preload() {
     if (preloading) return preloading;
@@ -253,18 +282,21 @@ export const hoopsAudio = {
     if (!id || !voiceEnabled()) return;
     const ctx = ready(`voice.${id}`);
     if (!ctx) return;
+    // A newer request, mute or leaving the court invalidates an unfinished load.
+    stopVoice();
+    const generation = voiceGeneration;
     const url = `${MEDIA}voice/${locale === 'zh' ? 'zh' : 'en'}/${id}.mp3`;
     if (!voiceCache.has(url)) voiceCache.set(url, fetchBuffer(ctx, url));
     const buf = await voiceCache.get(url);
-    if (!buf || sounds.isMuted || !voiceEnabled()) return;
-    stopVoice();
+    if (!buf || generation !== voiceGeneration || ctx !== sounds.ctx || sounds.isMuted || !voiceEnabled()) return;
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.connect(bus.voice);
     voiceNow = src;
+    setCourtMix(.55,.09);
     setCrowdLevel(0.05, 0.2);
-    await new Promise(res => { src.onended = res; src.start(); });
-    if (voiceNow === src) { voiceNow = null; setCrowdLevel(0.16, 0.6); }
+    await new Promise(res => { src.onended = () => { src.disconnect(); res(); }; src.start(); });
+    if (voiceNow === src) { voiceNow = null; setCourtMix(1,.35); setCrowdLevel(0.16, 0.6); }
   },
 
   /** Leather on hardwood: a low pitched thump with a small slap on top. */
@@ -278,19 +310,19 @@ export const hoopsAudio = {
   },
 
   /** Rubber on a clean floor — a fast chirp with a bright edge. */
-  squeak() {
+  squeak(level = 1) {
     const ctx = ready('squeak'); if (!ctx) return;
-    if (sample(ctx, 'squeak', 0.45)) return;
+    if (sample(ctx, 'squeak', 0.45*level)) return;
     const t = ctx.currentTime;
     const f = vary(1650, .12);
-    const osc = tone(ctx, t, { type: 'triangle', freq: f, to: f * 1.45, gain: 0.045, attack: 0.02, decay: 0.11 });
+    const osc = tone(ctx, t, { type: 'triangle', freq: f, to: f * 1.45, gain: 0.045*level, attack: 0.02, decay: 0.11 });
     const lfo = ctx.createOscillator();
     const depth = ctx.createGain();
     lfo.frequency.value = vary(55, .2);
     depth.gain.value = 180;
     lfo.connect(depth); depth.connect(osc.frequency);
     lfo.start(t); lfo.stop(t + 0.16);
-    noise(ctx, t, { freq: 3200, q: 7, gain: 0.05, attack: 0.02, decay: 0.1 });
+    noise(ctx, t, { freq: 3200, q: 7, gain: 0.05*level, attack: 0.02, decay: 0.1 });
   },
 
   pass() {
@@ -370,6 +402,7 @@ export const hoopsAudio = {
 
   /** A crowd rising: three vowel bands, scattered applause, a few shouts. */
   cheer(size = 1) {
+    if (trainingSound) size *= .65;
     const ctx = ready('cheer'); if (!ctx) return;
     if (sample(ctx, 'cheer', 0.55 * size)) return;
     const t = ctx.currentTime;
@@ -389,7 +422,7 @@ export const hoopsAudio = {
 
   groan() {
     const ctx = ready('groan'); if (!ctx) return;
-    if (sample(ctx, 'groan', 0.55)) return;
+    if (sample(ctx, 'groan', trainingSound ? .36 : .55)) return;
     const t = ctx.currentTime;
     noise(ctx, t, { freq: 560, to: 300, q: 1.1, gain: 0.07, attack: 0.18, hold: 0.2, decay: 0.8 });
     tone(ctx, t, { type: 'sawtooth', freq: 170, to: 118, gain: 0.014, attack: 0.15, hold: 0.2, decay: 0.7, filter: 700 });

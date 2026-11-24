@@ -1,0 +1,26 @@
+{
+  "source_sha256": "0d4cd3774827a9c84338f86406016882471bf64e12e731d4eae4528a80b85940",
+  "output_sha256": "082b2e38946e80d51caaf61534b0f977acf402056486c3bc920f1455227900d3",
+  "script_sha256": "5847f6bd9b4169e934f0de7d6d87d96caf0d092e0661f8ad4430b28fda15e55f",
+  "duration_s": 1.3,
+  "fps": 60,
+  "release_phase": 0.48,
+  "takeoff_phase": 0.275,
+  "landing_phase": 0.685,
+  "license": "CC0-1.0",
+  "quality": "UNVERIFIED",
+  "motion": "Original jump-shot curves on approved rig, not measured or extracted NBA motion",
+  "sole_bind_min": {
+    "r": -0.16310633718967438,
+    "l": -0.166624516248703
+  },
+  "source_asset_id": "blender-human-base-meshes:3c121505651140ce",
+  "source_license": "CC0-1.0",
+  "source_canonical_path": "/srv/media-vault/datasets/universal-media-asset-library-v1/assets/models/blender-human-base-meshes/811f43accbb31a88/members/human-base-meshes-bundle-v1.4.1/human_base_meshes_bundle.blend",
+  "parent_canonical_path": "/srv/ai-data/media-work/projects/caesar-hoops-20261010/athlete-neck-blend.glb",
+  "derivative_canonical_worker": "/srv/ai-data/media-work/projects/caesar-hoops-20261011/jump-study/jump-v1.glb",
+  "builder": "tools/blender/build_jump_shot.py",
+  "output_bytes": 84112,
+  "owner_verdict": "PENDING",
+  "checked_at": "2026-10-11"
+}

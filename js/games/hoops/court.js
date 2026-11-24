@@ -73,7 +73,7 @@ export class CourtView extends BeatRunner {
   _drawCourt() {
     const g = this.gCourt;
     el('rect', { x: -27.5, y: -4, width: 55, height: 53.5, rx: 1.4, fill: '#1B3358' }, g);
-    el('text', { x: 0, y: -1.7, class: 'hc-apron-text', 'text-anchor': 'middle' }, g).textContent = 'CAESAR GAMES · HOOPS IQ';
+    el('text', { x: 0, y: -1.7, class: 'hc-apron-text', 'text-anchor': 'middle' }, g).textContent = 'CD GAMES · HOOPS IQ';
     el('rect', { x: -25, y: 0, width: 50, height: 47, fill: 'url(#hc-wood)' }, g);
     el('rect', { x: -25, y: 0, width: 50, height: 47, fill: 'url(#hc-glow)' }, g);
 
@@ -166,6 +166,16 @@ export class CourtView extends BeatRunner {
   }
 
   setYouLabel(s) { if (this.youLabel) this.youLabel.textContent = s; }
+
+  /** Hand control to another player mid-play; positions and the ball stay. */
+  setYou(id) {
+    if (id === this.you || !this.pos[id]) return;
+    const snap = this.snapshot();
+    const label = this.youLabel?.textContent || '';
+    this.setScene({ ...snap.pos, ball: snap.ball.holder, ballAt: snap.ball.at }, id);
+    this.restoreState(snap);
+    this.setYouLabel(label);
+  }
 
   restore(snap) {
     this.gTrails.textContent = '';
@@ -282,7 +292,7 @@ export class CourtView extends BeatRunner {
       } else if (opt.kind === 'shoot') {
         el('circle', { cx: at[0], cy: at[1], r: 2.1, class: 'hc-target-ring' }, g);
         el('circle', { cx: at[0], cy: at[1], r: 3.2, class: 'hc-hit' }, g);
-        this._label(g, [at[0], at[1] + 3.3], opt.label);
+        this._label(g, [at[0], at[1] - 3.3], opt.label);
       } else {
         const mid = [(from[0] + at[0]) / 2, (from[1] + at[1]) / 2];
         const len = dist(from, at);
@@ -363,10 +373,6 @@ export class CourtView extends BeatRunner {
 
   /** Nearest option to a tap (or a drag release), or -1. */
   pickTarget(clientX, clientY, drag = false) {
-    if (!drag) {
-      const hit = document.elementFromPoint(clientX, clientY)?.closest?.('.hc-target');
-      if (hit && this.svg.contains(hit)) return Number(hit.dataset.opt);
-    }
     const pt = this.toCourt(clientX, clientY);
     let best = -1;
     let bestD = Infinity;
@@ -376,7 +382,11 @@ export class CourtView extends BeatRunner {
       const d = dist(pt, at);
       if (d < bestD) { bestD = d; best = i; }
     });
-    return bestD <= (drag ? 4.5 : 3.4) ? best : -1;
+    // A target's centre remains usable even when a neighbouring label covers it.
+    if (bestD <= 1.35 || drag) return bestD <= (drag ? 4.5 : 3.4) ? best : -1;
+    const hit = document.elementFromPoint(clientX, clientY)?.closest?.('.hc-target');
+    if (hit && this.svg.contains(hit)) return Number(hit.dataset.opt);
+    return bestD <= 3.4 ? best : -1;
   }
 
   targetClientPoint(i) {

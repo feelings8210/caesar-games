@@ -1,0 +1,156 @@
+{
+  "source_sha256": "0d4cd3774827a9c84338f86406016882471bf64e12e731d4eae4528a80b85940",
+  "output_sha256": "8c15aeaaf5c1b575cc0e4915697d53c547aaf47e1c093ef271939cbee810ab86",
+  "builder_sha256": "091a0ba96364129bf5d7c1c6b5d94c952db7c36a3b3f994ac9ceeea4e0b5405a",
+  "polygons": {
+    "Seated0_Skin": 731,
+    "SeatedLow0_Skin": 218,
+    "Seated0_Face": 1301,
+    "SeatedLow0_Face": 753,
+    "Seated0_EyeSclera": 110,
+    "SeatedLow0_EyeSclera": 33,
+    "Seated0_EyeIris": 62,
+    "SeatedLow0_EyeIris": 18,
+    "Seated0_EyePupil": 4,
+    "SeatedLow0_EyePupil": 1,
+    "Seated0_Hair": 196,
+    "SeatedLow0_Hair": 58,
+    "Seated0_Jersey": 1634,
+    "SeatedLow0_Jersey": 1013,
+    "Seated0_Shorts": 320,
+    "SeatedLow0_Shorts": 127,
+    "Seated0_Shoe": 146,
+    "SeatedLow0_Shoe": 124,
+    "Seated1_Skin": 733,
+    "SeatedLow1_Skin": 219,
+    "Seated1_Face": 1300,
+    "SeatedLow1_Face": 754,
+    "Seated1_EyeSclera": 109,
+    "SeatedLow1_EyeSclera": 31,
+    "Seated1_EyeIris": 62,
+    "SeatedLow1_EyeIris": 18,
+    "Seated1_EyePupil": 4,
+    "SeatedLow1_EyePupil": 1,
+    "Seated1_Hair": 196,
+    "SeatedLow1_Hair": 58,
+    "Seated1_Jersey": 1650,
+    "SeatedLow1_Jersey": 1015,
+    "Seated1_Shorts": 314,
+    "SeatedLow1_Shorts": 121,
+    "Seated1_Shoe": 146,
+    "SeatedLow1_Shoe": 124,
+    "Seated2_Skin": 728,
+    "SeatedLow2_Skin": 217,
+    "Seated2_Face": 1301,
+    "SeatedLow2_Face": 754,
+    "Seated2_EyeSclera": 109,
+    "SeatedLow2_EyeSclera": 32,
+    "Seated2_EyeIris": 62,
+    "SeatedLow2_EyeIris": 18,
+    "Seated2_EyePupil": 4,
+    "SeatedLow2_EyePupil": 1,
+    "Seated2_Hair": 196,
+    "SeatedLow2_Hair": 58,
+    "Seated2_Jersey": 1628,
+    "SeatedLow2_Jersey": 1005,
+    "Seated2_Shorts": 319,
+    "SeatedLow2_Shorts": 122,
+    "Seated2_Shoe": 146,
+    "SeatedLow2_Shoe": 124
+  },
+  "license": "CC0-1.0",
+  "quality": "UNVERIFIED",
+  "contacts": [
+    {
+      "pose": 0,
+      "shoe_sole_z": 0.035,
+      "foot_bones": [
+        [
+          0.4300000071525574,
+          -1.5499999523162842,
+          0.28999996185302734
+        ],
+        [
+          -0.43000003695487976,
+          -1.5499999523162842,
+          0.28999996185302734
+        ]
+      ]
+    },
+    {
+      "pose": 1,
+      "shoe_sole_z": 0.035,
+      "foot_bones": [
+        [
+          0.47999998927116394,
+          -1.6699998378753662,
+          0.2900001108646393
+        ],
+        [
+          -0.47999998927116394,
+          -1.6699998378753662,
+          0.28999990224838257
+        ]
+      ]
+    },
+    {
+      "pose": 2,
+      "shoe_sole_z": 0.035,
+      "foot_bones": [
+        [
+          0.5299999713897705,
+          -1.7899999618530273,
+          0.28999999165534973
+        ],
+        [
+          -0.5299999713897705,
+          -1.7899998426437378,
+          0.2899998724460602
+        ]
+      ]
+    }
+  ],
+  "clearances": [
+    {
+      "mesh": "Seated0_Jersey",
+      "tested": 125,
+      "penetrating_before_fit": 2
+    },
+    {
+      "mesh": "SeatedLow0_Jersey",
+      "tested": 83,
+      "penetrating_before_fit": 0
+    },
+    {
+      "mesh": "Seated1_Jersey",
+      "tested": 138,
+      "penetrating_before_fit": 0
+    },
+    {
+      "mesh": "SeatedLow1_Jersey",
+      "tested": 92,
+      "penetrating_before_fit": 0
+    },
+    {
+      "mesh": "Seated2_Jersey",
+      "tested": 124,
+      "penetrating_before_fit": 5
+    },
+    {
+      "mesh": "SeatedLow2_Jersey",
+      "tested": 83,
+      "penetrating_before_fit": 2
+    }
+  ],
+  "method": "Connected sleeves fitted after pose evaluation; original trousers and flat shoes; static drape, not cloth simulation",
+  "source_asset_id": "blender-human-base-meshes:3c121505651140ce",
+  "source_canonical_path": "/srv/media-vault/datasets/universal-media-asset-library-v1/assets/models/blender-human-base-meshes/811f43accbb31a88/members/human-base-meshes-bundle-v1.4.1/human_base_meshes_bundle.blend",
+  "parent_canonical_path": "/srv/ai-data/media-work/projects/caesar-hoops-20261010/athlete-neck-blend.glb",
+  "derivative_canonical_worker": "/srv/ai-data/media-work/projects/caesar-hoops-20261011/crowd-clothing-study/casual-audience-v9.glb",
+  "builder": "tools/blender/build_casual_audience.py",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "owner_verdict": "PENDING",
+  "checked_at": "2026-10-11",
+  "purpose": "Project-specific original game derivative, not a globally promoted reusable model",
+  "output_bytes": 619032
+}

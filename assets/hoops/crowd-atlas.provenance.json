@@ -1,0 +1,44 @@
+{
+  "source_sha256": "8c15aeaaf5c1b575cc0e4915697d53c547aaf47e1c093ef271939cbee810ab86",
+  "builder_sha256": "48754803e4b3ca11acaa91e192d5239be7824b9bf23b2f619ba23601b8a4b073",
+  "output_sha256": "23936594af613fd2dacfc593ebd91311256cfc7b7247b452278a45633933f926",
+  "tile": 128,
+  "cols": 8,
+  "rows": 12,
+  "styles": 6,
+  "yaw_degrees": [
+    0,
+    45,
+    90,
+    135,
+    180,
+    225,
+    270,
+    315
+  ],
+  "pitch_degrees": [
+    12,
+    30
+  ],
+  "orthographic_size_ft": 6.4,
+  "centre_blender": [
+    0.0,
+    -0.6499999761581421,
+    2.5
+  ],
+  "license": "CC0-1.0",
+  "quality": "UNVERIFIED",
+  "source_asset_id": "blender-human-base-meshes:3c121505651140ce",
+  "source_canonical_path": "/srv/media-vault/datasets/universal-media-asset-library-v1/assets/models/blender-human-base-meshes/811f43accbb31a88/members/human-base-meshes-bundle-v1.4.1/human_base_meshes_bundle.blend",
+  "parent_canonical_path": "/srv/ai-data/media-work/projects/caesar-hoops-20261011/crowd-clothing-study/casual-audience-v9.glb",
+  "derivative_canonical_worker": "/srv/ai-data/media-work/projects/caesar-hoops-20261011/crowd-atlas-v2/crowd-atlas.png",
+  "builder": "tools/blender/render_crowd_atlas.py",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "commercial_use": true,
+  "modification_allowed": true,
+  "redistribution_allowed": true,
+  "owner_verdict": "PENDING",
+  "checked_at": "2026-10-11",
+  "purpose": "Project-specific native render; not automatically promoted to global reusable library",
+  "limitations": "Static six looks; eight discrete yaw views and two pitch views; unsuitable for close spectator portraits; no motion capture or new spectators source"
+}

@@ -7,6 +7,7 @@
  * browser binary.
  */
 import fs from 'node:fs';
+import assert from 'node:assert/strict';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -22,22 +23,29 @@ fs.mkdirSync(outDir, { recursive: true });
 const server = spawn('python3', ['-m', 'http.server', String(port), '--bind', '127.0.0.1'], { stdio: 'ignore' });
 const errors = [];
 const report = { levels: [] };
+let browser;
 
 try {
   for (let i = 0; i < 50; i++) {
     try { if ((await fetch(origin)).ok) break; } catch { /* booting */ }
     await new Promise(r => setTimeout(r, 100));
   }
-  const browser = await chromium.launch({
+  browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || undefined,
-    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist']
+    // Suppress host speaker output during unattended tests; Web Audio still
+    // runs so sound events and internal capture can be checked separately.
+    args: ['--mute-audio', ...(process.env.HOOPS_HARDWARE ? [] : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'])]
   });
   const page = await browser.newPage({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: Number(process.env.DSF || 1) });
   page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
   page.on('console', m => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
+  await page.addInitScript(() => {
+    window.__cues = [];
+    window.addEventListener('caesar-sound', e => { if (e.detail.played) window.__cues.push(e.detail.cue); });
+  });
 
   const decide = Number(process.env.HOOPS_DECIDE || 90);
-  await page.goto(`${origin}/?hoopsDecide=${decide}${process.env.HOOPS_2D ? '&hoops2d=1' : ''}`);
+  await page.goto(`${origin}/?hoopsDecide=${decide}${process.env.HOOPS_2D ? '&hoops2d=1' : ''}${process.env.HOOPS_LOOK ? `&hoopsLook=${encodeURIComponent(process.env.HOOPS_LOOK)}` : ''}`);
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.screenshot({ path: `${outDir}/00-home.png` });
@@ -85,6 +93,7 @@ try {
     await page.waitForTimeout(900);
     const stars = await page.locator('.hp-verdict .hp-stars i.is-on').count();
     const verdict = await page.textContent('.hp-verdict-text');
+    assert.equal(await page.evaluate(() => window.caesarApp.hoops.level.options[window.caesarApp.hoops.choice]?.grade), 3, `level ${i + 1}: best target must select best read`);
     report.levels.push({ level: i + 1, best, stars, verdict });
     if ([0, 2, 6, 9].includes(i)) await page.screenshot({ path: `${outDir}/L${i + 1}-review.png` });
     await page.click('.hp-next');
@@ -118,6 +127,7 @@ try {
     if (!pt) throw new Error(`read round ${r + 1}: no target point (phase ${await phase()})`);
     await page.mouse.click(pt[0], pt[1]);
     await waitPhase('review', 30000);
+    assert.equal(await page.evaluate(() => window.caesarApp.hoops.level.options[window.caesarApp.hoops.choice]?.grade), r === 4 ? 0 : 3, `read round ${r + 1}: actual grade must match requested target`);
     await page.waitForTimeout(600);
     report.read.push(await page.evaluate(() => {
       const h = window.caesarApp.hoops;
@@ -213,13 +223,16 @@ try {
 
   report.soundCues = await page.evaluate(() => [...new Set(
     (window.__cues || []))]);
-  await browser.close();
+} catch (error) {
+  report.failure = error.stack;
+  process.exitCode = 1;
 } finally {
+  await browser?.close();
+  report.errors = errors;
+  fs.writeFileSync(`${outDir}/report.json`, JSON.stringify(report, null, 2));
   console.log('ERRORS', JSON.stringify(errors.slice(0, 6)));
   server.kill();
 }
 
-report.errors = errors;
-fs.writeFileSync(`${outDir}/report.json`, JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));
 if (errors.length) process.exitCode = 1;

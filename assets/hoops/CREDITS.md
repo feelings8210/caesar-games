@@ -18,6 +18,15 @@
 
 ---
 
+### 本地球员改造（2026-10-10）
+
+`athlete-arena.glb` 保留已有 Quaternius 鞋、短裤和 14 个动作，身体与头部改用资产库内 Blender 官方 Human Base Meshes v1.4.1。骨架按自然 A pose 和实际手掌/手指位置拟合，人体使用原生 heat weights，旧动作世界矩阵重新烘焙。球衣改为原创前后片/肩带网格，按同一人体表面拟合并转移局部权重，包含正常领口、袖口、下摆与织纹 UV；头部下缘与身体匹配颈部权重。成对眼睛来自同一源，眼白/虹膜/瞳孔分区原创；头发与眉毛由同一表面派生。身体/头发/头部/球衣/短裤有真实几何 LOD。两种原始来源均 CC0-1.0。没有 NBA 球员肖像、队徽或比赛动画授权，原创球队外观。
+- 官方来源：[Blender demo files](https://www.blender.org/download/demo-files/)，固定 [v1.4.1 bundle](https://download.blender.org/demo/asset-bundles/human-base-meshes/human-base-meshes-bundle-v1.4.1.zip)。许可：[CC0-1.0](https://creativecommons.org/publicdomain/zero/1.0/)。
+- canonical asset id：`blender-human-base-meshes:3c121505651140ce`。来源 SHA256：`3c121505651140ceb4d69fd1d8923f7788ffadd81672f5be14845a5f2c75c137`。
+- 派生 GLB SHA256：`0d4cd3774827a9c84338f86406016882471bf64e12e731d4eae4528a80b85940`，2,693,760 字节。完整来源、canonical 路径与构建 SHA 见 `athlete-arena.provenance.json`。
+- 可复现构建：`tools/blender/build_arena_athlete.py`；在 3090 使用 Blender 5.2.1 CPU，源库不修改。原资产始终保留，`?hoopsLook=classic` 可比较旧模型。
+- 材质、球馆观众、手臂联动、脚步稳定和镜头由运行代码生成；它们不是 NBA 2K 的资产或 ProPLAY 动作。
+
 ## 2. 比赛音效 (Sound Effects)
 
 所有音效源自 [Freesound](https://freesound.org/) 社区，全部遵循 **CC0 1.0 Universal (Public Domain Dedication)** 许可协议，已进行高品质无损切片、响度归一化（Peak -1.0 dBFS）与淡入淡出处理。
@@ -251,3 +260,43 @@
 | `assets/hoops/voice/en/streak_3.mp3` | `streak_3` | Three in a row! | 激动 | Apache-2.0 | 1.22x, -16 LUFS |
 | `assets/hoops/voice/en/streak_5.mp3` | `streak_5` | Five straight — you're on fire! | 激动 | Apache-2.0 | 1.22x, -16 LUFS |
 | `assets/hoops/voice/en/streak_8.mp3` | `streak_8` | Eight in a row — the defense is scared of you! | 激动 | Apache-2.0 | 1.22x, -16 LUFS |
+
+## Front-row audience study (local.18)
+
+`crowd-head.glb` is a project-specific CC0 derivative of the approved Blender Human Base Meshes v1.4.1, via this project's anatomical athlete. It is not an NBA player scan. Source, license, SHA256 and the reproducible Blender builder are recorded in `crowd-head.provenance.json`. High quality uses it only in the first row; low quality retains simple heads. Owner/iPad visual review remains pending.
+
+## Original layup animation (local.24)
+
+`basketball-actions.glb` contains an original project-authored right-hand layup on the approved fitted athlete rig. The underlying rig/human sources remain CC0; this package does not contain NBA video, player scans, or extracted motion. Its timings are authored, not measured NBA timing. The reproducible CPU Blender builder and source/output SHA256 are in `basketball-actions.provenance.json`. The tiny skin carrier is discarded at load time; existing player geometry is reused. Owner/iPad/continuous audiovisual review remains pending.
+
+## Original jump shot and seated crowd (local.26)
+
+`jump-shot.glb` contains an authored 1.3-second jump shot on the same approved CC0 rig; no NBA scans or motion capture are included. `seated-audience.glb` bakes three original seated poses from the fitted CC0 athlete, with separate high/low meshes. The native Blender builders, parent/canonical paths, licenses and output SHA256 are in the corresponding `.provenance.json` files. Runtime palette variation and courtside furniture are original code. These are project-specific derivatives, not globally promoted assets. Close-up art, continuous audiovisual and iPad/Owner review remain pending; there is no NBA 2K quality approval.
+
+## Original face variants and skin detail (local.28)
+
+`athlete-faces.glb` adds four authored proportion targets to both head tiers of the approved CC0 athlete. It keeps the original rig and animation clips; no NBA scans or motion capture are included. The source chain and native Blender builder hash are in `athlete-faces.provenance.json`.
+
+`skin-micro.png` uses a grayscale high-pass crop from [Image skin texture](https://commons.wikimedia.org/wiki/File:Image_skin_texture.jpg), Pixnio, CC0-1.0. The original was controlled-acquired through the approved Commons source into the canonical 3090 library; per-file license and API/file hash evidence were recorded. This is authored micro-height contrast, not a calibrated scan or facial colour atlas. Canonical source, license evidence, source/output hashes and native Blender recipe are in `skin-micro.provenance.json`.
+
+The roof trusses, fixture housings, fascia and scoreboard artwork are original code. Source licensing and mechanical checks do not establish NBA-quality art or iPad/Owner acceptance.
+
+## Original casual spectators (local.29)
+
+`casual-audience.glb` derives from the approved CC0 fitted athlete. Original connected short sleeves, crew neck, trousers and shoes are fitted to three evaluated seated poses; head proportions are authored and baked. This is static drape, not cloth simulation or motion capture. No external garments, player scans or likeness data are included. Canonical parent, source/license chain, worker derivative, output and native Blender builder SHA256 are recorded in `casual-audience.provenance.json`.
+
+Runtime height variation preserves the lower body; original foot platforms, courtside apron and seating placement are checked against imported sole vertices. Shadow geometry uses the same height transform. The model remains a local art iteration, with Owner/iPad/continuous audiovisual acceptance pending.
+
+## Native multiview middle/far spectators (local.31)
+
+`crowd-atlas.png` is a CPU Cycles render of our original `casual-audience.glb`: six clothing looks, three seated poses, eight yaw views and two pitches. It uses the same approved CC0 source and original clothing, with no new downloaded people/photographs, NBA likenesses or mocap. Source, parent, worker path, license and SHA256 are in `crowd-atlas.provenance.json`; `tools/blender/render_crowd_atlas.py` reproduces the render.
+
+The shader selects an angular tile for instanced middle/far spectators. Near rows and benches retain 3D geometry. It is a static seated atlas with discrete angle transitions, unsuitable for close portraits; it does not add cheering animation or establish NBA parity. Geometry counts decrease, but alpha-cutout fill cost and real iPad performance remain unmeasured. `hoopsCrowdDepth=legacy` restores the preceding distant crowd and seat heights.
+
+### Original near spectator clap poses (local.34)
+
+`casual-reactions.glb` keeps the approved casual seated model and adds original rig-derived ClapLift, ClapOpen and ClapClosed targets. The same CC0 Human Base / fitted athlete source supplies evaluated arm and finger weights. Pants, shoes and seated support stay fixed. No downloaded player likeness, animation or mocap is used. Canonical paths, source/parent/output/builder SHA256 and license are in `casual-reactions.provenance.json`. This project derivative remains experimental: sleeve edges and close face/hand detail are coarse; desktop studies do not establish iPad performance or Owner acceptance.
+
+### Continuous near spectator shirt and skin detail (local.35)
+
+`casual-reactions.glb` now uses a continuous shirt shell from the same approved uncut Human Base body, cut at neckline, waist and sleeve planes in anatomical rest pose before native binding/seated evaluation. `full_body_surface.py` restores the exact source proportions and verifies the canonical source SHA256. Near skin keeps more arm/palm/finger geometry in both tiers. This is original fitted cloth, without cloth simulation; no new scans, player likeness or mocap. Static parent recipe, all builder/helper/source/output hashes and worker paths are recorded in `casual-reactions.provenance.json`. The earlier `casual-audience.glb` and static far atlas remain the fallback and historical source respectively.
