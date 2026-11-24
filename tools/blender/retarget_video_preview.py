@@ -1,7 +1,7 @@
 """Video keypoints (SAM 3D Body, tools/motion/video_to_keypoints.py) -> our athlete rig, preview renders.
 
   blender-5.2.2 -b -P retarget_video_preview.py -- <out_dir> <athlete.glb> <keypoints.npz>
-        [--pct 50] [--trim 0:217]
+        [--pct 50] [--trim 0:217] [--res 1920x1080]
 
 Writes frames/cam_####.png (the original phone camera, transparent film, same framing as the
 video) and frames/side_####.png (a side view following the player), plus retarget.json.
@@ -20,7 +20,7 @@ from mathutils import Vector, Matrix
 
 argv = sys.argv[sys.argv.index('--') + 1:]
 OUT, ATHLETE, NPZ = argv[:3]
-opt = {'pct': '50', 'trim': ''}
+opt = {'pct': '50', 'trim': '', 'res': '1920x1080'}
 i = 3
 while i < len(argv):
     opt[argv[i].lstrip('-')] = argv[i + 1]; i += 2
@@ -170,7 +170,7 @@ for e in list(emp.values()) + [rot_e]:
     bpy.data.objects.remove(e, do_unlink=True)
 
 # Stage.
-W_, H_ = 1920, 1080
+W_, H_ = (int(v) for v in opt['res'].split('x'))   # source video size (portrait phone clips too)
 r = scene.render
 r.resolution_x, r.resolution_y, r.resolution_percentage = W_, H_, int(opt['pct'])
 r.fps = int(round(FPS))
